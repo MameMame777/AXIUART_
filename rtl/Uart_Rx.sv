@@ -1,0 +1,193 @@
+`timescale 1ns / 1ps
+
+// UART Receiver Module for UART-AXI4 Bridge
+// 8N1 format with 16x oversampling, LSB-first transmission
+module Uart_Rx #(
+    parameter int CLK_FREQ_HZ = 50_000_000,    // System clock frequency
+    parameter int BAUD_RATE = 115200,          // UART baud rate
+    parameter int OVERSAMPLE = 16              // Oversampling factor
+)(
+    input  logic       clk,
+    input  logic       rst,
+    input  logic       uart_rx,                // UART RX line
+    output logic [7:0] rx_data,               // Received data byte
+    output logic       rx_valid,              // Data valid pulse
+    output logic       rx_error,              // Framing error (stop bit = 0)
+    output logic       rx_busy                // Reception in progress
+);
+
+    // Baud rate generator
+    localparam int BAUD_DIV = CLK_FREQ_HZ / (BAUD_RATE * OVERSAMPLE);
+    localparam int BAUD_WIDTH = $clog2(BAUD_DIV);
+    
+    logic [BAUD_WIDTH-1:0] baud_counter;
+    logic baud_tick;
+    
+    // Sample counter for bit timing
+    localparam int SAMPLE_WIDTH = $clog2(OVERSAMPLE);
+    logic [SAMPLE_WIDTH-1:0] sample_counter;
+    logic sample_tick;
+    
+    // Bit counter
+    logic [3:0] bit_counter;
+    
+    // State machine
+    typedef enum logic [2:0] {
+        IDLE,
+        START_BIT,
+        DATA_BITS,
+        STOP_BIT
+    } rx_state_t;
+    
+    rx_state_t rx_state, rx_state_next;
+    
+    // Data shift register
+    logic [7:0] rx_shift_reg;
+    logic [7:0] rx_shift_reg_next;
+    
+    // Input synchronizer (2-stage)
+    logic [2:0] rx_sync;
+    logic rx_synced;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            rx_sync <= 3'b111;  // Initialize to idle state
+        end else begin
+            rx_sync <= {rx_sync[1:0], uart_rx};
+        end
+    end
+    assign rx_synced = rx_sync[2];
+    
+    // Baud rate generator
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            baud_counter <= '0;
+        end else begin
+            if (baud_counter >= BAUD_DIV - 1) begin
+                baud_counter <= '0;
+            end else begin
+                baud_counter <= baud_counter + 1;
+            end
+        end
+    end
+    assign baud_tick = (baud_counter == 0);
+    
+    // Sample counter
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            sample_counter <= '0;
+        end else if (baud_tick) begin
+            if ((rx_state == IDLE) || (sample_counter >= OVERSAMPLE - 1)) begin
+                sample_counter <= '0;
+            end else begin
+                sample_counter <= sample_counter + 1;
+            end
+        end
+    end
+    assign sample_tick = baud_tick && (sample_counter == (OVERSAMPLE/2 - 1));
+    
+    // State machine (sequential part)
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            rx_state <= IDLE;
+            bit_counter <= '0;
+            rx_shift_reg <= '0;
+        end else begin
+            rx_state <= rx_state_next;
+            rx_shift_reg <= rx_shift_reg_next;
+            
+            if (rx_state == IDLE) begin
+                bit_counter <= '0;
+            end else if (sample_tick && (rx_state == DATA_BITS)) begin
+                bit_counter <= bit_counter + 1;
+            end
+        end
+    end
+    
+    // State machine (combinational part)
+    always_comb begin
+        rx_state_next = rx_state;
+        rx_shift_reg_next = rx_shift_reg;
+        
+        case (rx_state)
+            IDLE: begin
+                if (!rx_synced) begin  // Start bit detected (falling edge)
+                    rx_state_next = START_BIT;
+                end
+            end
+            
+            START_BIT: begin
+                if (sample_tick) begin
+                    if (!rx_synced) begin  // Valid start bit
+                        rx_state_next = DATA_BITS;
+                    end else begin  // False start bit
+                        rx_state_next = IDLE;
+                    end
+                end
+            end
+            
+            DATA_BITS: begin
+                if (sample_tick) begin
+                    // Shift in data bit (LSB first)
+                    rx_shift_reg_next = {rx_synced, rx_shift_reg[7:1]};
+                    
+                    if (bit_counter == 7) begin
+                        rx_state_next = STOP_BIT;
+                    end
+                end
+            end
+            
+            STOP_BIT: begin
+                if (sample_tick) begin
+                    rx_state_next = IDLE;
+                end
+            end
+        endcase
+    end
+    
+    // Output generation
+    logic rx_valid_int, rx_error_int;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            rx_valid_int <= 1'b0;
+            rx_error_int <= 1'b0;
+            rx_data <= '0;
+        end else begin
+            rx_valid_int <= 1'b0;
+            rx_error_int <= 1'b0;
+            
+            if ((rx_state == STOP_BIT) && sample_tick) begin
+                rx_data <= rx_shift_reg_next;
+                rx_valid_int <= 1'b1;
+                rx_error_int <= !rx_synced;  // Framing error if stop bit is 0
+            end
+        end
+    end
+    
+    assign rx_valid = rx_valid_int;
+    assign rx_error = rx_error_int;
+    assign rx_busy = (rx_state != IDLE);
+
+    // Assertions for verification
+    `ifdef ENABLE_UART_RX_ASSERTIONS
+        // rx_valid should be a single-cycle pulse
+        assert_rx_valid_pulse: assert property (
+            @(posedge clk) disable iff (rst)
+            rx_valid |=> !rx_valid
+        ) else $error("UART_RX: rx_valid should be a single-cycle pulse");
+
+        // rx_error should only be asserted with rx_valid
+        assert_rx_error_with_valid: assert property (
+            @(posedge clk) disable iff (rst)
+            rx_error |-> rx_valid
+        ) else $error("UART_RX: rx_error without rx_valid");
+
+        // State machine should return to IDLE eventually
+        assert_eventually_idle: assert property (
+            @(posedge clk) disable iff (rst)
+            rx_busy |-> ##[1:1000] !rx_busy
+        ) else $error("UART_RX: State machine stuck, not returning to IDLE");
+    `endif
+
+endmodule
