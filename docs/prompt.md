@@ -1,240 +1,113 @@
-# SystemVerilog Verification Professional Prompt for AXIUART Project
+# Prompt for Claude 4: Upgrade AXIUART UVM Verification Environment
 
-## Your Role and Expertise
+You are a SystemVerilog/UVM and DSIM expert. Upgrade the AXIUART UVM verification environment to align with best practices and resolve the issues documented in `docs/uvm_verification_review_report.md`. Make high-quality, minimal, maintainable changes directly in this repository. Use only the real RTL under `rtl/` as the DUT.
 
-You are an expert SystemVerilog verification engineer and RTL design professional with deep expertise in:
+Context
+- Repository root: `e:\Nautilus\workspace\fpgawork\AXIUART_`
+- UVM workspace: `sim/uvm/` (contains `dsim_config.f`, `run_uvm.ps1`, env/, agents/, sequences/, packages/, tests/, tb/)
+- RTL: `rtl/` and `rtl/interfaces/`
+- References: `reference/uvm_original/` and project docs in `docs/`
+- Current issues: environment unused by tests, scoreboard incomplete, direct virtual interface access, inconsistent config DB/factory usage, weak coverage/assertions, per the review report.
 
-- SystemVerilog RTL design and verification methodologies
-- UVM (Universal Verification Methodology) framework and best practices
-- AXI4-Lite protocol implementation and verification
-- UART protocol design and integration
-- FPGA development workflows and tool integration
-- Professional verification environments with comprehensive coverage metrics
+Rules and conventions (must follow)
+- SystemVerilog: Every SV file you create/touch starts with exactly: `timescale 1ns / 1ps` (with the spaces).
+- Naming: Modules `Capitalized_With_Underscores`, signals `lower_snake_case`, constants `UPPER_SNAKE_CASE`.
+- Indentation 4 spaces; comments in English; prioritize readability.
+- Reset is synchronous active-high. If using active-low, invert locally.
+- FIFO/counter widths must match spec; 64-deep FIFO has 7-bit count `[6:0]` ($clog2(64)+1).
+- UVM: Use factory + `uvm_config_db` consistently. Do not directly get/set virtual interfaces in tests; set in TB top via env config. Use actual RTL as DUT.
+- DSIM: No hard-coded absolute paths. Default waveform generation enabled (MXD). Check env vars (`DSIM_HOME`, `DSIM_ROOT`, `DSIM_LIB_PATH`, `DSIM_LICENSE` if required).
+- Keep changes minimal and well-commented. Update documentation and add a diary entry.
 
-You prioritize quality, maintainability, and industry-standard practices. You never compromise on verification completeness or resort to stub implementations for production code.
+Primary goals (must implement)
+1) Make tests run through `uart_axi4_env` instead of directly accessing interfaces.
+2) Fully implement `uart_axi4_scoreboard` with expected vs actual comparison and transaction matching.
+3) Connect monitor analysis ports to the scoreboard via analysis FIFOs/exports.
+4) Unify configuration via `uart_axi4_env_config` and `uvm_config_db` (no direct IF gets in tests).
+5) Integrate existing sequences (`basic_func_sequence.sv`, `error_injection_sequence.sv`, etc.) via agent sequencers.
+6) Ensure timescale consistency and correct file list in `sim/uvm/dsim_config.f`.
+7) Enable DSIM waves (MXD) by default and verify run script checks env vars.
+8) Add essential AXI4-Lite handshake assertions (TB-side bind or interface SVA).
+9) Provide a comprehensive test that runs cleanly and generates coverage.
 
-## Project Overview: AXIUART - UART to AXI4-Lite Bridge System
+Concrete tasks and file-level instructions
 
-### Current Project State
+A) Environment usage in tests
+- Create/update `sim/uvm/tests/uart_axi4_base_test.sv`:
+	- `extends uvm_test`
+	- Declare `uart_axi4_env env;`
+	- In `build_phase`, create `env` via factory and set/get `uart_axi4_env_config` from `uvm_config_db`. No direct virtual interface gets here.
+- Create `sim/uvm/tests/uart_axi4_comprehensive_test.sv`:
+	- `extends uart_axi4_base_test`
+	- In `run_phase`, raise/drop objections and start `basic_func_sequence` then `error_injection_sequence` on `env.uart_agent.sequencer` (adjust path to match env structure).
+	- No direct interface access in tests.
 
-AXIUART is a SystemVerilog project implementing a UART to AXI4-Lite bridge system. The project currently includes:
+B) Env config and config DB
+- Ensure `sim/uvm/env/uart_axi4_env_config.sv` exists (or create):
+	- Holds flags: `uart_agent_is_active`, `axi_agent_is_active`, coverage enable, verbosity, timeouts, etc.
+	- Contains virtual interface handles for UART and AXI4-Lite. These are set in TB top only.
+- In TB top (`sim/uvm/tb/uart_axi4_tb.sv` or equivalent):
+	- Instantiate real DUT (`rtl/AXIUART_Top.sv`), interfaces from `rtl/interfaces/`, clocks/resets.
+	- Set the env config with virtual IFs into `uvm_config_db` at the env scope.
+- Agents and components must retrieve configs via `uvm_config_db::get`.
 
-**Existing RTL Components:**
+C) Scoreboard
+- Complete `sim/uvm/env/uart_axi4_scoreboard.sv`:
+	- Provide analysis exports for expected and actual paths:
+		- UART frames expected (from predictor/driver) and actual (from UART monitor)
+		- AXI4-Lite transactions expected and actual (if applicable)
+	- Use `uvm_tlm_analysis_fifo` or internal queues for matching.
+	- Implement `check_uart_frame(exp, act)` and `check_axi_txn(exp, act)` with mismatch reporting using `uvm_error` and pass counters.
+	- Provide end-of-test summary with counts via `report_phase`.
 
-- `Uart_Axi4_Bridge.sv` - Main bridge module connecting UART and AXI4-Lite interfaces
-- `Uart_Rx.sv` / `Uart_Tx.sv` - UART receiver and transmitter modules
-- `Frame_Parser.sv` / `Frame_Builder.sv` - Protocol frame handling
-- `Axi4_Lite_Master.sv` - AXI4-Lite master controller
-- `Address_Aligner.sv` - Address alignment logic
-- `Crc8_Calculator.sv` - CRC8 error detection
-- `fifo_sync.sv` - Synchronous FIFO implementation
+D) Monitor/Scoreboard connectivity
+- In `sim/uvm/env/uart_axi4_env.sv`:
+	- Instantiate scoreboard via factory.
+	- Connect analysis ports from monitors to scoreboard analysis exports.
+	- Provide an expected path via predictor (driver predict or dedicated predictor component) connected to scoreboard expected exports.
 
-**Existing Verification Environment:**
+E) Sequences integration
+- Ensure the sequences in `sim/uvm/sequences/` are used:
+	- Start them on the proper sequencer(s) in `run_phase` or via a virtual sequence (`sim/uvm/sequences/uart_axi4_virtual_sequence.sv`) if coordinating UART + AXI.
 
-- UVM-based testbench with agents, monitors, drivers, and scoreboards
-- Coverage collection framework
-- DSIM simulation environment with PowerShell automation scripts
-- Comprehensive test scenarios including basic functionality, error injection, and performance tests
+F) Assertions (TB-side)
+- Create `sim/uvm/tb/axi4_lite_protocol_assertions.sv`:
+	- Add SVA for AXI4-Lite handshake rules: `valid & !ready` holds address/data stable; handshake completes correctly per channel.
+	- Bind to the AXI4-Lite interface instance in TB.
 
-**Current Architecture:**
+G) DSIM configuration and run script
+- Update `sim/uvm/dsim_config.f` to include all necessary RTL, interfaces, env, agents, sequences, packages, tests, and tb files using relative paths.
+- Verify/update `sim/uvm/run_uvm.ps1`:
+	- Validate DSIM env vars; emit clear error if missing.
+	- Default `-Waves` enabled (MXD), test-named wavefile.
+	- Support Mode (compile/run), Seed, Verbosity, and log naming.
+	- Avoid hard-coded absolute paths; use env vars/relative paths.
 
-```text
-UART Interface ←→ Uart_Axi4_Bridge ←→ AXI4-Lite Master ←→ [External AXI4 System]
-```
+H) Documentation
+- Update `docs/uvm_verification_review_report.md` to reflect implemented fixes and current status.
+- Update `docs/uvm_testplan.md` with the new test hierarchy, scoreboard checks, and coverage points.
+- Add a dev diary `docs/diary_YYYYMMDD.md` summarizing changes, rationale, and any open items.
 
-## Required Work Items
+I) Acceptance criteria
+- DSIM build compiles clean with zero errors; all SV files have consistent timescale.
+- `uart_axi4_comprehensive_test` finishes with `UVM_ERROR: 0`.
+- Scoreboard logs per-transaction checks; no mismatches on the basic path.
+- `metrics.db` is produced and `dcreport.exe metrics.db -out_dir sim/uvm/coverage_report` runs.
+- MXD waveform file named after the test is generated automatically.
+- No test contains direct virtual interface gets; env config distributes IFs.
+- Docs updated and diary added.
 
-### 1. AXI4-Lite Register Block Creation
-
-**Objective:** Create a new RTL module with AXI4-Lite slave interface that provides register access functionality.
-
-**Requirements:**
-
-- Implement AXI4-Lite slave interface (`axi4_lite_if.sv`)
-- Create register map with control, status, and configuration registers
-- Include proper address decoding and register access logic
-- Implement read/write protection and error responses
-- Connect to existing `Uart_Axi4_Bridge` module through AXI4-Lite interface
-
-**Expected Deliverables:**
-
-- `Register_Block.sv` - AXI4-Lite slave register implementation
-- Register map documentation
-- Integration with existing bridge module
-
-### 2. Top-Level RTL Integration
-
-**Objective:** Create a comprehensive top-level RTL module that integrates all system components.
-
-**Requirements:**
-
-- Instantiate `Uart_Axi4_Bridge`, `Register_Block`, and all supporting modules
-- Implement proper clock and reset distribution
-- Create system-level interfaces and signal connections
-- Include parameter configurations for system customization
-- Implement proper AXI4-Lite interconnect between bridge and register block
-
-**Expected Deliverables:**
-
-- `AXIUART_Top.sv` - Top-level system integration module
-- Clock and reset management
-- Parameter configuration for system flexibility
-- Complete signal connectivity
-
-### 3. Verification Environment Update
-
-**Objective:** Update the UVM verification environment to support the new top-level architecture.
-
-**Requirements:**
-
-- Modify testbench top (`uart_axi4_tb_top.sv`) to instantiate new top-level RTL
-- Update UVM environment to handle register block verification
-- Create new test sequences for register access scenarios
-- Add coverage points for register block functionality
-- Update existing tests to work with new architecture
-
-**Expected Deliverables:**
-
-- Updated `uart_axi4_tb_top.sv` with new DUT instantiation
-- New UVM sequences for register block testing
-- Enhanced coverage collection for complete system
-- Updated test scenarios and regression suite
-
-## Technical Specifications
-
-### Design Constraints
-
-- **Timescale:** Consistent `timescale 1ns/1ps` across all files
-- **Naming Convention:**
-  - Modules: `Module_Name` (CamelCase with underscores)
-  - Signals: `signal_name` (lowercase with underscores)
-  - Constants: `CONSTANT_NAME` (uppercase)
-- **Interface Standards:** Use SystemVerilog interfaces (`axi4_lite_if.sv`, `uart_if.sv`)
-- **Reset Strategy:** Synchronous reset, active-high externally provided
-- **Comments:** English language, comprehensive documentation
-
-### Verification Requirements
-
-- **UVM Framework:** Follow UVM best practices and methodologies
-- **Coverage Metrics:** Functional and code coverage collection
-- **DSIM Simulator:** Use Metrics Design Automation DSIM for simulation
-- **Waveform Format:** MXD format for debugging
-- **Automation:** PowerShell scripts for build and run automation
-
-### Environment Setup Requirements
-
+Run/verify (PowerShell)
 ```powershell
-# Required Environment Variables
-$env:DSIM_HOME = "C:\path\to\dsim"
-$env:DSIM_ROOT = $env:DSIM_HOME
-$env:DSIM_LIB_PATH = "$env:DSIM_HOME\lib"
-# Optional: $env:DSIM_LICENSE = "path\to\license"
+Set-Location e:\Nautilus\workspace\fpgawork\AXIUART_\sim\uvm
+./run_uvm.ps1 -Test uart_axi4_comprehensive_test -Mode run -Seed 1 -Verbosity UVM_MEDIUM -Waves
+
+# Coverage
+Set-Location e:\Nautilus\workspace\fpgawork\AXIUART_\sim\uvm
+dcreport.exe metrics.db -out_dir coverage_report
 ```
 
-## Acceptance Criteria
-
-### 1. UVM Coverage Requirements ✅
-
-- **Functional Coverage:** ≥90% for all coverage groups
-- **Code Coverage:** ≥90% for all RTL modules
-- **Branch Coverage:** ≥90% for all decision points
-- **Toggle Coverage:** ≥90% for all signals
-
-### 2. Implementation Completeness ✅
-
-- **No Stub Implementations:** All RTL modules must be fully functional
-- **No Mock Components:** Use actual RTL modules in verification
-- **Complete Protocol Implementation:** Full AXI4-Lite and UART protocol compliance
-- **Error Handling:** Comprehensive error detection and response mechanisms
-
-### 3. Automation and Script Integration ✅
-
-- **Build Scripts:** Complete PowerShell automation for compilation
-- **Test Execution:** Automated test suite with regression capability
-- **Coverage Reporting:** Automated coverage collection and reporting
-- **Waveform Generation:** Automatic waveform dump with proper naming
-- **Environment Verification:** Script validation of required environment variables
-
-### Verification Quality Metrics
-
-```text
-UVM_ERROR: 0        (No errors allowed)
-UVM_FATAL: 0        (No fatal errors allowed)
-Coverage: ≥90%      (All coverage categories)
-Compilation: Clean  (No warnings or errors)
-```
-
-## Deliverable Structure
-
-### RTL Deliverables
-
-```text
-rtl/
-├── Register_Block.sv           # New AXI4-Lite register block
-├── AXIUART_Top.sv             # New top-level integration
-├── [existing modules...]       # All existing RTL preserved
-└── interfaces/
-    ├── axi4_lite_if.sv        # Updated if needed
-    └── uart_if.sv             # Preserved
-```
-
-### Verification Deliverables
-
-```text
-sim/uvm/
-├── tb/
-│   └── uart_axi4_tb_top.sv    # Updated testbench top
-├── tests/
-│   ├── [existing tests...]     # Updated for new architecture
-│   └── register_block_tests.sv # New register-specific tests
-├── sequences/
-│   └── register_sequences.sv   # New register access sequences
-├── coverage/
-│   └── system_coverage.sv      # Enhanced coverage collection
-└── scripts/
-    ├── run_uvm.ps1            # Updated automation
-    └── regression_suite.ps1    # Test regression automation
-```
-
-### Documentation Updates
-
-```text
-docs/
-├── register_map.md            # Register block specification
-├── system_architecture.md     # Updated system overview
-└── verification_results.md    # Coverage and test results
-```
-
-## Professional Standards
-
-### Code Quality Requirements
-
-- Follow SystemVerilog IEEE 1800-2017 standards
-- Implement proper error handling and edge case management
-- Use appropriate design patterns for scalability
-- Include comprehensive inline documentation
-- Maintain consistent formatting and style
-
-### Verification Excellence
-
-- Implement constraint-driven random stimulus generation
-- Use assertion-based verification where appropriate
-- Create realistic test scenarios reflecting actual usage
-- Implement proper scoreboarding and checking mechanisms
-- Ensure deterministic test behavior with proper seed management
-
-## Success Definition
-
-The project is considered successful when:
-
-1. All acceptance criteria are met with documented evidence
-2. Complete regression test suite passes without errors
-3. Coverage reports demonstrate ≥90% across all categories
-4. All RTL modules are synthesizable and follow design guidelines
-5. Verification environment provides comprehensive stimulus and checking
-6. Documentation accurately reflects implemented functionality
-7. Build and test automation works reliably across different environments
-
----
-
-**Note:** This is a professional-grade SystemVerilog project requiring industry-standard verification practices. No shortcuts, stub implementations, or incomplete solutions are acceptable. The goal is to create a production-quality RTL design with comprehensive verification coverage.
+Notes
+- Keep code minimal and readable. If a referenced file is missing, create it with a minimal correct implementation at the specified path.
+- Maintain UVM naming consistency: `<module_name>_tb`, `<module_name>_driver`, `<module_name>_monitor`, `<module_name>_agent`, `<module_name>_sequence`.
+- Do not change RTL functionality; all assertions/binds are TB-side.

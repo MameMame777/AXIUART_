@@ -8,6 +8,13 @@
 +define+UVM_NO_DEPRECATED
 +define+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR
 
+# Include paths for file resolution
++incdir+.
++incdir+env
++incdir+agents
++incdir+sequences
++incdir+tests
+
 # RTL source files (in dependency order)
 ../../rtl/interfaces/uart_if.sv
 ../../rtl/interfaces/axi4_lite_if.sv
@@ -19,20 +26,17 @@
 ../../rtl/Frame_Parser.sv
 ../../rtl/Frame_Builder.sv
 ../../rtl/Axi4_Lite_Master.sv
+../../rtl/Register_Block.sv
 ../../rtl/Uart_Axi4_Bridge.sv
+../../rtl/AXIUART_Top.sv
 
-# Assertions module
+# Assertions modules
 rtl/uart_axi4_assertions.sv
+# tb/axi4_lite_protocol_assertions.sv  # Temporarily disabled for debug
 
-# UVM package files
-packages/uart_axi4_test_pkg.sv
+# UVM package files (in dependency order)
 packages/sequence_lib_pkg.sv
-
-# UVM test files
-tests/uart_axi4_base_test.sv
-tests/uart_axi4_basic_test.sv
-tests/uart_axi4_error_paths_test.sv
-tests/uart_axi4_burst_perf_test.sv
+packages/uart_axi4_test_pkg.sv
 
 # Testbench top
 tb/uart_axi4_tb_top.sv

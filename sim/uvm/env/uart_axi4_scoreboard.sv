@@ -21,8 +21,18 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     // Statistics
     int uart_transactions_received = 0;
     int axi4_lite_transactions_received = 0;
-    int matches_found = 0;
-    int mismatches_found = 0;
+    int match_count = 0;
+    int mismatch_count = 0;
+    int error_frame_count = 0;
+    int crc_error_count = 0;
+    int timeout_count = 0;
+    int protocol_error_count = 0;
+    int critical_error_count = 0;
+    int transaction_count = 0;
+    int total_bytes_transferred = 0;
+    int total_test_time = 0;
+    int average_latency_ns = 0;
+    int peak_latency_ns = 0;
     
     function new(string name = "uart_axi4_scoreboard", uvm_component parent = null);
         super.new(name, parent);
@@ -84,7 +94,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                 if (uart_tr.addr == axi_tr.addr) begin
                     // Found matching addresses, now verify transaction details
                     if (verify_transaction_match(uart_tr, axi_tr)) begin
-                        matches_found++;
+                        match_count++;
                         match_found = 1;
                         `uvm_info("SCOREBOARD", $sformatf("Transaction match found: ADDR=0x%08X", uart_tr.addr), UVM_MEDIUM)
                         
@@ -93,7 +103,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                         axi_queue.delete(j);
                         break;
                     end else begin
-                        mismatches_found++;
+                        mismatch_count++;
                         `uvm_error("SCOREBOARD", $sformatf("Transaction mismatch at ADDR=0x%08X", uart_tr.addr))
                     end
                 end
@@ -179,12 +189,12 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         `uvm_info("SCOREBOARD", "=== SCOREBOARD FINAL REPORT ===", UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("UART transactions received: %0d", uart_transactions_received), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("AXI transactions received: %0d", axi4_lite_transactions_received), UVM_LOW)
-        `uvm_info("SCOREBOARD", $sformatf("Matches found: %0d", matches_found), UVM_LOW)
-        `uvm_info("SCOREBOARD", $sformatf("Mismatches found: %0d", mismatches_found), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Matches found: %0d", match_count), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Mismatches found: %0d", mismatch_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Unmatched UART transactions: %0d", uart_queue.size()), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Unmatched AXI transactions: %0d", axi_queue.size()), UVM_LOW)
         
-        if (mismatches_found > 0) begin
+        if (mismatch_count > 0) begin
             `uvm_error("SCOREBOARD", "Test failed due to transaction mismatches")
         end
         

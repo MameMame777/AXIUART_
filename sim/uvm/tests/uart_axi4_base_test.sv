@@ -1,19 +1,21 @@
 `timescale 1ns / 1ps
 
 import uvm_pkg::*;
+import uart_axi4_test_pkg::*;  // Import our test package
+import sequence_lib_pkg::*;    // Import sequences
 
-// Base Test Class for UART-AXI4 Bridge UVM Testbench
+// Base Test Class for AXIUART_Top System UVM Testbench
 class uart_axi4_base_test extends uvm_test;
     
     `uvm_component_utils(uart_axi4_base_test)
     
-    // Test environment - re-enabled 
+    // Test environment
     uart_axi4_env env;
     uart_axi4_env_config cfg;
     
-    // Virtual interfaces
+    // Virtual interfaces - UART only for AXIUART_Top
     virtual uart_if uart_vif;
-    virtual axi4_lite_if axi_vif;
+    // Note: No external AXI interface for AXIUART_Top
     
     function new(string name = "uart_axi4_base_test", uvm_component parent = null);
         super.new(name, parent);
@@ -26,23 +28,19 @@ class uart_axi4_base_test extends uvm_test;
         cfg = uart_axi4_env_config::type_id::create("cfg", this);
         configure_test();
         
-        // Get virtual interfaces from testbench top
+        // Get virtual interfaces from testbench top - UART only
         if (!uvm_config_db#(virtual uart_if)::get(this, "", "uart_vif", uart_vif)) begin
             `uvm_fatal("BASE_TEST", "Failed to get UART virtual interface")
         end
         
-        if (!uvm_config_db#(virtual axi4_lite_if)::get(this, "", "axi_vif", axi_vif)) begin
-            `uvm_fatal("BASE_TEST", "Failed to get AXI4-Lite virtual interface")
-        end
+        // Note: No AXI interface needed for AXIUART_Top (uses internal AXI)
         
         // Set interfaces in configuration
         cfg.uart_vif = uart_vif;
-        cfg.axi_vif = axi_vif;
         
         // Set configuration in database
         uvm_config_db#(uart_axi4_env_config)::set(this, "*", "cfg", cfg);
         uvm_config_db#(virtual uart_if)::set(this, "*", "vif", uart_vif);
-        uvm_config_db#(virtual axi4_lite_if)::set(this, "*", "vif", axi_vif);
         
         // Create environment - re-enabled
         env = uart_axi4_env::type_id::create("env", this);
@@ -61,19 +59,17 @@ class uart_axi4_base_test extends uvm_test;
         cfg.byte_time_ns = (1_000_000_000 / cfg.baud_rate) * 10; // 8N1 = 10 bits
         cfg.frame_timeout_ns = 1_000_000; // 1ms frame timeout
         
-        // Timing configuration
+        // Timing configuration  
         cfg.min_idle_cycles = 5;
         cfg.max_idle_cycles = 20;
-        cfg.min_axi_response_delay = 1;
-        cfg.max_axi_response_delay = 10;
         
         // Test control
         cfg.enable_coverage = 1;
         cfg.enable_scoreboard = 1;
         cfg.enable_protocol_checking = 1;
         
-        // AXI configuration
-        cfg.axi_timeout_cycles = 1000;
+        // System monitoring (AXIUART_Top specific)
+        cfg.enable_system_status_monitoring = 1;
         
         `uvm_info("BASE_TEST", "Test configuration completed", UVM_MEDIUM)
     endfunction
@@ -129,9 +125,11 @@ class uart_axi4_base_test extends uvm_test;
     virtual function void check_phase(uvm_phase phase);
         super.check_phase(phase);
         
-        // Check for any remaining objections
-        if (phase.get_objection().get_objection_count(this) > 0) begin
-            `uvm_warning("BASE_TEST", "Test completed with active objections")
+        // Check for any remaining objections - safely
+        if (phase != null && phase.get_objection() != null) begin
+            if (phase.get_objection().get_objection_count(this) > 0) begin
+                `uvm_warning("BASE_TEST", "Test completed with active objections")
+            end
         end
         
         `uvm_info("BASE_TEST", "Test check phase completed", UVM_MEDIUM)

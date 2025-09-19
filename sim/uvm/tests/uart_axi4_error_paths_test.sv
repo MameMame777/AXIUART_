@@ -33,40 +33,40 @@ class uart_axi4_error_paths_test extends uart_axi4_base_test;
         `uvm_info("ERROR_TEST", "=== Starting Error Paths Test ===", UVM_LOW)
         
         // Wait for reset to complete
-        wait (tb.dut.rst_n == 1'b1);
-        repeat (10) @(posedge tb.dut.clk);
+        wait (uart_axi4_tb_top.dut.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Test general error conditions
         `uvm_info("ERROR_TEST", "Running general error injection sequence", UVM_MEDIUM)
         error_seq = uart_axi4_error_sequence::type_id::create("error_seq");
-        error_seq.start(env.uart_agent.sequencer);
+        error_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (100) @(posedge tb.dut.clk);
+        repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Test CRC error handling specifically
         `uvm_info("ERROR_TEST", "Running CRC error sequence", UVM_MEDIUM)
         crc_error_seq = uart_axi4_crc_error_sequence::type_id::create("crc_error_seq");
-        crc_error_seq.start(env.uart_agent.sequencer);
+        crc_error_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (100) @(posedge tb.dut.clk);
+        repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Test protocol violations
         `uvm_info("ERROR_TEST", "Running protocol violation sequence", UVM_MEDIUM)
         protocol_viol_seq = uart_axi4_protocol_violation_sequence::type_id::create("protocol_viol_seq");
-        protocol_viol_seq.start(env.uart_agent.sequencer);
+        protocol_viol_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (100) @(posedge tb.dut.clk);
+        repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Test boundary conditions
         `uvm_info("ERROR_TEST", "Running boundary condition sequence", UVM_MEDIUM)
         boundary_seq = uart_axi4_boundary_sequence::type_id::create("boundary_seq");
-        boundary_seq.start(env.uart_agent.sequencer);
+        boundary_seq.start(env.uart_agt.sequencer);
         
         // Final wait for all responses
-        repeat (200) @(posedge tb.dut.clk);
+        repeat (200) @(posedge uart_axi4_tb_top.dut.clk);
         
         `uvm_info("ERROR_TEST", "=== Error Paths Test Completed ===", UVM_LOW)
         

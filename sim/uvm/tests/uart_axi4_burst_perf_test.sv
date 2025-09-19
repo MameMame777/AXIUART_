@@ -37,8 +37,8 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
         `uvm_info("PERF_TEST", "=== Starting Performance Test ===", UVM_LOW)
         
         // Wait for reset to complete
-        wait (tb.dut.rst_n == 1'b1);
-        repeat (10) @(posedge tb.dut.clk);
+        wait (uart_axi4_tb_top.dut.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run performance measurement sequence
         `uvm_info("PERF_TEST", "Running performance measurement sequence", UVM_MEDIUM)
@@ -46,10 +46,10 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
         perf_seq.burst_length = 100;
         perf_seq.back_to_back_count = 50;
         perf_seq.target_throughput_mbps = 0.8; // 80% of theoretical max
-        perf_seq.start(env.uart_agent.sequencer);
+        perf_seq.start(env.uart_agt.sequencer);
         
         // Wait between major test phases
-        repeat (200) @(posedge tb.dut.clk);
+        repeat (200) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run stress test sequence
         `uvm_info("PERF_TEST", "Running stress test sequence", UVM_MEDIUM)
@@ -59,11 +59,11 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
         
         // Run stress test with fork to allow early termination
         fork
-            stress_seq.start(env.uart_agent.sequencer);
+            stress_seq.start(env.uart_agt.sequencer);
             begin
                 // Monitor for critical errors during stress test
                 repeat (25000) begin
-                    @(posedge tb.dut.clk);
+                    @(posedge uart_axi4_tb_top.dut.clk);
                     if (env.scoreboard.critical_error_count > 5) begin
                         `uvm_error("PERF_TEST", "Too many critical errors during stress test")
                         break;
@@ -74,7 +74,7 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
         disable fork;
         
         // Final settling time
-        repeat (100) @(posedge tb.dut.clk);
+        repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         `uvm_info("PERF_TEST", "=== Performance Test Completed ===", UVM_LOW)
         

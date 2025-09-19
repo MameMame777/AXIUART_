@@ -1,25 +1,5 @@
-# Coverage Scope Specifications
-# Limit coverage collection to RTL modules only
+# Coverage Scope Specifications for DSIM
+# DSIM format: scope path options
 
-# Include RTL modules for coverage
-+tree tb.dut.*
-
-# Exclude testbench components
--tree tb.uart_agent_inst.*
--tree tb.axi_agent_inst.*
--tree tb.env_inst.*
-
-# Exclude UVM base classes
--tree *uvm*
--tree *UVM*
-
-# Focus on main RTL modules
-+module Uart_Axi4_Bridge
-+module Uart_Rx
-+module Uart_Tx  
-+module Frame_Parser
-+module Frame_Builder
-+module Axi4_Lite_Master
-+module Address_Aligner
-+module CRC8_Calculator
-+module Sync_Fifo
+# Include DUT instance for coverage
+instance uart_axi4_tb_top.dut +

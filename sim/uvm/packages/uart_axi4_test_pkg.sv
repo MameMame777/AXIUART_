@@ -5,6 +5,7 @@
 package uart_axi4_test_pkg;
     
     import uvm_pkg::*;
+    import sequence_lib_pkg::*;
     `include "uvm_macros.svh"
     
     // Transaction direction constants
@@ -202,25 +203,25 @@ package uart_axi4_test_pkg;
     endclass
 
     // Include UVM component files in dependency order  
-    // Re-enabling components step by step
+    // Components are now compiled within the package context
     
-    // First environment configuration (needed by coverage and scoreboard)
-    `include "../env/uart_axi4_env_config.sv"
+    // First agent definitions
+    `include "agents/uart_agent.sv"
+    
+    // Then environment configuration (needed by coverage and scoreboard)
+    `include "env/uart_axi4_env_config.sv"
     
     // Then coverage and scoreboard (need env config)
-    `include "../env/uart_axi4_coverage.sv"
-    `include "../env/uart_axi4_scoreboard.sv"
+    `include "env/uart_axi4_coverage.sv"
+    `include "env/uart_axi4_scoreboard.sv"
     
-    // Then agents (drivers and monitors first, then agents)
-    `include "../agents/uart/uart_driver.sv"
-    `include "../agents/uart/uart_monitor.sv" 
-    `include "../agents/uart/uart_agent.sv"
+    // Finally environment (when agents are ready)
+    `include "env/uart_axi4_env.sv"
     
-    `include "../agents/axi4_lite/axi4_lite_driver.sv"
-    `include "../agents/axi4_lite/axi4_lite_monitor.sv"
-    `include "../agents/axi4_lite/axi4_lite_agent.sv"
-    
-    // Finally environment
-    `include "../env/uart_axi4_env.sv"
+    // Test files
+    `include "tests/uart_axi4_base_test.sv"
+    `include "tests/axiuart_system_test.sv"
+    `include "tests/uart_axi4_minimal_test.sv"
+    `include "tests/uart_axi4_basic_test.sv"
 
 endpackage

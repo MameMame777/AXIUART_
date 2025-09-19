@@ -14,21 +14,24 @@ class uart_axi4_env_config extends uvm_object;
     bit enable_scoreboard = 1'b1;
     bit enable_protocol_checking = 1'b1;
     
-    // Agent configurations
+    // Agent configurations - Modified for AXIUART_Top
     bit uart_agent_is_active = 1'b1;
-    bit axi_agent_is_active = 1'b0; // Passive monitoring only
+    bit axi_agent_is_active = 1'b0; // Disabled - AXIUART_Top uses internal AXI only
+    
+    // System status monitoring
+    bit enable_system_status_monitoring = 1'b1;
     
     // Virtual interfaces
     virtual uart_if uart_vif;
-    virtual axi4_lite_if axi_vif;
+    // Note: No external AXI interface for AXIUART_Top
     
-    // Response delays
-    int min_axi_response_delay = 1;
-    int max_axi_response_delay = 10;
+    // UART protocol parameters
+    int min_uart_response_delay = 1;
+    int max_uart_response_delay = 10;
     
     // Timeout values
     int frame_timeout_ns = 1_000_000; // 1ms
-    int axi_timeout_cycles = 1000;
+    int system_timeout_cycles = 1000;
     
     // Test stimulus parameters
     int num_transactions = 100;
@@ -45,8 +48,9 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(enable_protocol_checking, UVM_ALL_ON)
         `uvm_field_int(uart_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(axi_agent_is_active, UVM_ALL_ON)
+        `uvm_field_int(enable_system_status_monitoring, UVM_ALL_ON)
         `uvm_field_int(frame_timeout_ns, UVM_ALL_ON)
-        `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
+        `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(num_transactions, UVM_ALL_ON)
         `uvm_field_int(min_idle_cycles, UVM_ALL_ON)
         `uvm_field_int(max_idle_cycles, UVM_ALL_ON)

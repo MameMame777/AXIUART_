@@ -20,6 +20,11 @@ interface uart_if (
     // Baud rate control
     logic [15:0] baud_divisor;
     
+    // System status signals (from AXIUART_Top)
+    logic        system_busy;
+    logic [7:0]  system_error;
+    logic        system_ready;
+    
     // Frame timing for monitoring
     logic frame_start;
     logic frame_end;
@@ -49,7 +54,10 @@ interface uart_if (
         input frame_start,
         input frame_end,
         input byte_received,
-        input byte_transmitted
+        input byte_transmitted,
+        input system_busy,
+        input system_error,
+        input system_ready
     );
     
     // DUT modport - for connecting to RTL
@@ -63,7 +71,10 @@ interface uart_if (
         output frame_start,
         output frame_end,
         output byte_received,
-        output byte_transmitted
+        output byte_transmitted,
+        input  system_busy,
+        input  system_error,
+        input  system_ready
     );
 
     // Helper tasks for timing calculations

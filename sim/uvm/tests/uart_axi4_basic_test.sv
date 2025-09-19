@@ -26,11 +26,14 @@ class uart_axi4_basic_test extends uart_axi4_base_test;
         
         phase.raise_objection(this, "Starting basic test");
         
+        // Set reasonable timeout for the test
+        phase.phase_done.set_drain_time(this, 1000ns);
+        
         `uvm_info("BASIC_TEST", "=== Starting Basic Functional Test ===", UVM_LOW)
         
         // Wait for reset to complete
-        wait (tb.dut.rst_n == 1'b1);
-        repeat (10) @(posedge tb.dut.clk);
+        wait (uart_axi4_tb_top.dut.rst == 1'b0);  // Wait for reset to be released
+        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run basic functionality sequence
         `uvm_info("BASIC_TEST", "Running basic functionality sequence", UVM_MEDIUM)
@@ -38,38 +41,38 @@ class uart_axi4_basic_test extends uart_axi4_base_test;
         basic_seq.num_transactions = 15;
         basic_seq.test_reads = 1;
         basic_seq.test_writes = 1;
-        basic_seq.start(env.uart_agent.sequencer);
+        basic_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (50) @(posedge tb.dut.clk);
+        repeat (50) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run dedicated write sequence
         `uvm_info("BASIC_TEST", "Running write sequence", UVM_MEDIUM)
         write_seq = uart_axi4_write_sequence::type_id::create("write_seq");
         write_seq.num_writes = 8;
         write_seq.base_addr = 32'h1000;
-        write_seq.start(env.uart_agent.sequencer);
+        write_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (50) @(posedge tb.dut.clk);
+        repeat (50) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run dedicated read sequence to read back written data
         `uvm_info("BASIC_TEST", "Running read sequence", UVM_MEDIUM)
         read_seq = uart_axi4_read_sequence::type_id::create("read_seq");
         read_seq.num_reads = 8;
         read_seq.base_addr = 32'h1000;
-        read_seq.start(env.uart_agent.sequencer);
+        read_seq.start(env.uart_agt.sequencer);
         
         // Wait between sequences
-        repeat (50) @(posedge tb.dut.clk);
+        repeat (50) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Run burst sequence with different data sizes
         `uvm_info("BASIC_TEST", "Running burst sequence", UVM_MEDIUM)
         burst_seq = uart_axi4_burst_sequence::type_id::create("burst_seq");
-        burst_seq.start(env.uart_agent.sequencer);
+        burst_seq.start(env.uart_agt.sequencer);
         
         // Final wait
-        repeat (100) @(posedge tb.dut.clk);
+        repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         `uvm_info("BASIC_TEST", "=== Basic Functional Test Completed ===", UVM_LOW)
         

@@ -20,7 +20,17 @@ module Uart_Axi4_Bridge #(
     output logic        uart_tx,
     
     // AXI4-Lite master interface
-    axi4_lite_if.master axi
+    axi4_lite_if.master axi,
+    
+    // Status monitoring outputs
+    output logic        bridge_busy,            // Bridge is actively processing
+    output logic [7:0]  bridge_error_code,     // Current error code
+    output logic [15:0] tx_transaction_count,  // TX transaction counter
+    output logic [15:0] rx_transaction_count,  // RX transaction counter
+    output logic [7:0]  fifo_status_flags,     // FIFO status flags
+    
+    // Statistics reset input
+    input  logic        reset_statistics       // Pulse to reset counters
 );
 
     // FIFO width calculation (7 bits for 64-deep FIFO)
@@ -335,5 +345,59 @@ module Uart_Axi4_Bridge #(
             axi_start_transaction |-> ##[1:5000] axi_transaction_done
         ) else $error("UART_Bridge: AXI transaction never completes");
     `endif
+
+    // Statistics counters
+    logic [15:0] tx_count_reg;
+    logic [15:0] rx_count_reg;
+    
+    // Transaction completion detection
+    logic tx_transaction_complete;
+    logic rx_transaction_complete;
+    
+    assign tx_transaction_complete = builder_response_complete && !parser_cmd[7]; // Write transaction
+    assign rx_transaction_complete = builder_response_complete && parser_cmd[7];  // Read transaction
+    
+    // Statistics counter logic
+    always_ff @(posedge clk) begin
+        if (rst || reset_statistics) begin
+            tx_count_reg <= 16'h0000;
+            rx_count_reg <= 16'h0000;
+        end else begin
+            if (tx_transaction_complete) begin
+                tx_count_reg <= tx_count_reg + 1'b1;
+            end
+            if (rx_transaction_complete) begin
+                rx_count_reg <= rx_count_reg + 1'b1;
+            end
+        end
+    end
+    
+    // Status monitoring logic
+    always_comb begin
+        // Bridge busy status - active when processing any transaction
+        bridge_busy = parser_busy || (main_state != MAIN_IDLE) || tx_busy || rx_busy;
+        
+        // Error code reporting - prioritized error status
+        if (parser_frame_error) begin
+            bridge_error_code = parser_error_status;
+        end else if (axi_status != 8'h00) begin
+            bridge_error_code = axi_status;
+        end else if (rx_error) begin
+            bridge_error_code = 8'h01; // UART RX error
+        end else begin
+            bridge_error_code = 8'h00; // No error
+        end
+        
+        // FIFO status flags
+        fifo_status_flags[0] = rx_fifo_full;
+        fifo_status_flags[1] = rx_fifo_empty;
+        fifo_status_flags[2] = tx_fifo_full;
+        fifo_status_flags[3] = tx_fifo_empty;
+        fifo_status_flags[7:4] = rx_fifo_count[3:0]; // RX FIFO level (lower 4 bits)
+    end
+    
+    // Output assignments
+    assign tx_transaction_count = tx_count_reg;
+    assign rx_transaction_count = rx_count_reg;
 
 endmodule
