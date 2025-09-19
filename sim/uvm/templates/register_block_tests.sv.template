@@ -1,0 +1,33 @@
+// timescale 1ns / 1ps
+// This file is a template. Copy to sim/uvm/tests/ and rename appropriately.
+
+`timescale 1ns / 1ps
+
+// Import required packages here
+// `include "uvm_macros.svh"
+// import uvm_pkg::*;
+// import uart_axi4_test_pkg::*;
+
+// TODO: Adjust package includes per project structure
+
+class register_block_basic_test extends uvm_test;
+    `uvm_component_utils(register_block_basic_test)
+
+    function new(string name = "register_block_basic_test", uvm_component parent = null);
+        super.new(name, parent);
+    endfunction
+
+    virtual function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        // TODO: Configure environment, set virtual interfaces, etc.
+    endfunction
+
+    virtual task run_phase(uvm_phase phase);
+        phase.raise_objection(this);
+        // TODO: Start basic register access sequence (read/write/reset behavior)
+        // Example:
+        // register_basic_rw_sequence seq = register_basic_rw_sequence::type_id::create("seq");
+        // seq.start(env.vseqr);
+        phase.drop_objection(this);
+    endtask
+endclass
