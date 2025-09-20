@@ -50,16 +50,17 @@ class uart_axi4_env extends uvm_env;
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);
         
-        // Connect agents to scoreboard - temporarily disabled
-        // if (cfg.enable_scoreboard && scoreboard != null) begin
-        //     uart_agt.monitor.analysis_port.connect(scoreboard.uart_analysis_imp);
-        //     axi_agt.monitor.analysis_port.connect(scoreboard.axi_analysis_imp);
-        // end
+        // Connect UART agent to scoreboard
+        if (cfg.enable_scoreboard && scoreboard != null && uart_agt.monitor != null) begin
+            uart_agt.monitor.analysis_port.connect(scoreboard.uart_analysis_imp);
+            `uvm_info("ENV", "Connected UART monitor to scoreboard", UVM_LOW)
+        end
         
-        // Connect UART agent to coverage - temporarily disabled
-        // if (cfg.enable_coverage && coverage != null) begin
-        //     uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
-        // end
+        // Connect UART agent to coverage
+        if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
+            uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
+            `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
+        end
     endfunction
 
 endclass

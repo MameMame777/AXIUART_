@@ -5,8 +5,10 @@
 package uart_axi4_test_pkg;
     
     import uvm_pkg::*;
-    import sequence_lib_pkg::*;
     `include "uvm_macros.svh"
+    
+    // Configuration class first (must be before anything that uses it)
+    `include "../env/uart_axi4_env_config.sv"
     
     // Transaction direction constants
     typedef enum { UART_RX, UART_TX } uart_direction_t;
@@ -19,8 +21,8 @@ package uart_axi4_test_pkg;
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
     
     // Frame constants from protocol specification
-    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hA5;
-    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;
+    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hAA;  // Host to device SOF
+    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h55;  // Device to host SOF
     
     // Status codes
     parameter logic [7:0] STATUS_OK        = 8'h00;
@@ -55,8 +57,10 @@ package uart_axi4_test_pkg;
     class uart_frame_transaction extends uvm_sequence_item;
         
         // Frame fields
+        rand logic [7:0]  sof;      // Start of Frame byte (missing field)
         rand logic [7:0]  cmd;
         rand logic [31:0] addr;
+        rand logic [7:0]  len;      // Length byte (missing field)  
         rand logic [7:0]  data[];
         logic [7:0]       crc;
         
@@ -92,8 +96,10 @@ package uart_axi4_test_pkg;
         }
         
         `uvm_object_utils_begin(uart_frame_transaction)
+            `uvm_field_int(sof, UVM_ALL_ON)
             `uvm_field_int(cmd, UVM_ALL_ON)
             `uvm_field_int(addr, UVM_ALL_ON)
+            `uvm_field_int(len, UVM_ALL_ON)
             `uvm_field_array_int(data, UVM_ALL_ON)
             `uvm_field_int(crc, UVM_ALL_ON)
             `uvm_field_int(is_write, UVM_ALL_ON)
@@ -205,23 +211,32 @@ package uart_axi4_test_pkg;
     // Include UVM component files in dependency order  
     // Components are now compiled within the package context
     
-    // First agent definitions
-    `include "agents/uart_agent.sv"
-    
-    // Then environment configuration (needed by coverage and scoreboard)
-    `include "env/uart_axi4_env_config.sv"
-    
-    // Then coverage and scoreboard (need env config)
+    // First include coverage and scoreboard (needed by monitor)
     `include "env/uart_axi4_coverage.sv"
     `include "env/uart_axi4_scoreboard.sv"
     
+    // Then include driver and monitor classes
+    `include "agents/uart/uart_driver.sv"
+    `include "agents/uart/uart_monitor.sv"
+    
+    // Then agent definitions
+    `include "agents/uart_agent.sv"
+    
     // Finally environment (when agents are ready)
     `include "env/uart_axi4_env.sv"
+    
+    // Sequence libraries (need transaction classes to be defined first)
+    `include "sequences/basic_func_sequence.sv"
+    `include "sequences/error_injection_sequence.sv" 
+    `include "sequences/performance_test_sequence.sv"
+    `include "sequences/uart_protocol_active_sequence.sv"
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
+    `include "tests/uart_axi4_active_test.sv"
+    `include "tests/uart_coverage_debug_test.sv"
 
 endpackage

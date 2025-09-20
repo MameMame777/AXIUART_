@@ -2,7 +2,6 @@
 
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;  // Import our test package
-import sequence_lib_pkg::*;    // Import sequences
 
 // Base Test Class for AXIUART_Top System UVM Testbench
 class uart_axi4_base_test extends uvm_test;

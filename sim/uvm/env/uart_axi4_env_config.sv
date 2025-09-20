@@ -35,8 +35,8 @@ class uart_axi4_env_config extends uvm_object;
     
     // Test stimulus parameters
     int num_transactions = 100;
-    int min_idle_cycles = 10;
-    int max_idle_cycles = 100;
+    int min_idle_cycles = 2;
+    int max_idle_cycles = 10;
     
     `uvm_object_utils_begin(uart_axi4_env_config)
         `uvm_field_int(clk_freq_hz, UVM_ALL_ON)

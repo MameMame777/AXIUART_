@@ -11,6 +11,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Virtual interface
     virtual uart_if vif;
     
+    // Protocol constants (moved from sequence_lib_pkg)
+    parameter bit [7:0] SOF_HOST_TO_DEVICE = 8'hAA;
+    parameter bit [7:0] SOF_DEVICE_TO_HOST = 8'h55;
+    
     function new(string name = "uart_driver", uvm_component parent = null);
         super.new(name, parent);
     endfunction
@@ -77,7 +81,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             for (int i = 0; i < tr.data.size(); i++) begin
                 frame_bytes[6 + i] = tr.data[i];
             end
-            frame_bytes[byte_count - 1] = tr.crc;
+            frame_bytes[byte_count - 1] = calculate_crc(frame_bytes, byte_count - 1);
+        end
+        
+        // Calculate CRC if not provided
+        if (tr.cmd[7] && tr.crc == 8'h00) begin // Read command
+            frame_bytes[6] = calculate_crc(frame_bytes, 6);
         end
         
         // Send frame byte by byte
@@ -92,8 +101,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             end
         end
         
-        // Add inter-frame gap
-        repeat (cfg.min_idle_cycles * 2) begin
+        // Add inter-frame gap (much longer than inter-byte gap)
+        repeat (cfg.max_idle_cycles * 5) begin
             @(posedge vif.clk);
         end
     endtask
@@ -217,5 +226,23 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         
         `uvm_info("UART_DRIVER", $sformatf("Collected UART byte: 0x%02X", data), UVM_DEBUG)
     endtask
+    
+    // Simple CRC-8 calculation (polynomial 0x07)
+    virtual function logic [7:0] calculate_crc(logic [7:0] data[], int length);
+        logic [7:0] crc = 8'h00;
+        
+        for (int i = 0; i < length; i++) begin
+            crc = crc ^ data[i];
+            for (int j = 0; j < 8; j++) begin
+                if (crc[7]) begin
+                    crc = (crc << 1) ^ 8'h07;
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+        end
+        
+        return crc;
+    endfunction
 
 endclass

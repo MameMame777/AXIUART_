@@ -120,11 +120,13 @@ module Uart_Tx #(
     logic tx_done_int;
     
     always_comb begin
+        uart_tx_int = 1'b1;  // Default to idle high to prevent latch inference
         case (tx_state)
             IDLE:      uart_tx_int = 1'b1;         // Idle high
             START_BIT: uart_tx_int = 1'b0;         // Start bit low
             DATA_BITS: uart_tx_int = tx_shift_reg[0]; // LSB first
             STOP_BIT:  uart_tx_int = 1'b1;         // Stop bit high
+            default:   uart_tx_int = 1'b1;         // Default case for completeness
         endcase
     end
     

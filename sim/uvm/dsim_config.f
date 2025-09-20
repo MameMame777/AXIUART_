@@ -35,7 +35,7 @@ rtl/uart_axi4_assertions.sv
 # tb/axi4_lite_protocol_assertions.sv  # Temporarily disabled for debug
 
 # UVM package files (in dependency order)
-packages/sequence_lib_pkg.sv
+# packages/sequence_lib_pkg.sv  # Removed - merged into main package
 packages/uart_axi4_test_pkg.sv
 
 # Testbench top
