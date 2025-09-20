@@ -55,6 +55,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Drive a complete UART frame
     virtual task drive_frame(uart_frame_transaction tr);
         logic [7:0] frame_bytes[];
+        logic [7:0] calculated_crc;
         int byte_count;
         
         // Build complete frame
@@ -67,7 +68,11 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             frame_bytes[3] = tr.addr[15:8];
             frame_bytes[4] = tr.addr[23:16];
             frame_bytes[5] = tr.addr[31:24];
-            frame_bytes[6] = tr.crc;
+            // CRC calculation excludes SOF (starts from index 1)
+            calculated_crc = calculate_crc_from_index(frame_bytes, 1, 5);
+            frame_bytes[6] = calculated_crc;
+            `uvm_info("UART_DRIVER", $sformatf("Read CRC: data=[%02X,%02X,%02X,%02X,%02X] -> CRC=0x%02X", 
+                      frame_bytes[1], frame_bytes[2], frame_bytes[3], frame_bytes[4], frame_bytes[5], calculated_crc), UVM_MEDIUM)
         end else begin // Write command
             byte_count = 7 + tr.data.size(); // SOF + CMD + ADDR(4) + DATA + CRC
             frame_bytes = new[byte_count];
@@ -82,7 +87,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 frame_bytes[6 + i] = tr.data[i];
             end
             // CRC calculation excludes SOF (starts from index 1)
-            frame_bytes[byte_count - 1] = calculate_crc_from_index(frame_bytes, 1, byte_count - 2);
+            calculated_crc = calculate_crc_from_index(frame_bytes, 1, byte_count - 2);
+            frame_bytes[byte_count - 1] = calculated_crc;
+            `uvm_info("UART_DRIVER", $sformatf("Write CRC: byte_count=%0d, crc_len=%0d -> CRC=0x%02X", 
+                      byte_count, byte_count - 2, calculated_crc), UVM_MEDIUM)
         end
         
         // Send frame byte by byte
