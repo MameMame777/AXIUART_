@@ -234,9 +234,21 @@ module Uart_Axi4_Bridge #(
     assign rx_fifo_wr_en = rx_valid && !rx_error && !rx_fifo_full;
     
     // TX FIFO read control and UART TX feeding
-    assign tx_fifo_rd_en = !tx_fifo_empty && !tx_busy;
+    logic tx_start_req, tx_start_reg;
+    
+    assign tx_start_req = !tx_fifo_empty && !tx_busy && !tx_start_reg;
+    assign tx_fifo_rd_en = tx_start_req;
     assign tx_data = tx_fifo_rd_data;
-    assign tx_start = tx_fifo_rd_en;  // Start transmission when reading from FIFO
+    assign tx_start = tx_start_req;  // Single-cycle pulse for UART TX
+    
+    // Generate single-cycle pulse for tx_start
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            tx_start_reg <= 1'b0;
+        end else begin
+            tx_start_reg <= tx_start_req || (tx_start_reg && tx_busy);
+        end
+    end
     
     // Copy parser data to AXI write data
     always_comb begin

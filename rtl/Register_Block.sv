@@ -144,7 +144,7 @@ module Register_Block #(
     // Register write logic
     always_ff @(posedge clk) begin
         if (rst) begin
-            control_reg <= 32'h0000_0000;
+            control_reg <= 32'h0000_0001;  // bridge_enable = 1 (enabled by default)
             config_reg <= 32'h0000_0000;
             debug_reg <= 32'h0000_0000;
             write_resp <= RESP_OKAY;

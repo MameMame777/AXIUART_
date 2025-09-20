@@ -26,7 +26,7 @@ module Frame_Builder (
 );
 
     // Protocol constants
-    localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;
+    localparam [7:0] SOF_DEVICE_TO_HOST = 8'hA5;
     localparam [7:0] STATUS_OK = 8'h00;
     
     // State machine
