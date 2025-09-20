@@ -21,8 +21,8 @@ package uart_axi4_test_pkg;
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
     
     // Frame constants from protocol specification
-    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hAA;  // Host to device SOF
-    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h55;  // Device to host SOF
+    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hA5;  // Host to device SOF
+    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF
     
     // Status codes
     parameter logic [7:0] STATUS_OK        = 8'h00;

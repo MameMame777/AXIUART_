@@ -81,12 +81,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             for (int i = 0; i < tr.data.size(); i++) begin
                 frame_bytes[6 + i] = tr.data[i];
             end
-            frame_bytes[byte_count - 1] = calculate_crc(frame_bytes, byte_count - 1);
-        end
-        
-        // Calculate CRC if not provided
-        if (tr.cmd[7] && tr.crc == 8'h00) begin // Read command
-            frame_bytes[6] = calculate_crc(frame_bytes, 6);
+            // CRC calculation excludes SOF (starts from index 1)
+            frame_bytes[byte_count - 1] = calculate_crc_from_index(frame_bytes, 1, byte_count - 2);
         end
         
         // Send frame byte by byte
@@ -232,6 +228,24 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         logic [7:0] crc = 8'h00;
         
         for (int i = 0; i < length; i++) begin
+            crc = crc ^ data[i];
+            for (int j = 0; j < 8; j++) begin
+                if (crc[7]) begin
+                    crc = (crc << 1) ^ 8'h07;
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+        end
+        
+        return crc;
+    endfunction
+
+    // CRC-8 calculation starting from specific index (excludes SOF)
+    virtual function logic [7:0] calculate_crc_from_index(logic [7:0] data[], int start_idx, int length);
+        logic [7:0] crc = 8'h00;
+        
+        for (int i = start_idx; i < start_idx + length; i++) begin
             crc = crc ^ data[i];
             for (int j = 0; j < 8; j++) begin
                 if (crc[7]) begin

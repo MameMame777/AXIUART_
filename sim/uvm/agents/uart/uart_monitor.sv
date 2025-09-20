@@ -288,7 +288,7 @@ class uart_monitor extends uvm_monitor;
         // Check SOF
         if (bytes[0] != SOF_HOST_TO_DEVICE) begin
             `uvm_info("UART_MONITOR", $sformatf("Invalid SOF: expected=0x%02X, got=0x%02X", 
-                     SOF_HOST_TO_DEVICE, bytes[0]), UVM_MEDIUM)
+                      SOF_HOST_TO_DEVICE, bytes[0]), UVM_MEDIUM)
             return 0;
         end
         
@@ -309,11 +309,9 @@ class uart_monitor extends uvm_monitor;
         
         tr.crc = bytes[count - 1];
         
-        // Verify CRC
-        calculated_crc = calculate_frame_crc(bytes, count - 1);
-        tr.crc_valid = (tr.crc == calculated_crc);
-        
-        `uvm_info("UART_MONITOR", $sformatf("CRC validation: received=0x%02X, calculated=0x%02X, valid=%0b", 
+        // Verify CRC (exclude SOF from CRC calculation) 
+        calculated_crc = calculate_frame_crc_from_index(bytes, 1, count - 2);
+        tr.crc_valid = (tr.crc == calculated_crc);        `uvm_info("UART_MONITOR", $sformatf("CRC validation: received=0x%02X, calculated=0x%02X, valid=%0b", 
                   tr.crc, calculated_crc, tr.crc_valid), UVM_MEDIUM)
         
         if (!tr.crc_valid) begin
@@ -371,8 +369,8 @@ class uart_monitor extends uvm_monitor;
         
         tr.crc = bytes[count - 1];
         
-        // Verify CRC
-        calculated_crc = calculate_frame_crc(bytes, count - 1);
+        // Verify CRC (exclude SOF from CRC calculation)
+        calculated_crc = calculate_frame_crc_from_index(bytes, 1, count - 2);
         tr.crc_valid = (tr.crc == calculated_crc);
         
         `uvm_info("UART_MONITOR", $sformatf("TX CRC validation: received=0x%02X, calculated=0x%02X, valid=%0b", 
@@ -394,6 +392,24 @@ class uart_monitor extends uvm_monitor;
         logic [7:0] crc = 8'h00;
         
         for (int i = 0; i < count; i++) begin
+            crc = crc ^ bytes[i];
+            for (int j = 0; j < 8; j++) begin
+                if (crc[7]) begin
+                    crc = (crc << 1) ^ 8'h07; // CRC8 polynomial
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+        end
+        
+        return crc;
+    endfunction
+
+    // Calculate CRC8 starting from specific index (excludes SOF)
+    virtual function logic [7:0] calculate_frame_crc_from_index(logic [7:0] bytes[], int start_idx, int count);
+        logic [7:0] crc = 8'h00;
+        
+        for (int i = start_idx; i < start_idx + count; i++) begin
             crc = crc ^ bytes[i];
             for (int j = 0; j < 8; j++) begin
                 if (crc[7]) begin
