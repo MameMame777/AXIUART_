@@ -11,9 +11,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Virtual interface
     virtual uart_if vif;
     
-    // Protocol constants (moved from sequence_lib_pkg)
-    parameter bit [7:0] SOF_HOST_TO_DEVICE = 8'hAA;
-    parameter bit [7:0] SOF_DEVICE_TO_HOST = 8'h55;
+    // Protocol constants (Import from main test package)
+    // These constants must match uart_axi4_test_pkg definitions
     
     function new(string name = "uart_driver", uvm_component parent = null);
         super.new(name, parent);

@@ -53,7 +53,7 @@ class uart_coverage_debug_test extends uart_axi4_base_test;
         `uvm_info("DEBUG_TEST", $sformatf("Generating UART write: ADDR=0x%08X, DATA=0x%02X", addr, data), UVM_LOW)
         
         // Build frame: SOF + CMD + SIZE + ADDR + DATA + CRC
-        frame_bytes.push_back(8'hAA); // SOF_HOST_TO_DEVICE
+        frame_bytes.push_back(8'h5A); // SOF_HOST_TO_DEVICE (corrected)
         frame_bytes.push_back(8'h01); // Write command
         frame_bytes.push_back(8'h01); // Size = 1 byte
         
@@ -82,7 +82,7 @@ class uart_coverage_debug_test extends uart_axi4_base_test;
         `uvm_info("DEBUG_TEST", $sformatf("Generating UART read: ADDR=0x%08X", addr), UVM_LOW)
         
         // Build frame: SOF + CMD + SIZE + ADDR + CRC
-        frame_bytes.push_back(8'hAA); // SOF_HOST_TO_DEVICE
+        frame_bytes.push_back(8'h5A); // SOF_HOST_TO_DEVICE (corrected)
         frame_bytes.push_back(8'h00); // Read command
         frame_bytes.push_back(8'h01); // Size = 1 byte
         

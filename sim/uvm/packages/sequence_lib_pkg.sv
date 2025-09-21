@@ -15,9 +15,8 @@ package sequence_lib_pkg;
         STATUS_INVALID_CMD  = 8'h04
     } status_e;
 
-    // UART Protocol Constants
-    parameter bit [7:0] SOF_HOST_TO_DEVICE = 8'hAA;
-    parameter bit [7:0] SOF_DEVICE_TO_HOST = 8'h55;
+    // UART Protocol Constants - Import from main package
+    // These constants are defined in uart_axi4_test_pkg
 
     // Import main package for transaction types
     import uart_axi4_test_pkg::*;
