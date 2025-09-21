@@ -3,7 +3,7 @@
 // CRC8 Calculator Module for UART-AXI4 Bridge
 // Polynomial: 0x07 (x^8 + x^2 + x^1 + 1)
 // Initial value: 0x00, no reflection, no XOR output
-// Matches test vectors in Section 10.2 of protocol specification
+// Corrected implementation using table-based approach
 module Crc8_Calculator (
     input  logic        clk,
     input  logic        rst,
@@ -18,43 +18,30 @@ module Crc8_Calculator (
     logic [7:0] crc_reg;
     logic [7:0] crc_next;
 
+    // CRC calculation function - table-free bit-by-bit approach  
+    function logic [7:0] calc_crc8_byte(logic [7:0] current_crc, logic [7:0] data_byte);
+        automatic logic [7:0] crc_temp;
+        crc_temp = current_crc ^ data_byte;
+        
+        // Process each bit with polynomial 0x07
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        if (crc_temp[7]) crc_temp = (crc_temp << 1) ^ 8'h07; else crc_temp = crc_temp << 1;
+        
+        return crc_temp;
+    endfunction
+
     // CRC calculation logic (combinational)
     always_comb begin
-        crc_next = crc_reg;
         if (crc_enable) begin
-            logic [7:0] crc_temp;
-            
-            // Step 1: XOR input byte with current CRC
-            crc_temp = crc_reg ^ data_in;
-            
-            // Step 2: Process 8 bits sequentially (unroll for proper combinational logic)
-            // Check MSB, shift left, XOR polynomial if MSB is set
-            // Bit 0
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 1
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 2
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 3
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 4
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 5
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 6
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            // Bit 7
-            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
-            else crc_temp = (crc_temp << 1) & 8'hFF;
-            
-            crc_next = crc_temp;
+            crc_next = calc_crc8_byte(crc_reg, data_in);
+        end else begin
+            crc_next = crc_reg;  // Hold current value when disabled
         end
     end
 
@@ -67,9 +54,9 @@ module Crc8_Calculator (
         end
     end
 
-    // Output assignments
-    assign crc_out = crc_reg;
-    assign crc_final = crc_reg;
+    // Output assignments - provide both current and next values
+    assign crc_out = crc_next;    // Combinational output (immediate)
+    assign crc_final = crc_next;  // Same as crc_out
 
     // Assertions for verification
     `ifdef ENABLE_CRC8_ASSERTIONS
