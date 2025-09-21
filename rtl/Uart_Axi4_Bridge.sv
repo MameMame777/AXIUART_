@@ -266,6 +266,33 @@ module Uart_Axi4_Bridge #(
         end
     end
     
+    // Registers to generate single-cycle pulses
+    logic axi_start_issued;
+    logic builder_start_issued;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            axi_start_issued <= 1'b0;
+            builder_start_issued <= 1'b0;
+        end else begin
+            // Reset flags when leaving respective states
+            if (main_state != MAIN_AXI_TRANSACTION) begin
+                axi_start_issued <= 1'b0;
+            end
+            if (main_state != MAIN_BUILD_RESPONSE) begin
+                builder_start_issued <= 1'b0;
+            end
+            
+            // Set flags when issuing commands
+            if (main_state == MAIN_AXI_TRANSACTION && !axi_start_issued) begin
+                axi_start_issued <= 1'b1;
+            end
+            if (main_state == MAIN_BUILD_RESPONSE && !builder_start_issued) begin
+                builder_start_issued <= 1'b1;
+            end
+        end
+    end
+
     // Main control state machine (combinational part)
     always_comb begin
         main_state_next = main_state;
@@ -293,14 +320,16 @@ module Uart_Axi4_Bridge #(
             end
             
             MAIN_AXI_TRANSACTION: begin
-                axi_start_transaction = 1'b1;
+                // Issue AXI transaction only once per frame
+                axi_start_transaction = !axi_start_issued;
                 if (axi_transaction_done) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
                 end
             end
             
             MAIN_BUILD_RESPONSE: begin
-                builder_build_response = 1'b1;
+                // Issue build response only once per frame
+                builder_build_response = !builder_start_issued;
                 builder_cmd_echo = parser_cmd;
                 builder_addr_echo = parser_addr;
                 
