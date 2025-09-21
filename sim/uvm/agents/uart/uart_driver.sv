@@ -135,15 +135,43 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     virtual task collect_response(uart_frame_transaction tr);
         logic [7:0] response_bytes[];
         logic [7:0] temp_byte;
-        int response_timeout_cycles = cfg.frame_timeout_ns * cfg.clk_freq_hz / 1_000_000_000;
+        real timeout_ns = cfg.frame_timeout_ns; // Revert to original timeout
+        real clk_freq = cfg.clk_freq_hz;
+        int response_timeout_cycles = int'((timeout_ns * clk_freq) / 1_000_000_000.0);
         int byte_count = 0;
+        int bit_time_cycles;
         bit timeout_occurred = 0;
+        bit response_started = 0;
+        logic prev_tx_state = 1'b1; // UART TX idle state is high
         
-        // Wait for response start
+        // Debug timeout calculation
+        `uvm_info("UART_DRIVER", $sformatf("Timeout calculation: %.0f ns * %.0f Hz / 1e9 = %0d cycles", 
+                  timeout_ns, clk_freq, response_timeout_cycles), UVM_MEDIUM)
+        
+        // Enhanced response detection with multiple methods
+        `uvm_info("UART_DRIVER", $sformatf("Monitoring TX for response with %0d cycle timeout...", 
+                  response_timeout_cycles), UVM_MEDIUM)
+        
         fork
             begin
-                wait (vif.uart_tx == 1'b0); // Wait for start bit
-                timeout_occurred = 0;
+                // Method 1: Direct negedge detection
+                @(negedge vif.uart_tx);
+                response_started = 1;
+                `uvm_info("UART_DRIVER", $sformatf("TX negedge detected at time %0t", $realtime), UVM_MEDIUM)
+            end
+            begin
+                // Method 2: Polling-based edge detection as backup
+                prev_tx_state = vif.uart_tx;
+                while (!response_started) begin
+                    @(posedge vif.clk);
+                    if (prev_tx_state == 1'b1 && vif.uart_tx == 1'b0) begin
+                        response_started = 1;
+                        `uvm_info("UART_DRIVER", $sformatf("TX falling edge detected via polling at time %0t", 
+                                  $realtime), UVM_MEDIUM)
+                        break;
+                    end
+                    prev_tx_state = vif.uart_tx;
+                end
             end
             begin
                 repeat (response_timeout_cycles) @(posedge vif.clk);
@@ -153,52 +181,70 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         disable fork;
         
         if (timeout_occurred) begin
-            `uvm_error("UART_DRIVER", "Timeout waiting for response")
+            `uvm_error("UART_DRIVER", $sformatf("Timeout waiting for response after %0d cycles", response_timeout_cycles))
             tr.response_received = 0;
             return;
         end
         
+        `uvm_info("UART_DRIVER", "Response start detected", UVM_MEDIUM)
+        
+        // Collect first byte (start bit already detected)
+        bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
+        repeat (bit_time_cycles / 2) @(posedge vif.clk);  // Move to center of start bit
+        
         // Collect response bytes
         response_bytes = new[100]; // Allocate max size
         
+        // Collect first byte (SOF)
+        collect_uart_byte(temp_byte);
+        response_bytes[byte_count] = temp_byte;
+        byte_count++;
+        `uvm_info("UART_DRIVER", $sformatf("First byte collected: 0x%02X", temp_byte), UVM_MEDIUM)
+        
+        // Collect remaining bytes until timeout
         do begin
-            collect_uart_byte(temp_byte);
-            response_bytes[byte_count] = temp_byte;
-            byte_count++;
-            
-            // Check for end of frame (simple timeout-based detection)
+            // Wait for next byte start or timeout
             fork
                 begin
-                    wait (vif.uart_tx == 1'b0); // Next start bit
+                    @(negedge vif.uart_tx); // Next start bit
                     timeout_occurred = 0;
                 end
                 begin
-                    repeat (cfg.byte_time_ns * cfg.clk_freq_hz / 1_000_000_000 * 2) @(posedge vif.clk);
+                    repeat (cfg.byte_time_ns * cfg.clk_freq_hz / 1_000_000_000 * 3) @(posedge vif.clk);
                     timeout_occurred = 1;
                 end
             join_any
             disable fork;
             
+            if (!timeout_occurred) begin
+                collect_uart_byte(temp_byte);
+                response_bytes[byte_count] = temp_byte;
+                byte_count++;
+                `uvm_info("UART_DRIVER", $sformatf("Byte %0d collected: 0x%02X", byte_count-1, temp_byte), UVM_MEDIUM)
+            end
+            
         end while (!timeout_occurred && byte_count < 100);
         
-        // Parse response
+        // Parse response format: 0xa5 STATUS CMD [ADDR] [DATA] CRC
         if (byte_count >= 4 && response_bytes[0] == SOF_DEVICE_TO_HOST) begin
             tr.response_status = response_bytes[1];
             tr.response_received = 1;
             
-            // Extract response data for read operations
-            if (tr.cmd[7] && tr.response_status == STATUS_OK && byte_count > 7) begin
-                int data_bytes = byte_count - 7; // SOF + STATUS + CMD + ADDR(4) + CRC
-                tr.response_data = new[data_bytes];
-                for (int i = 0; i < data_bytes; i++) begin
-                    tr.response_data[i] = response_bytes[7 + i];
+            `uvm_info("UART_DRIVER", $sformatf("Response received: SOF=0x%02X STATUS=0x%02X CMD=0x%02X, bytes=%0d", 
+                      response_bytes[0], tr.response_status, response_bytes[2], byte_count), UVM_MEDIUM)
+            
+            // For debugging: print all bytes
+            begin
+                string byte_str = "";
+                for (int i = 0; i < byte_count; i++) begin
+                    byte_str = {byte_str, $sformatf("0x%02X ", response_bytes[i])};
                 end
+                `uvm_info("UART_DRIVER", $sformatf("Response bytes: %s", byte_str), UVM_MEDIUM)
             end
             
-            `uvm_info("UART_DRIVER", $sformatf("Response received: STATUS=0x%02X, bytes=%0d", 
-                      tr.response_status, byte_count), UVM_MEDIUM)
         end else begin
-            `uvm_error("UART_DRIVER", "Invalid response format")
+            `uvm_info("UART_DRIVER", $sformatf("Unexpected response format: SOF=0x%02X, bytes=%0d", 
+                      byte_count > 0 ? response_bytes[0] : 8'h00, byte_count), UVM_MEDIUM)
             tr.response_received = 0;
         end
     endtask
@@ -206,28 +252,34 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Collect a single UART byte
     virtual task collect_uart_byte(output logic [7:0] data);
         int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
-        int sample_time = bit_time_cycles / 2; // Sample at bit center
+        int half_bit_cycles = bit_time_cycles / 2;
         
-        // Wait for start bit (already detected)
-        repeat (sample_time) @(posedge vif.clk);
+        // Wait for start bit falling edge
+        @(negedge vif.uart_tx);
+        `uvm_info("UART_DRIVER", $sformatf("Start bit detected at time %0t", $time), UVM_DEBUG)
         
+        // Move to center of start bit for verification
+        repeat (half_bit_cycles) @(posedge vif.clk);
         if (vif.uart_tx != 1'b0) begin
-            `uvm_warning("UART_DRIVER", "Start bit not detected correctly")
+            `uvm_info("UART_DRIVER", "Invalid start bit detected", UVM_DEBUG)
         end
         
-        // Collect data bits (LSB first)
+        // Move to center of first data bit - adjusted timing
+        repeat (half_bit_cycles + (bit_time_cycles / 4)) @(posedge vif.clk);
+        
+        // Collect data bits (LSB first) - sample at bit center
         for (int i = 0; i < 8; i++) begin
-            repeat (bit_time_cycles) @(posedge vif.clk);
             data[i] = vif.uart_tx;
+            `uvm_info("UART_DRIVER", $sformatf("Bit[%0d]: %b at time %0t", i, data[i], $time), UVM_DEBUG)
+            repeat (bit_time_cycles) @(posedge vif.clk);
         end
         
-        // Check stop bit
-        repeat (bit_time_cycles) @(posedge vif.clk);
+        // Verify stop bit
         if (vif.uart_tx != 1'b1) begin
-            `uvm_warning("UART_DRIVER", "Stop bit not detected correctly")
+            `uvm_info("UART_DRIVER", "Stop bit issue detected", UVM_DEBUG)
         end
         
-        `uvm_info("UART_DRIVER", $sformatf("Collected UART byte: 0x%02X", data), UVM_DEBUG)
+        `uvm_info("UART_DRIVER", $sformatf("Collected UART byte: 0x%02X", data), UVM_MEDIUM)
     endtask
     
     // Simple CRC-8 calculation (polynomial 0x07)

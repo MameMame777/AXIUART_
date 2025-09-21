@@ -15,6 +15,9 @@ class uart_axi4_frame_builder_test extends uart_axi4_base_test;
         // Configure test-specific settings for Frame_Builder diagnosis
         uvm_config_db#(int)::set(this, "*", "recording_detail", UVM_FULL);
         
+        // Increase frame timeout for Frame_Builder response investigation
+        uvm_config_db#(int)::set(this, "*", "frame_timeout_ns", 10_000_000); // 10ms timeout
+        
         `uvm_info("FRAME_BUILDER_TEST", "Frame_Builder diagnostic test configured", UVM_LOW)
     endfunction
     
