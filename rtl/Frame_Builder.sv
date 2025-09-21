@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-// Frame Builder Module for UART-AXI4 Bridge
+// Frame Builder module for UART-AXI4 Bridge
 // Constructs response frames per protocol specification
 module Frame_Builder (
     input  logic        clk,
@@ -26,7 +26,7 @@ module Frame_Builder (
 );
 
     // Protocol constants
-    localparam [7:0] SOF_DEVICE_TO_HOST = 8'hA5;
+    localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;
     localparam [7:0] STATUS_OK = 8'h00;
     
     // State machine
@@ -41,7 +41,8 @@ module Frame_Builder (
         ADDR_BYTE3,
         DATA,
         CRC,
-        DONE
+        DONE,
+        INTER_FRAME_GAP
     } builder_state_t;
     
     builder_state_t state, state_next;
@@ -108,9 +109,14 @@ module Frame_Builder (
                 end
             end
             
-            // Increment data index when writing data bytes
+            // Increment data index when writing data bytes successfully
             if ((state == DATA) && tx_fifo_wr_en && !tx_fifo_full) begin
                 data_index <= data_index + 1;
+            end
+            
+            // Reset data_index when starting new frame
+            if (build_response_edge) begin
+                data_index <= '0;
             end
         end
     end
@@ -220,9 +226,11 @@ module Frame_Builder (
                     crc_enable = 1'b1;
                     crc_data_in = data_reg[data_index];
                     
-                    if (data_index >= data_count_reg - 1) begin
+                    // Check if this will be the last data byte after incrementing
+                    if ((data_index + 1) == data_count_reg) begin
                         state_next = CRC;
                     end
+                    // else stay in DATA state for next byte
                 end
             end
             
@@ -235,6 +243,11 @@ module Frame_Builder (
             end
             
             DONE: begin
+                state_next = INTER_FRAME_GAP;
+            end
+            
+            INTER_FRAME_GAP: begin
+                // Wait one cycle for proper frame separation
                 state_next = IDLE;
             end
         endcase
@@ -242,7 +255,7 @@ module Frame_Builder (
     
     // Output assignments
     assign builder_busy = (state != IDLE);
-    assign response_complete = (state == DONE);
+    assign response_complete = (state == DONE) && (state_next == INTER_FRAME_GAP);
 
     // Assertions for verification
     `ifdef ENABLE_FRAME_BUILDER_ASSERTIONS

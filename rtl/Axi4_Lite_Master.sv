@@ -97,6 +97,9 @@ module Axi4_Lite_Master #(
     logic timeout_occurred;
     logic early_busy_threshold_reached;
     
+    // Transaction done signal management
+    logic transaction_done_reg;
+    
     always_comb begin
         timeout_occurred = (timeout_counter >= AXI_TIMEOUT);
         early_busy_threshold_reached = (timeout_counter >= EARLY_BUSY_THRESHOLD);
@@ -112,6 +115,7 @@ module Axi4_Lite_Master #(
             status_reg <= STATUS_OK;
             timeout_counter <= '0;
             early_busy_sent <= 1'b0;
+            transaction_done_reg <= 1'b0;
         end else begin
             state <= state_next;
             
@@ -123,6 +127,7 @@ module Axi4_Lite_Master #(
                 status_reg <= STATUS_OK;
                 timeout_counter <= '0;
                 early_busy_sent <= 1'b0;
+                transaction_done_reg <= 1'b0;  // Clear done flag when starting new transaction
             end
             
             // Update beat counter and address for next beat
@@ -161,6 +166,11 @@ module Axi4_Lite_Master #(
             if (timeout_occurred && ((state == WRITE_ADDR) || (state == WRITE_DATA) || 
                                    (state == WRITE_RESP) || (state == READ_ADDR) || (state == READ_DATA))) begin
                 status_reg <= early_busy_sent ? STATUS_BUSY : STATUS_TIMEOUT;
+            end
+            
+            // Set transaction_done_reg when reaching completion states
+            if ((state == DONE) || (state == ERROR)) begin
+                transaction_done_reg <= 1'b1;
             end
             
             if ((state == WRITE_RESP) && axi.bvalid && axi.bready) begin
@@ -355,7 +365,8 @@ module Axi4_Lite_Master #(
     end
     
     // Output assignments
-    assign transaction_done = (state == DONE) || (state == ERROR);
+    // Transaction done signal - hold high until next transaction starts
+    assign transaction_done = transaction_done_reg;
     assign axi_status = status_reg;
 
 endmodule
