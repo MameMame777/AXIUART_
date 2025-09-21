@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 // AXI4-Lite Register Block for AXIUART System
-// Provides control, status, and configuration registers for UAR    assign axi.arready = (axi_state == IDLE);  // Fixed: arready should be high in IDLE state-AXI4 bridge
+// Provides control, status, and configuration registers for UART-AXI4 bridge
 module Register_Block #(
     parameter int ADDR_WIDTH = 32,
     parameter int DATA_WIDTH = 32,
