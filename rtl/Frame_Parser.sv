@@ -30,7 +30,7 @@ module Frame_Parser #(
 );
 
     // Protocol constants
-    localparam [7:0] SOF_HOST_TO_DEVICE = 8'hA5;
+    localparam [7:0] SOF_HOST_TO_DEVICE = 8'h5A;
     
     // Status codes from Section 3
     localparam [7:0] STATUS_OK        = 8'h00;
