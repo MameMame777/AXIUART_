@@ -57,8 +57,13 @@ module Register_Block #(
     logic [1:0]  write_resp;
     
     // Address decoding
-    assign addr_offset = axi.awvalid ? axi.awaddr[11:0] : axi.araddr[11:0];
-    assign valid_addr = (addr_offset >= REG_CONTROL && addr_offset <= REG_VERSION) && 
+    logic [31:0] full_addr;
+    assign full_addr = axi.awvalid ? axi.awaddr : axi.araddr;
+    assign addr_offset = full_addr[11:0];
+    
+    // Check if address is within valid range and properly aligned
+    assign valid_addr = (full_addr >= BASE_ADDR && full_addr <= (BASE_ADDR + REG_VERSION + 4)) && 
+                       (addr_offset >= REG_CONTROL && addr_offset <= REG_VERSION) && 
                        (addr_offset[1:0] == 2'b00); // 32-bit aligned
     
     // AXI4-Lite state machine

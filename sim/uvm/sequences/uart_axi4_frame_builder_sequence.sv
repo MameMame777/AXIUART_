@@ -19,7 +19,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
         req = uart_frame_transaction::type_id::create("read_req");
         start_item(req);
         req.cmd = 8'h91;           // Read: RW=1, INC=0, SIZE=16bit(01), LEN=1 (0001)
-        req.addr = 32'h12345678;
+        req.addr = 32'h00001004;   // VALID: Register_Block STATUS register address
         req.data = new[0];         // Host command has no data payload
         req.is_write = 1'b0;
         req.auto_increment = 1'b0;
@@ -34,7 +34,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
         req = uart_frame_transaction::type_id::create("write_req");
         start_item(req);
         req.cmd = 8'h43;           // Write: RW=0, INC=1, SIZE=32bit(10), LEN=1 (0011)
-        req.addr = 32'h87654320;   // 32-bit aligned address
+        req.addr = 32'h00001000;   // VALID: Register_Block CONTROL register address
         req.data = new[4];         // 32-bit write data
         req.data[0] = 8'haa;
         req.data[1] = 8'hbb;  
@@ -70,7 +70,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
         req = uart_frame_transaction::type_id::create("seq_read1");
         start_item(req);
         req.cmd = 8'h91;           // Read 16-bit, single beat
-        req.addr = 32'h00001000;
+        req.addr = 32'h00001000;   // CONTROL register
         req.data = new[0];
         req.is_write = 1'b0;
         req.auto_increment = 1'b0;
@@ -83,7 +83,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
         req = uart_frame_transaction::type_id::create("seq_read2");
         start_item(req);
         req.cmd = 8'h83;           // Read 32-bit, single beat  
-        req.addr = 32'h00001004;
+        req.addr = 32'h00001004;   // STATUS register
         req.data = new[0];
         req.is_write = 1'b0;
         req.auto_increment = 1'b0;
@@ -96,7 +96,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
         req = uart_frame_transaction::type_id::create("seq_write1");
         start_item(req);
         req.cmd = 8'h43;           // Write 32-bit, single beat
-        req.addr = 32'h00001008;
+        req.addr = 32'h00001008;   // CONFIG register
         req.data = new[4];
         req.data[0] = 8'h11;
         req.data[1] = 8'h22;
@@ -114,9 +114,9 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
             req = uart_frame_transaction::type_id::create($sformatf("rapid_%0d", i));
             start_item(req);
             if (i % 2 == 0) begin
-                // Read commands
+                // Read commands - use valid register addresses
                 req.cmd = 8'h60;       // Read 8-bit, no increment, LEN=1
-                req.addr = (32'h2000 + i * 8);
+                req.addr = (32'h00001000 + (i % 4) * 4);  // Cycle through CONTROL, STATUS, CONFIG, DEBUG regs
                 req.data = new[0];
                 req.is_write = 1'b0;
                 req.auto_increment = 1'b0;
@@ -125,7 +125,7 @@ class uart_axi4_frame_builder_sequence extends uvm_sequence #(uart_frame_transac
             end else begin
                 // Read commands (changed from write to read for consistency)  
                 req.cmd = 8'h83;       // Read 32-bit, single beat
-                req.addr = (32'h2008 + i * 8);  
+                req.addr = (32'h00001000 + (i % 4) * 4);  // Cycle through valid register addresses
                 req.data = new[0];
                 req.is_write = 1'b0;
                 req.auto_increment = 1'b0;
