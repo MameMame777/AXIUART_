@@ -63,6 +63,7 @@ module Frame_Parser #(
     
     // Internal registers
     logic [7:0]  cmd_reg;
+    logic [7:0]  current_cmd;     // Current command being processed
     logic [31:0] addr_reg;
     logic [7:0]  data_reg [0:63];
     logic [5:0]  data_byte_count;
@@ -98,10 +99,10 @@ module Frame_Parser #(
     logic [5:0] expected_data_bytes;
     
     always_comb begin
-        rw_bit = cmd_reg[7];
-        inc_bit = cmd_reg[6];
-        size_field = cmd_reg[5:4];
-        len_field = cmd_reg[3:0];
+        rw_bit = current_cmd[7];
+        inc_bit = current_cmd[6];
+        size_field = current_cmd[5:4];
+        len_field = current_cmd[3:0];
         
         // Calculate expected data bytes for write commands
         case (size_field)
@@ -118,12 +119,12 @@ module Frame_Parser #(
         cmd_valid = 1'b1;
         
         // Check for reserved size field
-        if (size_field == 2'b11) begin
+        if (current_cmd[5:4] == 2'b11) begin
             cmd_valid = 1'b0;
         end
         
         // Check LEN range (should be 1-16, encoded as 0-15)
-        if (len_field > 15) begin  // This is impossible with 4 bits, but for clarity
+        if (current_cmd[3:0] > 15) begin  // This is impossible with 4 bits, but for clarity
             cmd_valid = 1'b0;
         end
     end
@@ -158,6 +159,7 @@ module Frame_Parser #(
                 case (state)
                     CMD: begin
                         cmd_reg <= rx_fifo_data;
+                        current_cmd <= rx_fifo_data;  // Capture immediately
                     end
                     ADDR_BYTE0: begin
                         addr_reg[7:0] <= rx_fifo_data;
@@ -185,6 +187,7 @@ module Frame_Parser #(
             if (state == IDLE) begin
                 data_byte_count <= '0;
                 error_status_reg <= STATUS_OK;
+                current_cmd <= '0;
             end
             
             // Set error status in validation state
@@ -273,8 +276,8 @@ module Frame_Parser #(
                 if (!rx_fifo_empty) begin
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
-                    // Decide next state based on command
-                    if (cmd_reg[7] == 1'b0) begin  // Write command
+                    // Decide next state based on current command
+                    if (current_cmd[7] == 1'b0) begin  // Write command
                         state_next = DATA_RX;
                     end else begin  // Read command
                         state_next = CRC_RX;
@@ -306,11 +309,19 @@ module Frame_Parser #(
             end
             
             VALIDATE: begin
-                state_next = IDLE;  // Will be overridden if frame_consumed not asserted
+                if (frame_consumed) begin
+                    state_next = IDLE;
+                end else begin
+                    state_next = VALIDATE;  // Stay in VALIDATE until frame is consumed
+                end
             end
             
             ERROR: begin
-                state_next = IDLE;
+                if (frame_consumed) begin
+                    state_next = IDLE;
+                end else begin
+                    state_next = ERROR;  // Stay in ERROR until frame is consumed
+                end
             end
         endcase
     end

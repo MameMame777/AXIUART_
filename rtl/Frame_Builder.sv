@@ -40,6 +40,7 @@ module Frame_Builder (
         ADDR_BYTE2,
         ADDR_BYTE3,
         DATA,
+        CRC_WAIT,  // Wait for CRC calculation to complete
         CRC,
         DONE
     } builder_state_t;
@@ -153,8 +154,8 @@ module Frame_Builder (
                         // Successful read response includes address and data
                         state_next = ADDR_BYTE0;
                     end else begin
-                        // Write response or error response - go directly to CRC
-                        state_next = CRC;
+                        // Write response or error response - go directly to CRC wait
+                        state_next = CRC_WAIT;
                     end
                 end
             end
@@ -199,7 +200,7 @@ module Frame_Builder (
                     if (data_count_reg > 0) begin
                         state_next = DATA;
                     end else begin
-                        state_next = CRC;
+                        state_next = CRC_WAIT;
                     end
                 end
             end
@@ -212,9 +213,14 @@ module Frame_Builder (
                     crc_data_in = data_reg[data_index];
                     
                     if (data_index >= data_count_reg - 1) begin
-                        state_next = CRC;
+                        state_next = CRC_WAIT;
                     end
                 end
+            end
+            
+            CRC_WAIT: begin
+                // Wait one clock cycle for CRC calculation to complete
+                state_next = CRC;
             end
             
             CRC: begin

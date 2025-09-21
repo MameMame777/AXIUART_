@@ -23,16 +23,37 @@ module Crc8_Calculator (
         crc_next = crc_reg;
         if (crc_enable) begin
             logic [7:0] crc_temp;
+            
+            // Step 1: XOR input byte with current CRC
             crc_temp = crc_reg ^ data_in;
             
-            // Process each bit
-            for (int i = 0; i < 8; i++) begin
-                if (crc_temp[7]) begin
-                    crc_temp = (crc_temp << 1) ^ 8'h07;
-                end else begin
-                    crc_temp = crc_temp << 1;
-                end
-            end
+            // Step 2: Process 8 bits sequentially (unroll for proper combinational logic)
+            // Check MSB, shift left, XOR polynomial if MSB is set
+            // Bit 0
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 1
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 2
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 3
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 4
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 5
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 6
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            // Bit 7
+            if (crc_temp[7]) crc_temp = ((crc_temp << 1) ^ 8'h07) & 8'hFF;
+            else crc_temp = (crc_temp << 1) & 8'hFF;
+            
             crc_next = crc_temp;
         end
     end

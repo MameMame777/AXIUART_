@@ -230,6 +230,8 @@ package uart_axi4_test_pkg;
     `include "sequences/error_injection_sequence.sv" 
     `include "sequences/performance_test_sequence.sv"
     `include "sequences/uart_protocol_active_sequence.sv"
+    `include "sequences/uart_axi4_frame_builder_sequence.sv"
+    `include "sequences/uart_axi4_register_block_sequence.sv"
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
@@ -238,5 +240,8 @@ package uart_axi4_test_pkg;
     `include "tests/uart_axi4_basic_test.sv"
     `include "tests/uart_axi4_active_test.sv"
     `include "tests/uart_coverage_debug_test.sv"
+    `include "tests/uart_frame_parser_debug_test.sv"
+    `include "tests/uart_axi4_frame_builder_test.sv"
+    `include "tests/uart_axi4_register_block_test.sv"
 
 endpackage
