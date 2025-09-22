@@ -184,9 +184,11 @@ module Uart_Rx #(
         ) else $error("UART_RX: rx_error without rx_valid");
 
         // State machine should return to IDLE eventually
+        // UART receive requires: 10 bits × 16 oversampling × (CLK_FREQ/BAUD_RATE) cycles
+        // For 100MHz/115200 = ~5400 cycles per byte, using 10000 for safety margin
         assert_eventually_idle: assert property (
             @(posedge clk) disable iff (rst)
-            rx_busy |-> ##[1:1000] !rx_busy
+            rx_busy |-> ##[1:10000] !rx_busy
         ) else $error("UART_RX: State machine stuck, not returning to IDLE");
     `endif
 

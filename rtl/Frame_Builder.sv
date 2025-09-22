@@ -164,7 +164,9 @@ module Frame_Builder (
                     crc_data_in = cmd_reg;
                     
                     // Decide next state based on response type and status
-                    if ((status_reg == STATUS_OK) && is_read_reg) begin
+                    // Write response (MSB=0): STATUS + CMD + CRC (4 bytes)
+                    // Read response (MSB=1): STATUS + CMD + ADDR + DATA + CRC (7+ bytes)
+                    if ((status_reg == STATUS_OK) && cmd_reg[7]) begin  // Read command check using cmd_reg MSB
                         // Successful read response includes address and data
                         state_next = ADDR_BYTE0;
                     end else begin

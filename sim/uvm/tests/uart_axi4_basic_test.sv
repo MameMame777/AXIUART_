@@ -15,7 +15,22 @@ class uart_axi4_basic_test extends uart_axi4_base_test;
         // Configure test-specific settings
         uvm_config_db#(int)::set(this, "*", "recording_detail", UVM_FULL);
         
-        `uvm_info("BASIC_TEST", "Basic functional test configured", UVM_LOW)
+        // UVMレポート機能の設定
+        begin
+            uvm_report_server server = uvm_report_server::get_server();
+            server.set_max_quit_count(1);  // エラー1個で終了
+        end
+        
+        `uvm_info("BASIC_TEST", "Basic functional test configured with enhanced reporting", UVM_LOW)
+    endfunction
+    
+    virtual function void start_of_simulation_phase(uvm_phase phase);
+        super.start_of_simulation_phase(phase);
+        
+        `uvm_info("BASIC_TEST", "========================================", UVM_NONE)
+        `uvm_info("BASIC_TEST", "    UART-AXI4 BASIC FUNCTIONAL TEST     ", UVM_NONE)
+        `uvm_info("BASIC_TEST", "========================================", UVM_NONE)
+        `uvm_info("BASIC_TEST", "Test started with comprehensive UVM reporting", UVM_LOW)
     endfunction
     
     virtual task run_phase(uvm_phase phase);
@@ -82,8 +97,8 @@ class uart_axi4_basic_test extends uart_axi4_base_test;
     virtual function void final_phase(uvm_phase phase);
         super.final_phase(phase);
         
-        // Print test summary
-        `uvm_info("BASIC_TEST", "=== TEST SUMMARY ===", UVM_LOW)
+        // Print comprehensive test summary
+        `uvm_info("BASIC_TEST", "=== COMPREHENSIVE TEST SUMMARY ===", UVM_LOW)
         `uvm_info("BASIC_TEST", $sformatf("Scoreboard Matches: %0d", env.scoreboard.match_count), UVM_LOW)
         `uvm_info("BASIC_TEST", $sformatf("Scoreboard Mismatches: %0d", env.scoreboard.mismatch_count), UVM_LOW)
         
@@ -94,4 +109,38 @@ class uart_axi4_basic_test extends uart_axi4_base_test;
         end
     endfunction
     
+    // UVM最終レポート機能 - UVMフェーズの一部として自動実行される
+    virtual function void report_phase(uvm_phase phase);
+        uvm_report_server server = uvm_report_server::get_server();
+        int error_count, warning_count, info_count, fatal_count;
+        
+        super.report_phase(phase);
+        
+        // UVMレポートサーバーから統計情報を取得
+        fatal_count = server.get_severity_count(UVM_FATAL);
+        error_count = server.get_severity_count(UVM_ERROR);
+        warning_count = server.get_severity_count(UVM_WARNING);
+        info_count = server.get_severity_count(UVM_INFO);
+        
+        `uvm_info("BASIC_TEST", "========================================", UVM_NONE)
+        `uvm_info("BASIC_TEST", "           FINAL UVM REPORT             ", UVM_NONE)
+        `uvm_info("BASIC_TEST", "========================================", UVM_NONE)
+        `uvm_info("BASIC_TEST", $sformatf("Total FATAL messages:   %0d", fatal_count), UVM_NONE)
+        `uvm_info("BASIC_TEST", $sformatf("Total ERROR messages:   %0d", error_count), UVM_NONE)
+        `uvm_info("BASIC_TEST", $sformatf("Total WARNING messages: %0d", warning_count), UVM_NONE)
+        `uvm_info("BASIC_TEST", $sformatf("Total INFO messages:    %0d", info_count), UVM_NONE)
+        `uvm_info("BASIC_TEST", "----------------------------------------", UVM_NONE)
+        
+        // 総合判定
+        if (fatal_count > 0 || error_count > 0) begin
+            `uvm_info("BASIC_TEST", "❌ OVERALL RESULT: TEST FAILED", UVM_NONE)
+            `uvm_info("BASIC_TEST", $sformatf("   - FATAL: %0d, ERROR: %0d", fatal_count, error_count), UVM_NONE)
+        end else begin
+            `uvm_info("BASIC_TEST", "✅ OVERALL RESULT: TEST PASSED", UVM_NONE)
+            `uvm_info("BASIC_TEST", "   - No fatal or error messages detected", UVM_NONE)
+        end
+        
+        `uvm_info("BASIC_TEST", "========================================", UVM_NONE)
+    endfunction
+
 endclass

@@ -62,5 +62,24 @@ class uart_axi4_env extends uvm_env;
             `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
         end
     endfunction
+    
+    // UVM環境レベルの最終レポート
+    virtual function void report_phase(uvm_phase phase);
+        super.report_phase(phase);
+        
+        `uvm_info("ENV", "=== ENVIRONMENT FINAL REPORT ===", UVM_LOW)
+        
+        if (scoreboard != null) begin
+            `uvm_info("ENV", $sformatf("Scoreboard Statistics:"), UVM_LOW)
+            `uvm_info("ENV", $sformatf("  - Successful matches: %0d", scoreboard.match_count), UVM_LOW)
+            `uvm_info("ENV", $sformatf("  - Mismatches found:   %0d", scoreboard.mismatch_count), UVM_LOW)
+        end
+        
+        if (coverage != null) begin
+            `uvm_info("ENV", "Coverage collection completed", UVM_LOW)
+        end
+        
+        `uvm_info("ENV", "Environment cleanup completed", UVM_LOW)
+    endfunction
 
 endclass

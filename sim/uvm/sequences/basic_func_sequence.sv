@@ -34,7 +34,7 @@ class uart_axi4_basic_sequence extends uvm_sequence #(uart_frame_transaction);
                 cmd[6:4] inside {3'b001, 3'b010, 3'b100}; // Valid data length codes
                 cmd[3:0] == 0; // Reserved bits
                 addr[1:0] == 0; // Word-aligned addresses
-                addr < 32'h1000; // Keep addresses in reasonable range
+                addr inside {[32'h1000:32'h101C]}; // Valid register block range (BASE_ADDR + register offsets)
                 if (!cmd[7]) { // Write command
                     data.size() inside {1, 2, 4}; // Valid data sizes
                 }

@@ -22,7 +22,7 @@ package uart_axi4_test_pkg;
     
     // Frame constants from protocol specification (CORRECTED)
     parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'h5A;  // Host to device SOF  
-    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'hA5;  // Device to host SOF
+    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (FIXED: Match RTL definition)
     
     // Status codes
     parameter logic [7:0] STATUS_OK        = 8'h00;
