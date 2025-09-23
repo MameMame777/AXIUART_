@@ -85,9 +85,7 @@ set_property DRIVE 8 [get_ports {uart_tx}]
 # Bitstream configuration settings for Zynq-7000 series
 set_property CFGBVS VCCO [current_design]
 set_property CONFIG_VOLTAGE 3.3 [current_design]
-set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
-set_property BITSTREAM.CONFIG.CONFIGRATE 50 [current_design]
-set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+
 
 ###################################################################################
 # Additional Timing Constraints for Performance
@@ -101,8 +99,7 @@ set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
 # Multicycle path constraints for UART bit timing logic
 # UART operates much slower than system clock, allow multiple cycles for timing closure
-set_multicycle_path -setup -from [get_pins {uart_bridge_inst/uart_rx_inst/*}] -to [get_pins {uart_bridge_inst/rx_fifo_inst/*}] 16
-set_multicycle_path -hold -from [get_pins {uart_bridge_inst/uart_rx_inst/*}] -to [get_pins {uart_bridge_inst/rx_fifo_inst/*}] 15
+
 
 ###################################################################################
 # Implementation Directives (Optional)

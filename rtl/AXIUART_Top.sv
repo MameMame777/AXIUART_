@@ -18,12 +18,15 @@ module AXIUART_Top #(
     
     // UART interface (external connections)
     input  logic        uart_rx,
-    output logic        uart_tx,
-    
-    // System status outputs
-    output logic        system_busy,
+    output logic        uart_tx
+
+    // System status outputs - simulation only
+    `ifdef DEFINE_SIM
+    // Simulation-only system status outputs
+    , output logic        system_busy,
     output logic [7:0]  system_error,
     output logic        system_ready
+    `endif
 );
 
     // Internal AXI4-Lite interface connecting UART bridge to register block
@@ -106,9 +109,11 @@ module AXIUART_Top #(
     // Implements proper AXI handshaking and response multiplexing
     
     // Address decode signals
-    // System status outputs (simplified)
+    // System status outputs (simulation only)
+    `ifdef DEFINE_SIM
     assign system_busy = bridge_busy;
     assign system_error = (bridge_error_code != 8'h00);
     assign system_ready = !system_busy && !system_error;
+    `endif
 
 endmodule

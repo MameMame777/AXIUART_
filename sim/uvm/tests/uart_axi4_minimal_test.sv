@@ -19,10 +19,14 @@ class uart_axi4_minimal_test extends uart_axi4_base_test;
         repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
         
         // Monitor system status signals
+        `ifdef DEFINE_SIM
         `uvm_info("MINIMAL_TEST", $sformatf("System Status - Ready: %b, Busy: %b, Error: %b", 
                   uart_axi4_tb_top.dut.system_ready,
                   uart_axi4_tb_top.dut.system_busy, 
                   uart_axi4_tb_top.dut.system_error), UVM_LOW)
+        `else
+        `uvm_info("MINIMAL_TEST", "System Status - Not available (synthesis mode)", UVM_LOW)
+        `endif
         
         // Wait a reasonable amount of time then finish the test
         `uvm_info("MINIMAL_TEST", "Waiting for system to stabilize...", UVM_LOW)

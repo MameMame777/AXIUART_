@@ -29,10 +29,14 @@ class axiuart_system_test extends uart_axi4_base_test;
         // Monitor system status
         repeat (50) @(posedge uart_axi4_tb_top.dut.clk);
         
+        `ifdef DEFINE_SIM
         `uvm_info("SYSTEM_TEST", $sformatf("System Status: Ready=%b, Busy=%b, Error=%b", 
                   uart_axi4_tb_top.dut.system_ready,
                   uart_axi4_tb_top.dut.system_busy, 
                   uart_axi4_tb_top.dut.system_error), UVM_LOW)
+        `else
+        `uvm_info("SYSTEM_TEST", "System Status: Not available (synthesis mode)", UVM_LOW)
+        `endif
         
         // Check internal register block is instantiated
         `uvm_info("SYSTEM_TEST", "Checking internal register block accessibility", UVM_LOW)
