@@ -20,9 +20,9 @@ package uart_axi4_test_pkg;
     parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
     
-    // Frame constants from protocol specification (CORRECTED)
+    // Frame constants from protocol specification
     parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'h5A;  // Host to device SOF  
-    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (FIXED: Match RTL definition)
+    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (should be same as spec)
     
     // Status codes
     parameter logic [7:0] STATUS_OK        = 8'h00;
@@ -227,6 +227,7 @@ package uart_axi4_test_pkg;
     
     // Sequence libraries (need transaction classes to be defined first)
     `include "sequences/basic_func_sequence.sv"
+    `include "sequences/debug_single_write_sequence.sv"
     `include "sequences/error_injection_sequence.sv" 
     `include "sequences/performance_test_sequence.sv"
     `include "sequences/uart_protocol_active_sequence.sv"

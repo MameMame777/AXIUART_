@@ -241,6 +241,15 @@ module Uart_Axi4_Bridge #(
     assign tx_data = tx_fifo_rd_data;
     assign tx_start = tx_start_req;  // Single-cycle pulse for UART TX
     
+    `ifdef ENABLE_DEBUG
+        always_ff @(posedge clk) begin
+            if (tx_start_req) begin
+                $display("DEBUG: Bridge TX starting - fifo_data=0x%02X, tx_data=0x%02X at time %0t", 
+                         tx_fifo_rd_data, tx_data, $time);
+            end
+        end
+    `endif
+    
     // Generate single-cycle pulse for tx_start
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -333,15 +342,33 @@ module Uart_Axi4_Bridge #(
                 builder_cmd_echo = parser_cmd;
                 builder_addr_echo = parser_addr;
                 
+                `ifdef ENABLE_DEBUG
+                    if (!builder_start_issued) begin
+                        $display("DEBUG: Bridge starting response - parser_frame_error=%b, parser_cmd=0x%02X at time %0t", 
+                                 parser_frame_error, parser_cmd, $time);
+                    end
+                `endif
+                
                 if (parser_frame_error) begin
                     // Error response
                     builder_status_code = parser_error_status;
                     builder_is_read_response = 1'b0;
                     builder_response_data_count = 6'h00;
+                    `ifdef ENABLE_DEBUG
+                        if (!builder_start_issued) begin
+                            $display("DEBUG: Bridge error response - status=0x%02X at time %0t", parser_error_status, $time);
+                        end
+                    `endif
                 end else begin
                     // Normal response
                     builder_status_code = axi_status;
                     builder_is_read_response = parser_cmd[7];  // RW bit
+                    `ifdef ENABLE_DEBUG
+                        if (!builder_start_issued) begin
+                            $display("DEBUG: Bridge normal response - axi_status=0x%02X, is_read=%b at time %0t", 
+                                     axi_status, parser_cmd[7], $time);
+                        end
+                    `endif
                     
                     if (parser_cmd[7]) begin  // Read response
                         if (axi_status == 8'h00) begin  // Success

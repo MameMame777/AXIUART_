@@ -24,6 +24,10 @@ class uart_axi4_minimal_test extends uart_axi4_base_test;
                   uart_axi4_tb_top.dut.system_busy, 
                   uart_axi4_tb_top.dut.system_error), UVM_LOW)
         
+        // Wait a reasonable amount of time then finish the test
+        `uvm_info("MINIMAL_TEST", "Waiting for system to stabilize...", UVM_LOW)
+        repeat (1000) @(posedge uart_axi4_tb_top.dut.clk);
+        
         `uvm_info("MINIMAL_TEST", "=== AXIUART_Top Minimal Test Completed ===", UVM_LOW)
         
         phase.drop_objection(this, "Minimal test completed");

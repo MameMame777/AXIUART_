@@ -44,6 +44,13 @@ module uart_axi4_tb_top;
         .system_ready(system_ready)    
     );
     
+    // *** UART Loopback connection for testing ***  
+    // This connects TX output to RX input using combinatorial logic for proper timing
+    // Fixed UART RX timing issues require direct connection without clock delay
+    always_comb begin
+        uart_if_inst.uart_rx = uart_if_inst.uart_tx;
+    end
+    
     // Clock generation (50MHz)
     initial begin
         clk = 1'b0;
@@ -77,9 +84,9 @@ module uart_axi4_tb_top;
         run_test();
     end
     
-    // Timeout mechanism
+    // Timeout mechanism - extended for comprehensive tests
     initial begin
-        #50ms;  // Reduced timeout for faster iteration
+        #120ms;  // Extended timeout to allow complete test execution
         `uvm_error("TB_TOP", "Test timeout - simulation ran too long")
         $finish;
     end

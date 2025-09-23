@@ -40,6 +40,13 @@ class uart_axi4_basic_sequence extends uvm_sequence #(uart_frame_transaction);
                 }
             })
             
+            // Initialize data array with predictable values after randomization
+            if (!req.cmd[7]) begin // Write command
+                for (int j = 0; j < req.data.size(); j++) begin
+                    req.data[j] = 8'h10 + i + j;
+                end
+            end
+            
             `uvm_info("BASIC_SEQ", $sformatf("Transaction %0d: CMD=0x%02X, ADDR=0x%08X", 
                       i+1, req.cmd, req.addr), UVM_MEDIUM)
         end

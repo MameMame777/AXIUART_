@@ -130,6 +130,14 @@ module Frame_Builder (
         crc_reset = 1'b0;
         crc_data_in = '0;
         
+        `ifdef ENABLE_DEBUG
+            if (build_response_edge) begin
+                $display("DEBUG: Frame_Builder triggered - cmd_echo=0x%02X, status_code=0x%02X at time %0t", 
+                         cmd_echo, status_code, $time);
+            end
+        `endif
+        crc_data_in = '0;
+        
         case (state)
             IDLE: begin
                 crc_reset = 1'b1;  // Reset CRC for new frame
@@ -142,6 +150,9 @@ module Frame_Builder (
                 if (!tx_fifo_full) begin
                     tx_fifo_data = SOF_DEVICE_TO_HOST;
                     tx_fifo_wr_en = 1'b1;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X at time %0t", SOF_DEVICE_TO_HOST, $time);
+                    `endif
                     state_next = STATUS;
                 end
             end
@@ -152,6 +163,9 @@ module Frame_Builder (
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = status_reg;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X at time %0t", status_reg, $time);
+                    `endif
                     state_next = CMD;
                 end
             end
@@ -164,13 +178,18 @@ module Frame_Builder (
                     crc_data_in = cmd_reg;
                     
                     // Decide next state based on response type and status
-                    // Write response (MSB=0): STATUS + CMD + CRC (4 bytes)
-                    // Read response (MSB=1): STATUS + CMD + ADDR + DATA + CRC (7+ bytes)
-                    if ((status_reg == STATUS_OK) && cmd_reg[7]) begin  // Read command check using cmd_reg MSB
+                    // Write response (MSB=0): SOF + STATUS + CMD + CRC (4 bytes total)
+                    // Read response (MSB=1): SOF + STATUS + CMD + ADDR + DATA + CRC (7+ bytes total)
+                    
+                    // Force Write responses to be exactly 4 bytes by checking MSB=0
+                    if (cmd_reg[7] == 1'b0) begin  // Write command (MSB=0)
+                        // Write response: go directly to CRC after CMD
+                        state_next = CRC;
+                    end else if ((status_reg == STATUS_OK) && cmd_reg[7]) begin  // Read command (MSB=1) 
                         // Successful read response includes address and data
                         state_next = ADDR_BYTE0;
                     end else begin
-                        // Write response or error response - go directly to CRC
+                        // Error response - go directly to CRC
                         state_next = CRC;
                     end
                 end

@@ -227,8 +227,14 @@ module Frame_Parser #(
                 if (!rx_fifo_empty && (rx_fifo_data == SOF_HOST_TO_DEVICE)) begin
                     rx_fifo_rd_en = 1'b1;
                     state_next = CMD;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser SOF detected = 0x%02X at time %0t", rx_fifo_data, $time);
+                    `endif
                 end else if (!rx_fifo_empty) begin
                     rx_fifo_rd_en = 1'b1;  // Discard invalid SOF
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser invalid SOF discarded = 0x%02X at time %0t", rx_fifo_data, $time);
+                    `endif
                 end
             end
             
@@ -311,8 +317,19 @@ module Frame_Parser #(
             VALIDATE: begin
                 if (frame_consumed) begin
                     state_next = IDLE;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser frame consumed, returning to IDLE at time %0t", $time);
+                    `endif
                 end else begin
                     state_next = VALIDATE;  // Stay in VALIDATE until frame is consumed
+                    `ifdef ENABLE_DEBUG
+                        if (error_status_reg == STATUS_OK) begin
+                            $display("DEBUG: Frame_Parser VALID frame ready (waiting for consumption) at time %0t", $time);
+                        end else begin
+                            $display("DEBUG: Frame_Parser INVALID frame (status=0x%02X) waiting for consumption at time %0t", 
+                                     error_status_reg, $time);
+                        end
+                    `endif
                 end
             end
             

@@ -70,6 +70,9 @@ module Uart_Tx #(
             if (tx_start && (tx_state == IDLE)) begin
                 tx_shift_reg <= tx_data;
                 bit_counter <= '0;
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: UART_TX loading data = 0x%02X at time %0t", tx_data, $time);
+                `endif
             end else if (baud_tick && (tx_state == DATA_BITS)) begin
                 bit_counter <= bit_counter + 1;
             end else if (tx_state == IDLE) begin
@@ -100,6 +103,10 @@ module Uart_Tx #(
                 if (baud_tick) begin
                     // Shift right for LSB-first transmission
                     tx_shift_reg_next = {1'b0, tx_shift_reg[7:1]};
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: UART_TX bit %0d = %b (shift_reg=0b%08b) at time %0t", 
+                                bit_counter, tx_shift_reg[0], tx_shift_reg, $time);
+                    `endif
                     
                     if (bit_counter == 7) begin
                         tx_state_next = STOP_BIT;

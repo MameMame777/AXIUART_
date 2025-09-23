@@ -10,11 +10,11 @@
 +define+ENABLE_DEBUG
 
 # Include paths for file resolution
-+incdir+.
-+incdir+env
-+incdir+agents
-+incdir+sequences
-+incdir+tests
++incdir+..
++incdir+../env
++incdir+../agents
++incdir+../sequences
++incdir+../tests
 
 # RTL source files (in dependency order)
 ../../rtl/interfaces/uart_if.sv
@@ -32,15 +32,13 @@
 ../../rtl/AXIUART_Top.sv
 
 # Assertions modules
-rtl/uart_axi4_assertions.sv
-# tb/axi4_lite_protocol_assertions.sv  # Temporarily disabled for debug
+../rtl/uart_axi4_assertions.sv
 
 # UVM package files (in dependency order)
-# packages/sequence_lib_pkg.sv  # Removed - merged into main package
-packages/uart_axi4_test_pkg.sv
+../packages/uart_axi4_test_pkg.sv
 
 # Testbench top
-tb/uart_axi4_tb_top.sv
+../tb/uart_axi4_tb_top.sv
 
 # Compilation options
 +define+UVM_NO_DPI
@@ -54,13 +52,13 @@ tb/uart_axi4_tb_top.sv
 # Include directories
 +incdir+../../rtl
 +incdir+../../rtl/interfaces
-+incdir+packages
-+incdir+env
-+incdir+agents/uart
-+incdir+agents/axi4_lite
-+incdir+sequences
-+incdir+tests
-+incdir+tb
++incdir+../packages
++incdir+../env
++incdir+../agents/uart
++incdir+../agents/axi4_lite
++incdir+../sequences
++incdir+../tests
++incdir+../tb
 
 # Coverage options
 +cover+fsm+line+cond+tgl+branch
