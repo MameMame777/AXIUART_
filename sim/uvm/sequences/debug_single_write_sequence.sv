@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // Simple Write-Only debug test sequence
 class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_transaction);
     

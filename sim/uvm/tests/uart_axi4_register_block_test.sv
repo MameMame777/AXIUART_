@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // =============================================================================
 // uart_axi4_register_block_test.sv
 // Register_Block AXI4-Lite Transaction Diagnostic Test

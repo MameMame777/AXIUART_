@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 //=============================================================================
 // Simplified Register Sweep for Toggle Coverage Enhancement
 // Purpose: Minimal register access pattern to improve toggle coverage

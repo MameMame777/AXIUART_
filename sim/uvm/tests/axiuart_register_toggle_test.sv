@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 //=============================================================================
 // Register Sweep Toggle Coverage Test
 // Purpose: Execute dedicated register access sequence to improve toggle coverage

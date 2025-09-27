@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 //=============================================================================
 // Extended Basic Test for Toggle Coverage Enhancement
 // Purpose: Execute multiple basic test iterations to improve toggle coverage

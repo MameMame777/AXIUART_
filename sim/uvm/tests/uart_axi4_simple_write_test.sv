@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // Simple Write-Only Test for UART-AXI4 Bridge
 class uart_axi4_simple_write_test extends uart_axi4_base_test;
     

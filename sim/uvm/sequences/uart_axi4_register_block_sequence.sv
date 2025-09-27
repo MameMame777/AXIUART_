@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // =============================================================================
 // uart_axi4_register_block_sequence.sv
 // Register Block AXI4-Lite Diagnostic Sequence
