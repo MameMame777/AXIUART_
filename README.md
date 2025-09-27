@@ -31,6 +31,12 @@ AXIUART_/
 │       ├── tests/          # Test cases
 │       └── sequences/      # Test sequences
 ├── docs/                    # Documentation
+│   ├── verification_execution_plan.md    # 検証実行計画書
+│   ├── verification_checklist.md         # 作業チェックリスト
+│   ├── next_worker_instructions.md       # 次作業者への指示書
+│   ├── design_overview.md               # システム設計概要
+│   ├── uart_axi4_protocol.md           # プロトコル仕様
+│   └── register_map.md                  # レジスタマップ
 ├── reference/               # Reference materials
 └── scripts/                # Build and run scripts
 ```
@@ -89,7 +95,43 @@ The system uses a custom frame protocol over UART to access internal registers:
 
 ### UVM System-Level Testbench
 
-The verification environment provides comprehensive system-level testing:
+The verification environment provides comprehensive system-level testing using UVM 1.2 framework:
+
+#### 🎯 Current Verification Status (2025年9月26日)
+
+| メトリクス | 現状 | 目標 | 状況 |
+|------------|------|------|------|
+| **Line Coverage** | ✅ 100.0% | 100.0% | 達成済み |
+| **Toggle Coverage** | ⚠️ 22.7% | >85.0% | 改善要 |
+| **Expression Coverage** | ⚠️ 66.7% | >90.0% | 改善要 |
+| **Functional Coverage** | ❌ 0.0% | >80.0% | 未実装 |
+
+#### 🚀 Quick Start - 検証実行
+
+```powershell
+# 作業ディレクトリに移動
+cd E:\Nautilus\workspace\fpgawork\AXIUART_\sim\uvm
+
+# 基本テスト実行
+.\run_uvm.ps1 -TestName "uart_axi4_basic_test" -Waves
+
+# 包括的カバレッジテスト実行 (58分)
+.\run_uvm.ps1 -TestName "uart_axi4_advanced_coverage_test" -Waves
+
+# カバレッジレポート確認
+dcreport.exe metrics.db -out_dir coverage_report
+Start-Process "coverage_report\index.html"
+```
+
+#### 📚 検証ドキュメント
+
+作業を開始する前に以下のドキュメントを必ず確認してください：
+
+- **🎯 [次作業者への指示書](docs/next_worker_instructions.md)** - 今すぐ実行すべき作業
+- **📋 [検証実行計画書](docs/verification_execution_plan.md)** - 詳細な検証計画
+- **✅ [作業チェックリスト](docs/verification_checklist.md)** - 進捗管理用チェックリスト
+
+#### UVM テストベンチ構成
 
 ```text
 uart_axi4_tb_top (Testbench Top)

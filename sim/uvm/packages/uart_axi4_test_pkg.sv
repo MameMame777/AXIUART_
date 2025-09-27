@@ -56,13 +56,17 @@ package uart_axi4_test_pkg;
     // UART frame transaction class
     class uart_frame_transaction extends uvm_sequence_item;
         
-        // Frame fields
-        rand logic [7:0]  sof;      // Start of Frame byte (missing field)
+        // Frame fields - standardized naming
+        rand logic [7:0]  sof;      // Start of Frame byte
         rand logic [7:0]  cmd;
         rand logic [31:0] addr;
-        rand logic [7:0]  len;      // Length byte (missing field)  
+        rand logic [7:0]  len;      // Length byte
         rand logic [7:0]  data[];
         logic [7:0]       crc;
+        
+        // Standardized frame fields for compatibility
+        rand logic [7:0]  frame_data[];  // Complete frame data including SOF, CMD, ADDR, DATA, CRC
+        rand int          frame_length;  // Total frame length in bytes
         
         // Transaction type
         rand bit is_write;
@@ -75,12 +79,14 @@ package uart_axi4_test_pkg;
         realtime timestamp;
         bit crc_valid;
         
-        // Error injection fields
+        // Error injection fields - standardized
         bit force_crc_error = 0;
         bit force_timeout = 0;
         bit corrupt_frame_format = 0;
         bit truncate_frame = 0;
         bit wrong_sof = 0;
+        bit error_inject = 0;        // General error injection flag
+        bit data_randomization = 0;  // Data randomization control
         
         // Response fields
         logic [7:0] response_status;
@@ -114,6 +120,8 @@ package uart_axi4_test_pkg;
             `uvm_field_int(len, UVM_ALL_ON)
             `uvm_field_array_int(data, UVM_ALL_ON)
             `uvm_field_int(crc, UVM_ALL_ON)
+            `uvm_field_array_int(frame_data, UVM_ALL_ON)
+            `uvm_field_int(frame_length, UVM_ALL_ON)
             `uvm_field_int(is_write, UVM_ALL_ON)
             `uvm_field_int(auto_increment, UVM_ALL_ON)
             `uvm_field_int(size, UVM_ALL_ON)
@@ -121,6 +129,8 @@ package uart_axi4_test_pkg;
             `uvm_field_enum(uart_direction_t, direction, UVM_ALL_ON)
             `uvm_field_real(timestamp, UVM_ALL_ON)
             `uvm_field_int(crc_valid, UVM_ALL_ON)
+            `uvm_field_int(error_inject, UVM_ALL_ON)
+            `uvm_field_int(data_randomization, UVM_ALL_ON)
             `uvm_field_int(response_status, UVM_ALL_ON)
             `uvm_field_array_int(response_data, UVM_ALL_ON)
             `uvm_field_int(response_received, UVM_ALL_ON)
@@ -165,6 +175,19 @@ package uart_axi4_test_pkg;
         function void post_randomize();
             build_cmd();
             calculate_crc();
+            
+            // Synchronize frame_data with data array
+            if (data.size() > 0) begin
+                frame_data = new[data.size()];
+                for (int i = 0; i < data.size(); i++) begin
+                    frame_data[i] = data[i];
+                end
+                frame_length = data.size();
+            end else begin
+                frame_data = new[1];
+                frame_data[0] = 8'h00;
+                frame_length = 0;
+            end
             
             // Initialize coverage support fields
             target_addr = addr;
@@ -267,6 +290,7 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_protocol_active_sequence.sv"
     `include "sequences/uart_axi4_frame_builder_sequence.sv"
     `include "sequences/uart_axi4_register_block_sequence.sv"
+    `include "sequences/coverage_sequences.sv"
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
@@ -275,6 +299,7 @@ package uart_axi4_test_pkg;
     `include "tests/uart_axi4_basic_test.sv"
     // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
     `include "tests/uart_coverage_debug_test.sv"
+    `include "tests/uart_axi4_optimized_coverage_test.sv"
     `include "tests/uart_axi4_register_block_test.sv"
     // `include "tests/axiuart_register_toggle_test.sv"  // Temporarily disabled - field definition issues  
     // `include "tests/simple_register_sweep_test.sv"    // Temporarily disabled - field definition issues

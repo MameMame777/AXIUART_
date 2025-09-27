@@ -8,6 +8,7 @@
 +define+UVM_NO_DEPRECATED
 +define+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR
 +define+ENABLE_DEBUG
++define+DEFINE_SIM
 
 # Include paths for file resolution
 +incdir+.
@@ -41,6 +42,8 @@
 packages/uart_axi4_test_pkg.sv
 packages/axiuart_cov_pkg.sv
 sequences/axiuart_error_sequences_pkg.sv
+tests/uart_axi4_advanced_coverage_test.sv
+tests/uart_axi4_optimized_coverage_test.sv
 
 # Testbench top
 tb/uart_axi4_tb_top.sv

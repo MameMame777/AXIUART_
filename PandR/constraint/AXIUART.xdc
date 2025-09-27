@@ -58,7 +58,7 @@ set_output_delay -clock [get_clocks sys_clk_pin] -max 3.0 [get_ports {uart_tx}]
 # False path constraints for asynchronous UART receive signal
 # UART RX is asynchronous and handled by oversampling in RTL
 set_false_path -from [get_ports uart_rx] -to [get_clocks sys_clk_pin]
-
+set_false_path -from [get_clocks sys_clk_pin] -to [get_ports uart_tx]
 # Reset signal is external and asynchronous
 set_false_path -from [get_ports rst] -to [all_clocks]
 
