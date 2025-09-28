@@ -14,6 +14,7 @@ class uart_axi4_base_test extends uvm_test;
     
     // Virtual interfaces - UART only for AXIUART_Top
     virtual uart_if uart_vif;
+    virtual bridge_status_if bridge_status_vif;
     // Note: No external AXI interface for AXIUART_Top
     
     function new(string name = "uart_axi4_base_test", uvm_component parent = null);
@@ -32,14 +33,20 @@ class uart_axi4_base_test extends uvm_test;
             `uvm_fatal("BASE_TEST", "Failed to get UART virtual interface")
         end
         
+        if (!uvm_config_db#(virtual bridge_status_if)::get(this, "", "bridge_status_vif", bridge_status_vif)) begin
+            `uvm_fatal("BASE_TEST", "Failed to get bridge status virtual interface")
+        end
+
         // Note: No AXI interface needed for AXIUART_Top (uses internal AXI)
         
         // Set interfaces in configuration
         cfg.uart_vif = uart_vif;
+        cfg.bridge_status_vif = bridge_status_vif;
         
         // Set configuration in database
         uvm_config_db#(uart_axi4_env_config)::set(this, "*", "cfg", cfg);
         uvm_config_db#(virtual uart_if)::set(this, "*", "vif", uart_vif);
+    uvm_config_db#(virtual bridge_status_if)::set(this, "*", "bridge_status_vif", bridge_status_vif);
         
         // Create environment - re-enabled
         env = uart_axi4_env::type_id::create("env", this);

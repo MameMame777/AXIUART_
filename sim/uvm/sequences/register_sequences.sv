@@ -343,11 +343,8 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
         int unsigned baud_values [4] = '{434, 217, 108, 54};
         int unsigned timeout_values [4] = '{500, 1000, 2000, 4000};
 
-        // CONTROL register: enable and status reset pulse
-        drive_write(REG_CONTROL, 32'h0000_0001, 1);
-        #(100ns);
-        drive_write(REG_CONTROL, 32'h0000_0003, 1);
-        #(100ns);
+        // CONTROL register: drive explicit enable/disable transitions and reset pulses
+        toggle_control_states();
 
         // CONFIG register: sweep baud and timeout fields
         for (int i = 0; i < CONFIG_SWEEPS; i++) begin
@@ -365,6 +362,31 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
             drive_write(REG_DEBUG, dbg, 1);
             #(40ns);
         end
+    endtask
+
+    // Force CONTROL register through disable/enable states to trigger toggle coverage
+    task automatic toggle_control_states();
+        // Ensure bridge starts enabled, then drive to a disabled state
+        drive_write(REG_CONTROL, 32'h0000_0001, 4);
+        #(120ns);
+        drive_write(REG_CONTROL, 32'h0000_0000, 4);
+        #(600ns);
+
+        // While disabled, sample status and issue a reset pulse without enable asserted
+        drive_read(REG_STATUS, 4, /*expect_error=*/0);
+        #(100ns);
+        drive_write(REG_CONTROL, 32'h0000_0002, 4);
+        #(120ns);
+
+        // Re-enable, apply enable+reset, then add a second disable window for coverage margin
+        drive_write(REG_CONTROL, 32'h0000_0001, 4);
+        #(120ns);
+        drive_write(REG_CONTROL, 32'h0000_0003, 4);
+        #(150ns);
+        drive_write(REG_CONTROL, 32'h0000_0000, 4);
+        #(600ns);
+        drive_write(REG_CONTROL, 32'h0000_0001, 4);
+        #(120ns);
     endtask
 
     // Apply different timing gaps and burst patterns to stress FIFOs

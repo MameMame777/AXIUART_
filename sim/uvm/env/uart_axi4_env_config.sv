@@ -23,6 +23,7 @@ class uart_axi4_env_config extends uvm_object;
     
     // Virtual interfaces
     virtual uart_if uart_vif;
+    virtual bridge_status_if bridge_status_vif;
     // Note: No external AXI interface for AXIUART_Top
     
     // UART protocol parameters

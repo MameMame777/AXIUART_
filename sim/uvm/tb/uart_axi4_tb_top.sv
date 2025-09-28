@@ -19,10 +19,12 @@ module uart_axi4_tb_top;
     logic system_ready;
     logic system_busy;
     logic [7:0] system_error;
+    logic bridge_enable_state;
     `endif
     
     // Interface instances
     uart_if uart_if_inst(clk, rst_n);
+    bridge_status_if status_if(clk);
     // Note: AXIUART_Top uses internal AXI interface, no external AXI connections
 
     // Optional internal loopback control (disabled by default)
@@ -59,9 +61,24 @@ module uart_axi4_tb_top;
         ,
         .system_busy(system_busy),      
         .system_error(system_error),     
-        .system_ready(system_ready)
+        .system_ready(system_ready),
+        .bridge_enable_state(bridge_enable_state)
         `endif    
     );
+
+    // Bridge status interface wiring
+    assign status_if.rst_n = rst_n;
+    `ifdef DEFINE_SIM
+    assign status_if.bridge_enable = bridge_enable_state;
+    assign status_if.bridge_busy = system_busy;
+    assign status_if.bridge_error = system_error;
+    assign status_if.system_ready = system_ready;
+    `else
+    assign status_if.bridge_enable = 1'b0;
+    assign status_if.bridge_busy = 1'b0;
+    assign status_if.bridge_error = 8'h00;
+    assign status_if.system_ready = 1'b0;
+    `endif
     
     // *** UART Loopback connection (legacy bring-up mode) ***
     // Disabled for full-system verification so the UVM driver controls uart_rx.
@@ -96,6 +113,7 @@ module uart_axi4_tb_top;
         // Set virtual interfaces in config database
         uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
         uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
+    uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
         // Note: AXIUART_Top uses internal AXI interface - no external AXI interface to set
         
         // Enable waveform dumping

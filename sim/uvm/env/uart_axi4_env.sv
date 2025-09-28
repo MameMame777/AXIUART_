@@ -15,6 +15,7 @@ class uart_axi4_env extends uvm_env;
     // Analysis components
     uart_axi4_scoreboard scoreboard;
     uart_axi4_coverage coverage;
+    bridge_status_monitor bridge_status_mon;
     
     function new(string name = "uart_axi4_env", uvm_component parent = null);
         super.new(name, parent);
@@ -44,6 +45,11 @@ class uart_axi4_env extends uvm_env;
         if (cfg.enable_coverage) begin
             coverage = uart_axi4_coverage::type_id::create("coverage", this);
             uvm_config_db#(uart_axi4_env_config)::set(this, "coverage", "cfg", cfg);
+        end
+
+        if (cfg.enable_system_status_monitoring) begin
+            bridge_status_mon = bridge_status_monitor::type_id::create("bridge_status_mon", this);
+            uvm_config_db#(uart_axi4_env_config)::set(this, "bridge_status_mon", "cfg", cfg);
         end
     endfunction
     

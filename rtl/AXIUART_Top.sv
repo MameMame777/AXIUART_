@@ -25,7 +25,8 @@ module AXIUART_Top #(
     // Simulation-only system status outputs
     , output logic        system_busy,
     output logic [7:0]  system_error,
-    output logic        system_ready
+    output logic        system_ready,
+    output logic        bridge_enable_state
     `endif
 );
 
@@ -112,8 +113,9 @@ module AXIUART_Top #(
     // System status outputs (simulation only)
     `ifdef DEFINE_SIM
     assign system_busy = bridge_busy;
-    assign system_error = (bridge_error_code != 8'h00);
-    assign system_ready = !system_busy && !system_error;
+    assign system_error = bridge_error_code;
+    assign system_ready = !system_busy && (bridge_error_code == 8'h00);
+    assign bridge_enable_state = bridge_enable;
     `endif
 
 endmodule
