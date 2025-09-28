@@ -24,6 +24,17 @@ module uart_axi4_tb_top;
     // Interface instances
     uart_if uart_if_inst(clk, rst_n);
     // Note: AXIUART_Top uses internal AXI interface, no external AXI connections
+
+    // Optional internal loopback control (disabled by default)
+    localparam bit ENABLE_UART_LOOPBACK = 1'b0;
+
+    // Derived simulation guard to accommodate full register campaigns at 115200 baud
+    localparam time SIM_TIMEOUT = 400ms;
+
+    // Ensure the RX line idles high until the driver starts toggling it
+    initial begin
+        uart_if_inst.uart_rx = 1'b1;
+    end
     
     // DUT instance - Using complete AXIUART_Top system
     AXIUART_Top #(
@@ -52,12 +63,16 @@ module uart_axi4_tb_top;
         `endif    
     );
     
-    // *** UART Loopback connection for testing ***  
-    // This connects TX output to RX input using combinatorial logic for proper timing
-    // Fixed UART RX timing issues require direct connection without clock delay
-    always_comb begin
-        uart_if_inst.uart_rx = uart_if_inst.uart_tx;
-    end
+    // *** UART Loopback connection (legacy bring-up mode) ***
+    // Disabled for full-system verification so the UVM driver controls uart_rx.
+    // Set ENABLE_UART_LOOPBACK=1'b1 if a self-loopback is required for standalone debug.
+    generate
+        if (ENABLE_UART_LOOPBACK) begin : gen_uart_loopback
+            always_comb begin
+                uart_if_inst.uart_rx = uart_if_inst.uart_tx;
+            end
+        end
+    endgenerate
     
     // Clock generation (50MHz)
     initial begin
@@ -94,8 +109,8 @@ module uart_axi4_tb_top;
     
     // Timeout mechanism - extended for comprehensive tests
     initial begin
-        #120ms;  // Extended timeout to allow complete test execution
-        `uvm_error("TB_TOP", "Test timeout - simulation ran too long")
+        #(SIM_TIMEOUT);
+        `uvm_error("TB_TOP", $sformatf("Test timeout - simulation exceeded %0t", SIM_TIMEOUT))
         $finish;
     end
     

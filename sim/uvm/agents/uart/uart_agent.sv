@@ -9,6 +9,7 @@ class uart_agent extends uvm_agent;
     uart_driver driver;
     uart_monitor monitor;
     uvm_sequencer #(uart_frame_transaction) sequencer;
+    uvm_tlm_analysis_fifo#(uart_frame_transaction) monitor_tx_fifo;
     
     // Configuration
     uart_axi4_env_config cfg;
@@ -35,6 +36,11 @@ class uart_agent extends uvm_agent;
             sequencer = uvm_sequencer#(uart_frame_transaction)::type_id::create("sequencer", this);
             
             uvm_config_db#(uart_axi4_env_config)::set(this, "driver", "cfg", cfg);
+            monitor_tx_fifo = new("monitor_tx_fifo", this);
+            uvm_config_db#(uvm_tlm_analysis_fifo#(uart_frame_transaction))::set(this,
+                                                                               "driver",
+                                                                               "tx_response_fifo",
+                                                                               monitor_tx_fifo);
         end
     endfunction
     
@@ -44,6 +50,9 @@ class uart_agent extends uvm_agent;
         // Connect driver to sequencer if active
         if (cfg.uart_agent_is_active && driver != null && sequencer != null) begin
             driver.seq_item_port.connect(sequencer.seq_item_export);
+            if (monitor_tx_fifo != null) begin
+                monitor.item_collected_port.connect(monitor_tx_fifo.analysis_export);
+            end
         end
     endfunction
 

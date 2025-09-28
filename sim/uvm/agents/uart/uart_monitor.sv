@@ -59,8 +59,9 @@ class uart_monitor extends uvm_monitor;
         uart_frame_transaction tr;
         logic [7:0] collected_bytes[];
         logic [7:0] temp_byte;
-        int byte_count;
-        bit waiting_for_sof = 1; // Always start by waiting for SOF
+    int byte_count;
+    bit waiting_for_sof = 1; // Always start by waiting for SOF
+    int expected_length;
         
         forever begin
             if (!monitor_enabled) begin
@@ -104,73 +105,42 @@ class uart_monitor extends uvm_monitor;
                     `uvm_info("UART_MONITOR", $sformatf("Frame so far (%0d bytes): %s", byte_count, frame_str), UVM_MEDIUM)
                 end
                 
-                // Check if we have enough bytes for a complete frame
-                // For Read: SOF + CMD + ADDR[4] + CRC = 7 bytes
-                // For Write: SOF + CMD + ADDR[4] + DATA[1,2,4] + CRC = 8,9,11 bytes
-                // Temporarily use fixed 11 bytes for write commands
-                if (byte_count >= 7 && collected_bytes[1][7] == 1) begin // Read command
-                    // Try to parse the complete frame
-                    if (parse_rx_frame(collected_bytes, byte_count, tr)) begin
+                // Check if we have enough bytes for a complete frame using protocol-defined length
+                expected_length = calculate_expected_frame_length(collected_bytes, byte_count);
+
+                if (expected_length > 0 && byte_count >= expected_length) begin
+                    logic [7:0] frame_bytes_local[];
+                    frame_bytes_local = new[expected_length];
+                    for (int i = 0; i < expected_length; i++) begin
+                        frame_bytes_local[i] = collected_bytes[i];
+                    end
+
+                    if (parse_rx_frame(frame_bytes_local, expected_length, tr)) begin
                         tr.direction = UART_RX;
                         tr.timestamp = $realtime;
-                        
+
                         `uvm_info("UART_MONITOR", $sformatf("Successfully parsed RX frame: CMD=0x%02X, ADDR=0x%08X, bytes=%0d", 
-                                  tr.cmd, tr.addr, byte_count), UVM_MEDIUM)
-                        
+                                  tr.cmd, tr.addr, expected_length), UVM_MEDIUM)
+
                         // Send to analysis port
                         item_collected_port.write(tr);
-                        
+
                         // Collect coverage
                         if (coverage != null) begin
                             coverage.sample_uart_transaction(tr);
                         end
-                        
+
                         // Reset to wait for next SOF
                         waiting_for_sof = 1;
                         byte_count = 0;
                     end else begin
-                        // Parsing failed - continue collecting more bytes if reasonable
-                        if (byte_count >= 20) begin
-                            // Frame too long - reset
-                            `uvm_warning("UART_MONITOR", $sformatf("Frame too long (%0d bytes) - resetting to wait for SOF", byte_count))
-                            waiting_for_sof = 1;
-                            byte_count = 0;
-                        end
-                        // else continue collecting more bytes
-                    end
-                end else if (byte_count >= 11 && collected_bytes[1][7] == 0) begin // Write command with 4 data bytes
-                    // Try to parse the complete write frame
-                    if (parse_rx_frame(collected_bytes, byte_count, tr)) begin
-                        tr.direction = UART_RX;
-                        tr.timestamp = $realtime;
-                        
-                        `uvm_info("UART_MONITOR", $sformatf("Successfully parsed RX frame: CMD=0x%02X, ADDR=0x%08X, bytes=%0d", 
-                                  tr.cmd, tr.addr, byte_count), UVM_MEDIUM)
-                        
-                        // Send to analysis port
-                        item_collected_port.write(tr);
-                        
-                        // Collect coverage
-                        if (coverage != null) begin
-                            coverage.sample_uart_transaction(tr);
-                        end
-                        
-                        // Reset to wait for next SOF
+                        // Parsing failed - reset to search for next frame to avoid runaway buffers
+                        `uvm_warning("UART_MONITOR", $sformatf("Failed to parse RX frame with expected length %0d - resetting", expected_length))
                         waiting_for_sof = 1;
                         byte_count = 0;
-                    end else begin
-                        // Parsing failed - continue collecting more bytes if reasonable
-                        if (byte_count >= 20) begin
-                            // Frame too long - reset
-                            `uvm_warning("UART_MONITOR", $sformatf("Frame too long (%0d bytes) - resetting to wait for SOF", byte_count))
-                            waiting_for_sof = 1;
-                            byte_count = 0;
-                        end
-                        // else continue collecting more bytes
                     end
-                end // End of frame length check
-                // If frame is getting too long, reset
-                else if (byte_count > 20) begin
+                end else if (byte_count > 20) begin
+                    `uvm_warning("UART_MONITOR", $sformatf("Frame too long (%0d bytes) - resetting to wait for SOF", byte_count))
                     waiting_for_sof = 1;
                     byte_count = 0;
                 end
@@ -183,8 +153,11 @@ class uart_monitor extends uvm_monitor;
         uart_frame_transaction tr;
         logic [7:0] collected_bytes[];
         logic [7:0] temp_byte;
-        int byte_count;
-        bit frame_started = 0;
+    int byte_count;
+    int expected_length;
+    bit collect_more;
+    int bit_time_cycles;
+    int inter_byte_timeout_cycles;
         
         forever begin
             if (!monitor_enabled) begin
@@ -192,55 +165,90 @@ class uart_monitor extends uvm_monitor;
                 continue;
             end
             
-            // Wait for start of frame
-            wait (vif.uart_tx == 1'b0);
+            // Wait for the line to return to idle high, then detect the start edge
+            wait (vif.uart_tx == 1'b1);
+            @(negedge vif.uart_tx);
             
             `uvm_info("UART_MONITOR", "TX frame start detected", UVM_DEBUG)
             
             tr = uart_frame_transaction::type_id::create("uart_tx_tr");
             collected_bytes = new[100]; // Max frame size
             byte_count = 0;
-            frame_started = 1; // Initialize to collect first byte
+            expected_length = 0;
+            collect_more = 1;
+
+            bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
+            if (bit_time_cycles < 1) begin
+                bit_time_cycles = 1;
+            end
+
+            // Allow for stop bit + potential small gap between bytes
+            inter_byte_timeout_cycles = bit_time_cycles * (cfg.max_idle_cycles + 12);
             
             // Collect frame bytes
             do begin
                 collect_uart_tx_byte(temp_byte);
                 collected_bytes[byte_count] = temp_byte;
                 byte_count++;
-                
+
                 // Debug: Print each byte received
                 `uvm_info("UART_MONITOR", $sformatf("TX byte[%0d]: 0x%02X", byte_count-1, temp_byte), UVM_DEBUG)
-                
-                // Check for next byte with longer timeout for frame collection
-                fork : tx_frame_collection
-                    begin
-                        wait (vif.uart_tx == 1'b0); // Next start bit
-                        frame_started = 1;
-                    end
-                    begin
-                        // Use much longer timeout to allow complete frame collection
-                        // Inter-frame gap should be much longer than inter-byte gap
-                        repeat (cfg.max_idle_cycles * 10) @(posedge vif.clk);
-                        frame_started = 0; // Frame ended
-                    end
-                join_any
-                disable tx_frame_collection;
-                
-            end while (frame_started && byte_count < 100);
+
+                expected_length = calculate_expected_tx_frame_length(collected_bytes, byte_count);
+
+                if (expected_length > 0 && byte_count >= expected_length) begin
+                    collect_more = 0;
+                end else begin
+                    bit next_byte_pending = 0;
+
+                    fork : tx_frame_collection
+                        begin
+                            wait (vif.uart_tx == 1'b1);
+                            @(negedge vif.uart_tx); // Next start bit
+                            next_byte_pending = 1;
+                        end
+                        begin
+                            // Use a timeout aligned with UART bit timing to avoid premature termination
+                            repeat (inter_byte_timeout_cycles) @(posedge vif.clk);
+                            next_byte_pending = 0;
+                        end
+                    join_any
+                    disable tx_frame_collection;
+
+                    collect_more = next_byte_pending;
+                end
+
+            end while (collect_more && byte_count < 100);
             
-            // Simple TX frame handling without complex parsing
-            `uvm_info("UART_MONITOR", $sformatf("TX Frame detected: %0d bytes", byte_count), UVM_MEDIUM)
-            
-            // Skip complex TX parsing for now - focus on RX monitoring
+            // Store raw frame bytes for downstream consumers
+            if (byte_count > 0) begin
+                tr.frame_data = new[byte_count];
+                for (int i = 0; i < byte_count; i++) begin
+                    tr.frame_data[i] = collected_bytes[i];
+                end
+            end else begin
+                tr.frame_data = new[0];
+            end
+            tr.frame_length = byte_count;
+
+            // Attempt to parse TX frame to populate status/echo/data fields
             tr.direction = UART_TX;
             tr.timestamp = $realtime;
-            tr.response_received = 1;
-            
-            if (byte_count > 0) begin
-                tr.response_status = collected_bytes[0];
+            tr.parse_error_kind = PARSE_ERROR_NONE;
+            tr.monitor_recovered = 0;
+            if (!parse_tx_frame(collected_bytes, byte_count, tr)) begin
+                tr.response_received = 0;
+                tr.response_status = STATUS_MONITOR_PARSE_FAIL;
+                tr.crc_valid = 0;
+                tr.response_data = new[0];
+                `uvm_warning("UART_MONITOR", $sformatf("Failed to parse TX frame (%0d bytes) reason=%s", byte_count, tr.parse_error_kind.name()))
+            end else begin
+                tr.response_received = 1;
             end
-            
-            // Send to analysis port without complex validation
+
+            `uvm_info("UART_MONITOR", $sformatf("TX Frame detected: %0d bytes, status=0x%02X", byte_count, tr.response_status), UVM_MEDIUM)
+
+            // Send to analysis port for subscribers (driver, scoreboard, coverage)
             item_collected_port.write(tr);
             
             // Collect coverage
@@ -278,27 +286,39 @@ class uart_monitor extends uvm_monitor;
     
     // Collect single byte from TX line
     virtual task collect_uart_tx_byte(output logic [7:0] data);
-        int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
-        int sample_time = bit_time_cycles / 2; // Sample at bit center
-        
-        // Sample start bit - be more tolerant of timing variations
-        repeat (sample_time) @(posedge vif.clk);
+        time bit_time_ns;
+        time half_bit_ns;
+
+        bit_time_ns = (cfg.bit_time_ns > 0) ? time'(cfg.bit_time_ns) : time'(1_000_000_000 / cfg.baud_rate);
+        half_bit_ns = bit_time_ns >> 1;
+        if (half_bit_ns == 0) begin
+            half_bit_ns = 1;
+        end
+
+        // Sample start bit midpoint
+        #(half_bit_ns);
         if (vif.uart_tx != 1'b0) begin
             `uvm_info("UART_MONITOR", "TX start bit timing variation detected", UVM_DEBUG)
         end
-        
-        // Sample data bits (LSB first) at bit center
-        for (int i = 0; i < 8; i++) begin
-            repeat (bit_time_cycles) @(posedge vif.clk);
+
+        // Advance to the optimal sampling point for the first data bit.
+        #(half_bit_ns);
+        data[0] = vif.uart_tx;
+        `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", 0, data[0], $realtime), UVM_MEDIUM)
+
+        // Sample remaining data bits at full bit intervals.
+        for (int i = 1; i < 8; i++) begin
+            #(bit_time_ns);
             data[i] = vif.uart_tx;
+            `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", i, data[i], $realtime), UVM_MEDIUM)
         end
-        
-        // Sample stop bit - be more tolerant of timing variations
-        repeat (bit_time_cycles) @(posedge vif.clk);
+
+        // Sample stop bit midpoint
+        #(bit_time_ns);
         if (vif.uart_tx != 1'b1) begin
             `uvm_info("UART_MONITOR", "TX stop bit timing variation detected", UVM_DEBUG)
         end
-        
+
         `uvm_info("UART_MONITOR", $sformatf("TX byte: 0x%02X", data), UVM_DEBUG)
     endtask
     
@@ -371,16 +391,77 @@ class uart_monitor extends uvm_monitor;
                 // Read command: SOF + CMD + ADDR[4] + CRC = 7 bytes
                 calculate_expected_frame_length = 7;
             end else begin
-                // Write command: SOF + CMD + ADDR[4] + DATA[n] + CRC
-                // Decode data length from cmd[6:4]
-                case (cmd[6:4])
-                    3'b001: calculate_expected_frame_length = 8;  // 1 data byte + 7 = 8 bytes
-                    3'b010: calculate_expected_frame_length = 9;  // 2 data bytes + 7 = 9 bytes  
-                    3'b100: calculate_expected_frame_length = 11; // 4 data bytes + 7 = 11 bytes
-                    default: calculate_expected_frame_length = 0; // Invalid length code
+                int bytes_per_beat;
+                int beats;
+
+                case (cmd[5:4])
+                    2'b00: bytes_per_beat = 1; // 8-bit
+                    2'b01: bytes_per_beat = 2; // 16-bit
+                    2'b10: bytes_per_beat = 4; // 32-bit
+                    default: bytes_per_beat = 0; // Reserved/invalid sizing
                 endcase
+
+                beats = int'(cmd[3:0]) + 1;
+
+                if (bytes_per_beat == 0) begin
+                    calculate_expected_frame_length = 0;
+                end else begin
+                    // SOF + CMD + ADDR(4) + DATA(beats * bytes_per_beat) + CRC
+                    calculate_expected_frame_length = 7 + (beats * bytes_per_beat);
+                end
             end
         end
+    endfunction
+
+    // Calculate expected TX frame length based on status/command
+    virtual function int calculate_expected_tx_frame_length(logic [7:0] bytes[], int current_count);
+        logic [7:0] status;
+        logic [7:0] cmd;
+        int bytes_per_beat;
+        int beats;
+
+        if (current_count < 2) begin
+            return 0; // Need at least SOF + STATUS
+        end
+
+        if (bytes[0] != SOF_DEVICE_TO_HOST) begin
+            return 0;
+        end
+
+        status = bytes[1];
+
+        // Any non-OK status is a short (4-byte) frame: SOF, STATUS, CMD, CRC
+        if (status != STATUS_OK) begin
+            return 4;
+        end
+
+        if (current_count < 3) begin
+            return 0; // Need CMD byte to determine format
+        end
+
+        cmd = bytes[2];
+
+        // Successful write response (RW=0) is always 4 bytes
+        if (cmd[7] == 1'b0) begin
+            return 4;
+        end
+
+        // Successful read response includes echoed address and payload data
+        case (cmd[5:4])
+            2'b00: bytes_per_beat = 1;
+            2'b01: bytes_per_beat = 2;
+            2'b10: bytes_per_beat = 4;
+            default: bytes_per_beat = 0;
+        endcase
+
+        beats = int'(cmd[3:0]) + 1;
+
+        if (bytes_per_beat == 0) begin
+            return 0;
+        end
+
+        // SOF + STATUS + CMD + ADDR(4) + DATA + CRC
+        return 8 + (beats * bytes_per_beat);
     endfunction
     
     // Parse TX frame (device to host)
@@ -394,8 +475,11 @@ class uart_monitor extends uvm_monitor;
         end
         `uvm_info("UART_MONITOR", $sformatf("Parsing TX frame (%0d bytes): %s", count, frame_debug), UVM_MEDIUM)
         
+        tr.parse_error_kind = PARSE_ERROR_NONE;
+
         if (count < 4) begin // Minimum response: SOF + STATUS + CMD + CRC = 4 bytes
             `uvm_info("UART_MONITOR", $sformatf("TX frame too short: %0d bytes (need at least 4)", count), UVM_MEDIUM)
+            tr.parse_error_kind = PARSE_ERROR_LENGTH;
             return 0;
         end
         
@@ -403,6 +487,7 @@ class uart_monitor extends uvm_monitor;
         if (bytes[0] != SOF_DEVICE_TO_HOST) begin
             `uvm_info("UART_MONITOR", $sformatf("Invalid TX SOF: expected=0x%02X, got=0x%02X", 
                      SOF_DEVICE_TO_HOST, bytes[0]), UVM_MEDIUM)
+            tr.parse_error_kind = PARSE_ERROR_SOF_MISMATCH;
             return 0;
         end
         
@@ -437,6 +522,7 @@ class uart_monitor extends uvm_monitor;
         if (!tr.crc_valid) begin
             `uvm_warning("UART_MONITOR", $sformatf("TX CRC mismatch: expected=0x%02X, got=0x%02X", 
                          calculated_crc, tr.crc))
+            tr.parse_error_kind = PARSE_ERROR_CRC;
             // For debugging, let's still return success
             // return 0;
         end

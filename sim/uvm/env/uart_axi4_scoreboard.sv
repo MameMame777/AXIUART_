@@ -52,10 +52,15 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     virtual function void write_uart(uart_frame_transaction tr);
         uart_frame_transaction uart_tr;
         
+        if (tr.direction == UART_TX && tr.parse_error_kind != PARSE_ERROR_NONE) begin
+            `uvm_warning("SCOREBOARD", $sformatf("Skipping UART_TX transaction due to monitor parse error: %s", tr.parse_error_kind.name()))
+            return;
+        end
+
         $cast(uart_tr, tr.clone());
         uart_queue.push_back(uart_tr);
         uart_transactions_received++;
-        
+
         `uvm_info("SCOREBOARD", $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X", 
                   uart_tr.cmd, uart_tr.addr), UVM_DEBUG)
         

@@ -25,14 +25,24 @@ package uart_axi4_test_pkg;
     parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (should be same as spec)
     
     // Status codes
-    parameter logic [7:0] STATUS_OK        = 8'h00;
-    parameter logic [7:0] STATUS_CRC_ERR   = 8'h01;
-    parameter logic [7:0] STATUS_CMD_INV   = 8'h02;
+    parameter logic [7:0] STATUS_OK         = 8'h00;
+    parameter logic [7:0] STATUS_CRC_ERR    = 8'h01;
+    parameter logic [7:0] STATUS_CMD_INV    = 8'h02;
     parameter logic [7:0] STATUS_ADDR_ALIGN = 8'h03;
-    parameter logic [7:0] STATUS_TIMEOUT   = 8'h04;
+    parameter logic [7:0] STATUS_TIMEOUT    = 8'h04;
     parameter logic [7:0] STATUS_AXI_SLVERR = 8'h05;
-    parameter logic [7:0] STATUS_BUSY      = 8'h06;
-    parameter logic [7:0] STATUS_LEN_RANGE = 8'h07;
+    parameter logic [7:0] STATUS_BUSY       = 8'h06;
+    parameter logic [7:0] STATUS_LEN_RANGE  = 8'h07;
+    parameter logic [7:0] STATUS_MONITOR_PARSE_FAIL = 8'hF0;
+
+    typedef enum logic [2:0] {
+        PARSE_ERROR_NONE,
+        PARSE_ERROR_SOF_MISMATCH,
+        PARSE_ERROR_LENGTH,
+        PARSE_ERROR_STOP_BIT,
+        PARSE_ERROR_CRC,
+        PARSE_ERROR_PAYLOAD
+    } uart_monitor_parse_error_e;
     
     // CRC8 calculation function (polynomial 0x07)
     function automatic logic [7:0] calculate_crc8(input logic [7:0] data[], input int length);
@@ -102,8 +112,10 @@ package uart_axi4_test_pkg;
         bit          timeout_error;
         bit [2:0]    parser_state;   // FSM states
         bit [2:0]    axi_state;
-        bit [2:0]    frame_type;     // Derived field
-        bit [7:0]    crc_result;     // CRC calculation result
+    bit [2:0]    frame_type;     // Derived field
+    bit [7:0]    crc_result;     // CRC calculation result
+    uart_monitor_parse_error_e parse_error_kind;
+    bit          monitor_recovered;
         
         // Constraints
         constraint c_valid_size { size inside {2'b00, 2'b01, 2'b10}; }
@@ -134,12 +146,16 @@ package uart_axi4_test_pkg;
             `uvm_field_int(response_status, UVM_ALL_ON)
             `uvm_field_array_int(response_data, UVM_ALL_ON)
             `uvm_field_int(response_received, UVM_ALL_ON)
+            `uvm_field_enum(uart_monitor_parse_error_e, parse_error_kind, UVM_ALL_ON)
+            `uvm_field_int(monitor_recovered, UVM_ALL_ON)
         `uvm_object_utils_end
         
         function new(string name = "uart_frame_transaction");
             super.new(name);
             data = new[1];
             response_data = new[1];
+            parse_error_kind = PARSE_ERROR_NONE;
+            monitor_recovered = 0;
         endfunction
         
         // Build command byte
@@ -290,6 +306,7 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_protocol_active_sequence.sv"
     `include "sequences/uart_axi4_frame_builder_sequence.sv"
     `include "sequences/uart_axi4_register_block_sequence.sv"
+    `include "sequences/register_sequences.sv"
     `include "sequences/coverage_sequences.sv"
     
     // Test files
@@ -297,6 +314,7 @@ package uart_axi4_test_pkg;
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
+    `include "tests/register_block_tests.sv"
     // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
     `include "tests/uart_coverage_debug_test.sv"
     `include "tests/uart_axi4_optimized_coverage_test.sv"
