@@ -12,10 +12,10 @@ class uart_axi4_base_test extends uvm_test;
     uart_axi4_env env;
     uart_axi4_env_config cfg;
     
-    // Virtual interfaces - UART only for AXIUART_Top
+    // Virtual interfaces
     virtual uart_if uart_vif;
     virtual bridge_status_if bridge_status_vif;
-    // Note: No external AXI interface for AXIUART_Top
+    virtual axi4_lite_if axi_vif;
     
     function new(string name = "uart_axi4_base_test", uvm_component parent = null);
         super.new(name, parent);
@@ -28,7 +28,7 @@ class uart_axi4_base_test extends uvm_test;
         cfg = uart_axi4_env_config::type_id::create("cfg", this);
         configure_test();
         
-        // Get virtual interfaces from testbench top - UART only
+        // Get virtual interfaces from testbench top
         if (!uvm_config_db#(virtual uart_if)::get(this, "", "uart_vif", uart_vif)) begin
             `uvm_fatal("BASE_TEST", "Failed to get UART virtual interface")
         end
@@ -36,17 +36,27 @@ class uart_axi4_base_test extends uvm_test;
         if (!uvm_config_db#(virtual bridge_status_if)::get(this, "", "bridge_status_vif", bridge_status_vif)) begin
             `uvm_fatal("BASE_TEST", "Failed to get bridge status virtual interface")
         end
-
-        // Note: No AXI interface needed for AXIUART_Top (uses internal AXI)
+        
+        if (!uvm_config_db#(virtual axi4_lite_if)::get(this, "", "axi_vif", axi_vif)) begin
+            if (cfg.enable_axi_monitor) begin
+                `uvm_fatal("BASE_TEST", "AXI monitor enabled but AXI virtual interface not provided")
+            end else begin
+                `uvm_warning("BASE_TEST", "AXI virtual interface not provided; AXI monitoring disabled")
+            end
+        end
         
         // Set interfaces in configuration
         cfg.uart_vif = uart_vif;
         cfg.bridge_status_vif = bridge_status_vif;
+        cfg.axi_vif = axi_vif;
         
         // Set configuration in database
         uvm_config_db#(uart_axi4_env_config)::set(this, "*", "cfg", cfg);
         uvm_config_db#(virtual uart_if)::set(this, "*", "vif", uart_vif);
-    uvm_config_db#(virtual bridge_status_if)::set(this, "*", "bridge_status_vif", bridge_status_vif);
+        uvm_config_db#(virtual bridge_status_if)::set(this, "*", "bridge_status_vif", bridge_status_vif);
+        if (axi_vif != null) begin
+            uvm_config_db#(virtual axi4_lite_if)::set(this, "*", "axi_vif", axi_vif);
+        end
         
         // Create environment - re-enabled
         env = uart_axi4_env::type_id::create("env", this);
@@ -75,7 +85,9 @@ class uart_axi4_base_test extends uvm_test;
         cfg.enable_protocol_checking = 1;
         
         // System monitoring (AXIUART_Top specific)
-        cfg.enable_system_status_monitoring = 1;
+    cfg.enable_system_status_monitoring = 1;
+    cfg.enable_axi_monitor = 1;
+        cfg.bridge_status_verbosity = UVM_MEDIUM;
         
         `uvm_info("BASE_TEST", "Test configuration completed", UVM_MEDIUM)
     endfunction

@@ -92,6 +92,34 @@ module Axi4_Lite_Master #(
     logic [7:0] status_reg;
     logic [15:0] timeout_counter;
     logic early_busy_sent;
+
+    // Internal valid/ready tracking to avoid reading modport outputs
+    logic awvalid_int;
+    logic wvalid_int;
+    logic arvalid_int;
+    logic bready_int;
+    logic rready_int;
+
+    // Handshake indicators
+    logic aw_handshake;
+    logic w_handshake;
+    logic ar_handshake;
+    logic b_handshake;
+    logic r_handshake;
+
+    // Generate internal valid flags
+    assign awvalid_int = (state == WRITE_ADDR);
+    assign wvalid_int  = (state == WRITE_DATA);
+    assign bready_int  = (state == WRITE_RESP);
+    assign arvalid_int = (state == READ_ADDR);
+    assign rready_int  = (state == READ_DATA);
+
+    // Handshake detection logic
+    assign aw_handshake = awvalid_int && axi.awready;
+    assign w_handshake  = wvalid_int  && axi.wready;
+    assign b_handshake  = bready_int  && axi.bvalid;
+    assign ar_handshake = arvalid_int && axi.arready;
+    assign r_handshake  = rready_int  && axi.rvalid;
     
     // Timeout and busy logic
     logic timeout_occurred;
@@ -173,13 +201,13 @@ module Axi4_Lite_Master #(
                 transaction_done_reg <= 1'b1;
             end
             
-            if ((state == WRITE_RESP) && axi.bvalid && axi.bready) begin
+            if ((state == WRITE_RESP) && b_handshake) begin
                 if (axi.bresp != 2'b00) begin  // OKAY = 2'b00
                     status_reg <= STATUS_AXI_SLVERR;
                 end
             end
-            
-            if ((state == READ_DATA) && axi.rvalid && axi.rready) begin
+
+            if ((state == READ_DATA) && r_handshake) begin
                 if (axi.rresp != 2'b00) begin  // OKAY = 2'b00
                     status_reg <= STATUS_AXI_SLVERR;
                 end
@@ -209,7 +237,7 @@ module Axi4_Lite_Master #(
             end
             
             WRITE_ADDR: begin
-                if (axi.awready && axi.awvalid) begin
+                if (aw_handshake) begin
                     state_next = WRITE_DATA;
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
@@ -217,7 +245,7 @@ module Axi4_Lite_Master #(
             end
             
             WRITE_DATA: begin
-                if (axi.wready && axi.wvalid) begin
+                if (w_handshake) begin
                     state_next = WRITE_RESP;
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
@@ -225,7 +253,7 @@ module Axi4_Lite_Master #(
             end
             
             WRITE_RESP: begin
-                if (axi.bvalid && axi.bready) begin
+                if (b_handshake) begin
                     if (beat_counter >= len_field) begin
                         state_next = DONE;
                     end else begin
@@ -237,7 +265,7 @@ module Axi4_Lite_Master #(
             end
             
             READ_ADDR: begin
-                if (axi.arready && axi.arvalid) begin
+                if (ar_handshake) begin
                     state_next = READ_DATA;
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
@@ -245,7 +273,7 @@ module Axi4_Lite_Master #(
             end
             
             READ_DATA: begin
-                if (axi.rvalid && axi.rready) begin
+                if (r_handshake) begin
                     if (beat_counter >= len_field) begin
                         state_next = DONE;
                     end else begin
@@ -279,65 +307,45 @@ module Axi4_Lite_Master #(
         // Default values
         axi.awaddr = current_addr;
         axi.awprot = 3'b000;  // Non-secure, unprivileged, data access
-        axi.awvalid = 1'b0;
-        
+
         axi.wdata = '0;
         axi.wstrb = wstrb;
-        axi.wvalid = 1'b0;
-        
-        axi.bready = 1'b0;
-        
+
         axi.araddr = current_addr;
         axi.arprot = 3'b000;  // Non-secure, unprivileged, data access
-        axi.arvalid = 1'b0;
-        
-        axi.rready = 1'b0;
-        
-        // State-specific assignments
-        case (state)
-            WRITE_ADDR: begin
-                axi.awvalid = 1'b1;
-            end
-            
-            WRITE_DATA: begin
-                axi.wvalid = 1'b1;
-                // Pack write data based on size and byte index
-                case (size_field)
-                    2'b00: begin  // 8-bit
-                        axi.wdata[7:0] = write_data[data_byte_index];
-                    end
-                    2'b01: begin  // 16-bit
-                        axi.wdata[7:0] = write_data[data_byte_index];
-                        axi.wdata[15:8] = write_data[data_byte_index + 1];
-                    end
-                    2'b10: begin  // 32-bit
-                        axi.wdata[7:0] = write_data[data_byte_index];
-                        axi.wdata[15:8] = write_data[data_byte_index + 1];
-                        axi.wdata[23:16] = write_data[data_byte_index + 2];
-                        axi.wdata[31:24] = write_data[data_byte_index + 3];
-                    end
-                endcase
-            end
-            
-            WRITE_RESP: begin
-                axi.bready = 1'b1;
-            end
-            
-            READ_ADDR: begin
-                axi.arvalid = 1'b1;
-            end
-            
-            READ_DATA: begin
-                axi.rready = 1'b1;
-            end
-        endcase
+
+        // Assign interface signals
+        axi.awvalid = awvalid_int;
+        axi.wvalid  = wvalid_int;
+        axi.bready  = bready_int;
+        axi.arvalid = arvalid_int;
+        axi.rready  = rready_int;
+
+        // Pack write data based on size and byte index when active
+        if (wvalid_int) begin
+            case (size_field)
+                2'b00: begin  // 8-bit
+                    axi.wdata[7:0] = write_data[data_byte_index];
+                end
+                2'b01: begin  // 16-bit
+                    axi.wdata[7:0]  = write_data[data_byte_index];
+                    axi.wdata[15:8] = write_data[data_byte_index + 1];
+                end
+                2'b10: begin  // 32-bit
+                    axi.wdata[7:0]   = write_data[data_byte_index];
+                    axi.wdata[15:8]  = write_data[data_byte_index + 1];
+                    axi.wdata[23:16] = write_data[data_byte_index + 2];
+                    axi.wdata[31:24] = write_data[data_byte_index + 3];
+                end
+            endcase
+        end
     end
     
     // Read data capture
     always_ff @(posedge clk) begin
         if (rst) begin
             read_data_count <= '0;
-        end else if ((state == READ_DATA) && axi.rvalid && axi.rready) begin
+        end else if ((state == READ_DATA) && r_handshake) begin
             // Unpack read data based on size
             case (size_field)
                 2'b00: begin  // 8-bit
@@ -368,5 +376,53 @@ module Axi4_Lite_Master #(
     // Transaction done signal - hold high until next transaction starts
     assign transaction_done = transaction_done_reg;
     assign axi_status = status_reg;
+
+    `ifdef ENABLE_DEBUG
+    function automatic string axi_master_state_to_string(axi_state_t s);
+        case (s)
+            IDLE:            return "IDLE";
+            CHECK_ALIGNMENT: return "CHECK_ALIGNMENT";
+            WRITE_ADDR:      return "WRITE_ADDR";
+            WRITE_DATA:      return "WRITE_DATA";
+            WRITE_RESP:      return "WRITE_RESP";
+            READ_ADDR:       return "READ_ADDR";
+            READ_DATA:       return "READ_DATA";
+            NEXT_BEAT:       return "NEXT_BEAT";
+            DONE:            return "DONE";
+            ERROR:           return "ERROR";
+            default:         return "UNKNOWN";
+        endcase
+    endfunction
+
+    axi_state_t state_debug_prev;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state_debug_prev <= IDLE;
+        end else begin
+            if (state != state_debug_prev) begin
+                $display("DEBUG: AXI Master state %s -> %s at time %0t", 
+                         axi_master_state_to_string(state_debug_prev),
+                         axi_master_state_to_string(state), $time);
+            end
+            if (aw_handshake) begin
+                $display("DEBUG: AXI Master AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
+            end
+            if (w_handshake) begin
+                $display("DEBUG: AXI Master W handshake data=0x%08X wstrb=0x%X at time %0t", axi.wdata, axi.wstrb, $time);
+            end
+            if (b_handshake) begin
+                $display("DEBUG: AXI Master B handshake resp=0x%0X at time %0t", axi.bresp, $time);
+            end
+            if (ar_handshake) begin
+                $display("DEBUG: AXI Master AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
+            end
+            if (r_handshake) begin
+                $display("DEBUG: AXI Master R handshake data=0x%08X resp=0x%0X at time %0t", axi.rdata, axi.rresp, $time);
+            end
+            state_debug_prev <= state;
+        end
+    end
+    `endif
 
 endmodule

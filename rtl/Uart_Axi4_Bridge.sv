@@ -21,6 +21,7 @@ module Uart_Axi4_Bridge #(
     
     // AXI4-Lite master interface
     axi4_lite_if.master axi,
+    input  logic        bridge_enable,
     
     // Status monitoring outputs
     output logic        bridge_busy,            // Bridge is actively processing
@@ -102,10 +103,14 @@ module Uart_Axi4_Bridge #(
         MAIN_IDLE,
         MAIN_AXI_TRANSACTION,
         MAIN_BUILD_RESPONSE,
-        MAIN_WAIT_RESPONSE
+        MAIN_WAIT_RESPONSE,
+        MAIN_DISABLED_RESPONSE
     } main_state_t;
     
     main_state_t main_state, main_state_next;
+
+    localparam logic [31:0] CONTROL_ADDR = 32'h0000_1000;
+    localparam logic [7:0] STATUS_BUSY_CODE = 8'h06;
     
     // UART RX instance
     Uart_Rx #(
@@ -288,7 +293,7 @@ module Uart_Axi4_Bridge #(
             if (main_state != MAIN_AXI_TRANSACTION) begin
                 axi_start_issued <= 1'b0;
             end
-            if (main_state != MAIN_BUILD_RESPONSE) begin
+            if ((main_state != MAIN_BUILD_RESPONSE) && (main_state != MAIN_DISABLED_RESPONSE)) begin
                 builder_start_issued <= 1'b0;
             end
             
@@ -296,13 +301,15 @@ module Uart_Axi4_Bridge #(
             if (main_state == MAIN_AXI_TRANSACTION && !axi_start_issued) begin
                 axi_start_issued <= 1'b1;
             end
-            if (main_state == MAIN_BUILD_RESPONSE && !builder_start_issued) begin
+            if (((main_state == MAIN_BUILD_RESPONSE) || (main_state == MAIN_DISABLED_RESPONSE)) && !builder_start_issued) begin
                 builder_start_issued <= 1'b1;
             end
         end
     end
 
     // Main control state machine (combinational part)
+    logic control_write_cmd;
+
     always_comb begin
         main_state_next = main_state;
         axi_start_transaction = 1'b0;
@@ -313,6 +320,8 @@ module Uart_Axi4_Bridge #(
         builder_cmd_echo = 8'h00;
         builder_addr_echo = 32'h00000000;
         builder_response_data_count = 6'h00;
+
+        control_write_cmd = (!parser_cmd[7]) && (parser_addr == CONTROL_ADDR);
         
         // Copy AXI read data to builder response data
         for (int i = 0; i < 64; i++) begin
@@ -322,7 +331,11 @@ module Uart_Axi4_Bridge #(
         case (main_state)
             MAIN_IDLE: begin
                 if (parser_frame_valid) begin
-                    main_state_next = MAIN_AXI_TRANSACTION;
+                    if (!bridge_enable && !control_write_cmd) begin
+                        main_state_next = MAIN_DISABLED_RESPONSE;
+                    end else begin
+                        main_state_next = MAIN_AXI_TRANSACTION;
+                    end
                 end else if (parser_frame_error) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
                 end
@@ -389,6 +402,16 @@ module Uart_Axi4_Bridge #(
                     parser_frame_consumed = 1'b1;
                     main_state_next = MAIN_IDLE;
                 end
+            end
+
+            MAIN_DISABLED_RESPONSE: begin
+                builder_build_response = !builder_start_issued;
+                builder_cmd_echo = parser_cmd;
+                builder_addr_echo = parser_addr;
+                builder_status_code = STATUS_BUSY_CODE;
+                builder_is_read_response = parser_cmd[7];
+                builder_response_data_count = 6'h00;
+                main_state_next = MAIN_WAIT_RESPONSE;
             end
         endcase
     end

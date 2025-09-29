@@ -13,6 +13,7 @@ class uart_axi4_env_config extends uvm_object;
     bit enable_coverage = 1'b1;
     bit enable_scoreboard = 1'b1;
     bit enable_protocol_checking = 1'b1;
+    bit enable_axi_monitor = 1'b1;
     
     // Agent configurations - Modified for AXIUART_Top
     bit uart_agent_is_active = 1'b1;
@@ -20,11 +21,13 @@ class uart_axi4_env_config extends uvm_object;
     
     // System status monitoring
     bit enable_system_status_monitoring = 1'b1;
+    int bridge_status_verbosity = UVM_LOW;
     
     // Virtual interfaces
     virtual uart_if uart_vif;
     virtual bridge_status_if bridge_status_vif;
-    // Note: No external AXI interface for AXIUART_Top
+    virtual axi4_lite_if axi_vif;
+    // AXIUART_Top exposes internal AXI via virtual interface for monitoring
     
     // UART protocol parameters
     int min_uart_response_delay = 1;
@@ -33,6 +36,7 @@ class uart_axi4_env_config extends uvm_object;
     // Timeout values
     int frame_timeout_ns = 1_000_000; // 1ms
     int system_timeout_cycles = 1000;
+    int axi_timeout_cycles = 1000;
     
     // Test stimulus parameters
     int num_transactions = 100;
@@ -47,11 +51,14 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(enable_coverage, UVM_ALL_ON)
         `uvm_field_int(enable_scoreboard, UVM_ALL_ON)
         `uvm_field_int(enable_protocol_checking, UVM_ALL_ON)
+        `uvm_field_int(enable_axi_monitor, UVM_ALL_ON)
         `uvm_field_int(uart_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(axi_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(enable_system_status_monitoring, UVM_ALL_ON)
+        `uvm_field_int(bridge_status_verbosity, UVM_ALL_ON)
         `uvm_field_int(frame_timeout_ns, UVM_ALL_ON)
-        `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
+    `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
+    `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(num_transactions, UVM_ALL_ON)
         `uvm_field_int(min_idle_cycles, UVM_ALL_ON)
         `uvm_field_int(max_idle_cycles, UVM_ALL_ON)

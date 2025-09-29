@@ -287,6 +287,7 @@ package uart_axi4_test_pkg;
     // First include coverage and scoreboard (needed by monitor)
     `include "env/uart_axi4_coverage.sv"
     `include "env/uart_axi4_scoreboard.sv"
+    `include "agents/axi4_lite/axi4_lite_monitor.sv"
     `include "monitors/bridge_status_monitor.sv"
     
     // Then include driver and monitor classes

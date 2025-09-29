@@ -10,7 +10,7 @@ class uart_axi4_env extends uvm_env;
     
     // Agents - UART only for AXIUART_Top (no external AXI interface)
     uart_agent uart_agt;
-    // Note: AXI agent disabled - AXIUART_Top uses internal AXI interface only
+    axi4_lite_monitor axi_monitor;
     
     // Analysis components
     uart_axi4_scoreboard scoreboard;
@@ -31,7 +31,15 @@ class uart_axi4_env extends uvm_env;
         
         // Create agents - UART only for AXIUART_Top system
         uart_agt = uart_agent::type_id::create("uart_agt", this);
-        // Note: No AXI agent needed - AXIUART_Top uses internal AXI only
+
+        if (cfg.enable_axi_monitor) begin
+            if (cfg.axi_vif == null) begin
+                `uvm_fatal("ENV", "AXI monitor enabled but cfg.axi_vif is null")
+            end
+            axi_monitor = axi4_lite_monitor::type_id::create("axi_monitor", this);
+            uvm_config_db#(uart_axi4_env_config)::set(this, "axi_monitor", "cfg", cfg);
+            uvm_config_db#(virtual axi4_lite_if)::set(this, "axi_monitor", "vif", cfg.axi_vif);
+        end
         
         // Set agent configurations
         uvm_config_db#(uart_axi4_env_config)::set(this, "uart_agt*", "cfg", cfg);
@@ -45,6 +53,9 @@ class uart_axi4_env extends uvm_env;
         if (cfg.enable_coverage) begin
             coverage = uart_axi4_coverage::type_id::create("coverage", this);
             uvm_config_db#(uart_axi4_env_config)::set(this, "coverage", "cfg", cfg);
+            if (cfg.enable_axi_monitor && axi_monitor != null) begin
+                uvm_config_db#(uart_axi4_coverage)::set(this, "axi_monitor", "coverage", coverage);
+            end
         end
 
         if (cfg.enable_system_status_monitoring) begin
@@ -66,6 +77,14 @@ class uart_axi4_env extends uvm_env;
         if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
             uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
             `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
+        end
+
+        if (cfg.enable_axi_monitor && axi_monitor != null) begin
+            if (cfg.enable_scoreboard && scoreboard != null) begin
+                axi_monitor.analysis_port.connect(scoreboard.axi_analysis_imp);
+                `uvm_info("ENV", "Connected AXI monitor to scoreboard", UVM_LOW)
+            end
+
         end
     endfunction
     

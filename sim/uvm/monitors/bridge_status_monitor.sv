@@ -12,6 +12,7 @@ class bridge_status_monitor extends uvm_component;
     bit initial_enable_seen;
     time disable_time;
     time reenable_time;
+    int report_verbosity;
 
     covergroup bridge_enable_cg @(posedge vif.clk);
         option.per_instance = 1;
@@ -26,6 +27,7 @@ class bridge_status_monitor extends uvm_component;
     function new(string name = "bridge_status_monitor", uvm_component parent = null);
         super.new(name, parent);
         bridge_enable_cg = new();
+        report_verbosity = UVM_LOW;
     endfunction
 
     virtual function void build_phase(uvm_phase phase);
@@ -37,6 +39,9 @@ class bridge_status_monitor extends uvm_component;
 
         if (!uvm_config_db#(uart_axi4_env_config)::get(this, "", "cfg", cfg)) begin
             `uvm_warning("BRIDGE_MON", "Configuration object not provided; using defaults")
+            report_verbosity = UVM_LOW;
+        end else begin
+            report_verbosity = cfg.bridge_status_verbosity;
         end
     endfunction
 
@@ -59,14 +64,14 @@ class bridge_status_monitor extends uvm_component;
                     reenable_seen = 1'b1;
                     reenable_time = $time;
                     `uvm_info("BRIDGE_MON", $sformatf("bridge_enable re-asserted at %0t ns",
-                              reenable_time / 1ns), UVM_LOW)
+                              reenable_time / 1ns), report_verbosity)
                 end
             end else begin
                 if (!disable_seen) begin
                     disable_seen = 1'b1;
                     disable_time = $time;
                     `uvm_info("BRIDGE_MON", $sformatf("bridge_enable deasserted at %0t ns",
-                              disable_time / 1ns), UVM_LOW)
+                              disable_time / 1ns), report_verbosity)
                 end
             end
         end
@@ -84,7 +89,7 @@ class bridge_status_monitor extends uvm_component;
         end else if (!reenable_seen) begin
             `uvm_error("BRIDGE_MON", "bridge_enable never re-asserted after deassertion")
         end else begin
-            `uvm_info("BRIDGE_MON", "bridge_enable toggled low and recovered high", UVM_LOW)
+            `uvm_info("BRIDGE_MON", "bridge_enable toggled low and recovered high", report_verbosity)
         end
     endfunction
 

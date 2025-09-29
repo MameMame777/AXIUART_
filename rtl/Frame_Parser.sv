@@ -74,6 +74,7 @@ module Frame_Parser #(
     // Timeout counter
     logic [TIMEOUT_WIDTH-1:0] timeout_counter;
     logic timeout_occurred;
+    logic timeout_monitor_active;
     
     // CRC calculator instance
     logic crc_enable;
@@ -130,12 +131,28 @@ module Frame_Parser #(
     end
     
     // Timeout management
+    always_comb begin
+        unique case (state)
+            CMD,
+            ADDR_BYTE0,
+            ADDR_BYTE1,
+            ADDR_BYTE2,
+            ADDR_BYTE3,
+            DATA_RX,
+            CRC_RX: timeout_monitor_active = 1'b1;
+            default: timeout_monitor_active = 1'b0;
+        endcase
+    end
+
     always_ff @(posedge clk) begin
-        if (rst || !rx_fifo_empty || (state == IDLE)) begin
+        if (rst || !timeout_monitor_active) begin
             timeout_counter <= '0;
             timeout_occurred <= 1'b0;
-        end else if (state != IDLE) begin
-            if (timeout_counter >= TIMEOUT_CLOCKS) begin
+        end else begin
+            if (!rx_fifo_empty) begin
+                timeout_counter <= '0;
+                timeout_occurred <= 1'b0;
+            end else if (timeout_counter >= TIMEOUT_CLOCKS) begin
                 timeout_occurred <= 1'b1;
             end else begin
                 timeout_counter <= timeout_counter + 1;
@@ -196,6 +213,20 @@ module Frame_Parser #(
                     error_status_reg <= (size_field == 2'b11) ? STATUS_CMD_INV : STATUS_LEN_RANGE;
                 end else if (received_crc != expected_crc) begin
                     error_status_reg <= STATUS_CRC_ERR;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC mismatch recv=0x%02X exp=0x%02X at time %0t", received_crc, expected_crc, $time);
+                        $display("DEBUG: Frame_Parser CRC context cmd=0x%02X addr=0x%08X data_bytes=%0d expected_bytes=%0d", current_cmd, addr_reg, data_byte_count, expected_data_bytes);
+                        for (int dbg_i = 0; dbg_i < data_byte_count; dbg_i++) begin
+                            if (dbg_i < 8) begin
+                                $display("DEBUG: Frame_Parser data[%0d]=0x%02X", dbg_i, data_reg[dbg_i]);
+                            end else begin
+                                if (dbg_i == 8) begin
+                                    $display("DEBUG: Frame_Parser ... remaining %0d byte(s) omitted", data_byte_count - 8);
+                                end
+                                break;
+                            end
+                        end
+                    `endif
                 end else begin
                     error_status_reg <= STATUS_OK;
                 end

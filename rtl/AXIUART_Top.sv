@@ -54,7 +54,7 @@ module AXIUART_Top #(
     
     // Internal reset logic
     logic internal_rst;
-    assign internal_rst = rst || ~bridge_enable;
+    assign internal_rst = rst;
     
     // UART-AXI4 Bridge instantiation
     Uart_Axi4_Bridge #(
@@ -70,7 +70,8 @@ module AXIUART_Top #(
         .rst(internal_rst),
         .uart_rx(uart_rx),
         .uart_tx(uart_tx),
-        .axi(axi_internal),  // 内部レジスタブロックに直接接続
+    .axi(axi_internal),  // 内部レジスタブロックに直接接続
+    .bridge_enable(bridge_enable),
         
         // Status monitoring connections
         .bridge_busy(bridge_busy),

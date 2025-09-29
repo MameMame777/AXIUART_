@@ -141,13 +141,14 @@ module Uart_Rx #(
             
             DATA_BITS: begin
                 if (sample_tick) begin
-                    // Shift in data bit (LSB first) - correct left shift for LSB first reception
-                    rx_shift_reg_next = {rx_shift_reg[6:0], rx_synced};
+                    // Sample data bit (LSB first) and store at bit position indicated by bit_counter
+                    rx_shift_reg_next = rx_shift_reg;
+                    rx_shift_reg_next[bit_counter] = rx_synced;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: UART_RX bit %0d = %b (shift_reg=0b%08b -> 0b%08b) at time %0t", 
-                                bit_counter, rx_synced, rx_shift_reg, {rx_shift_reg[6:0], rx_synced}, $time);
+                        $display("DEBUG: UART_RX bit %0d = %b (shift_reg=0b%08b -> 0b%08b) at time %0t",
+                                bit_counter, rx_synced, rx_shift_reg, rx_shift_reg_next, $time);
                     `endif
-                    
+
                     if (bit_counter == 7) begin
                         rx_state_next = STOP_BIT;
                     end

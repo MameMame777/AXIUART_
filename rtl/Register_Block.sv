@@ -55,16 +55,14 @@ module Register_Block #(
     logic [31:0] read_data;
     logic [1:0]  read_resp;
     logic [1:0]  write_resp;
+    logic [31:0] write_addr_reg;
+    logic [31:0] read_addr_reg;
+    logic [31:0] active_addr;
+    logic        aw_handshake;
+    logic        w_handshake;
+    logic        ar_handshake;
     
-    // Address decoding
-    logic [31:0] full_addr;
-    assign full_addr = axi.awvalid ? axi.awaddr : axi.araddr;
-    assign addr_offset = full_addr[11:0];
-    
-    // Check if address is within valid range and properly aligned
-    assign valid_addr = (full_addr >= BASE_ADDR && full_addr <= (BASE_ADDR + REG_VERSION + 4)) && 
-                       (addr_offset >= REG_CONTROL && addr_offset <= REG_VERSION) && 
-                       (addr_offset[1:0] == 2'b00); // 32-bit aligned
+    // Address decoding logic added after state machine declaration
     
     // AXI4-Lite state machine - CORRECTED
     typedef enum logic [2:0] {
@@ -93,20 +91,26 @@ module Register_Block #(
         case (axi_state)
             IDLE: begin
                 if (axi.awvalid) begin
-                    axi_next_state = WRITE_ADDR;
+                    if (aw_handshake) begin
+                        axi_next_state = WRITE_DATA;
+                    end else begin
+                        axi_next_state = WRITE_ADDR;
+                    end
                 end else if (axi.arvalid) begin
                     axi_next_state = READ_DATA;
                 end
             end
             
             WRITE_ADDR: begin
-                if (axi.wvalid) begin
+                if (aw_handshake) begin
                     axi_next_state = WRITE_DATA;
                 end
             end
             
             WRITE_DATA: begin
-                axi_next_state = WRITE_RESP;
+                if (w_handshake) begin
+                    axi_next_state = WRITE_RESP;
+                end
             end
             
             WRITE_RESP: begin
@@ -125,13 +129,32 @@ module Register_Block #(
         endcase
     end
     
+    // Address decoding based on current transaction
+    always_comb begin
+        case (axi_state)
+            READ_DATA: active_addr = read_addr_reg;
+            default:   active_addr = write_addr_reg;
+        endcase
+    end
+
+    assign addr_offset = active_addr[11:0];
+
+    // Check if address is within valid range and properly aligned
+    assign valid_addr = (active_addr >= BASE_ADDR && active_addr <= (BASE_ADDR + REG_VERSION + 4)) &&
+                        (addr_offset >= REG_CONTROL && addr_offset <= REG_VERSION) &&
+                        (addr_offset[1:0] == 2'b00); // 32-bit aligned
+
     // AXI4-Lite control signals
-    assign write_enable = (axi_state == WRITE_DATA);
+    assign aw_handshake = axi.awvalid && axi.awready;
+    assign w_handshake = axi.wvalid && axi.wready;
+    assign ar_handshake = axi.arvalid && axi.arready;
+
+    assign write_enable = (axi_state == WRITE_DATA) && w_handshake;
     assign read_enable = (axi_state == READ_DATA);
     
     // AXI4-Lite ready signals - FIXED: No circular dependencies
     assign axi.awready = (axi_state == IDLE) || (axi_state == WRITE_ADDR);
-    assign axi.wready = (axi_state == WRITE_ADDR) || (axi_state == IDLE);
+    assign axi.wready = (axi_state == WRITE_DATA);
     assign axi.arready = (axi_state == IDLE);
     
     // Write response channel
@@ -150,33 +173,46 @@ module Register_Block #(
             config_reg <= 32'h0000_0000;
             debug_reg <= 32'h0000_0000;
             write_resp <= RESP_OKAY;
-        end else if (write_enable) begin
-            if (valid_addr) begin
-                case (addr_offset)
-                    REG_CONTROL: begin
-                        control_reg[0] <= axi.wdata[0];
-                        control_reg[1] <= 1'b0; // Always reads as 0, pulse generated
-                        control_reg[31:2] <= 30'b0; // Reserved bits
-                    end
-                    
-                    REG_CONFIG: begin
-                        config_reg[7:0] <= axi.wdata[7:0];
-                        config_reg[15:8] <= axi.wdata[15:8];
-                        config_reg[31:16] <= 16'b0;
-                    end
-                    
-                    REG_DEBUG: begin
-                        debug_reg[3:0] <= axi.wdata[3:0];
-                        debug_reg[31:4] <= 28'b0;
-                    end
-                    
-                    default: begin
-                        // Write to read-only or invalid register - ignore data, return OKAY
-                    end
-                endcase
+            write_addr_reg <= BASE_ADDR;
+            read_addr_reg <= BASE_ADDR;
+        end else begin
+            if (aw_handshake) begin
+                write_addr_reg <= axi.awaddr;
                 write_resp <= RESP_OKAY;
-            end else begin
-                write_resp <= RESP_SLVERR;
+            end
+
+            if (ar_handshake) begin
+                read_addr_reg <= axi.araddr;
+            end
+
+            if (write_enable) begin
+                if (valid_addr) begin
+                    case (addr_offset)
+                        REG_CONTROL: begin
+                            control_reg[0] <= axi.wdata[0];
+                            control_reg[1] <= 1'b0; // Always reads as 0, pulse generated
+                            control_reg[31:2] <= 30'b0; // Reserved bits
+                        end
+                        
+                        REG_CONFIG: begin
+                            config_reg[7:0] <= axi.wdata[7:0];
+                            config_reg[15:8] <= axi.wdata[15:8];
+                            config_reg[31:16] <= 16'b0;
+                        end
+                        
+                        REG_DEBUG: begin
+                            debug_reg[3:0] <= axi.wdata[3:0];
+                            debug_reg[31:4] <= 28'b0;
+                        end
+                        
+                        default: begin
+                            // Write to read-only or invalid register - ignore data, return OKAY
+                        end
+                    endcase
+                    write_resp <= RESP_OKAY;
+                end else begin
+                    write_resp <= RESP_SLVERR;
+                end
             end
         end
     end
@@ -241,6 +277,28 @@ module Register_Block #(
     assign baud_div_config = config_reg[7:0];
     assign timeout_config = config_reg[15:8];
     assign debug_mode = debug_reg[3:0];
+
+    `ifdef ENABLE_DEBUG
+    always_ff @(posedge clk) begin
+        if (!rst && write_enable && valid_addr && (addr_offset == REG_CONTROL)) begin
+            $display("DEBUG: Register_Block CONTROL write data=0x%08X -> bridge_enable=%0b at time %0t", axi.wdata, axi.wdata[0], $time);
+        end
+    end
+    `endif
+
+    `ifdef ENABLE_DEBUG
+    always_ff @(posedge clk) begin
+        if (!rst && aw_handshake) begin
+            $display("DEBUG: Register_Block AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
+        end
+        if (!rst && w_handshake) begin
+            $display("DEBUG: Register_Block W handshake data=0x%08X wstrb=0x%X at time %0t", axi.wdata, axi.wstrb, $time);
+        end
+        if (!rst && ar_handshake) begin
+            $display("DEBUG: Register_Block AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
+        end
+    end
+    `endif
 
     // Debug output
     initial begin

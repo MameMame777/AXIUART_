@@ -69,6 +69,7 @@ class axi4_lite_monitor extends uvm_monitor;
             if (vif.awvalid && vif.awready) begin
                 tr = axi4_lite_transaction::type_id::create("axi_write_tr");
                 tr.trans_type = AXI_WRITE;
+                tr.is_write = 1;
                 tr.addr = vif.awaddr;
                 tr.timestamp = $realtime;
                 
@@ -80,7 +81,9 @@ class axi4_lite_monitor extends uvm_monitor;
                         @(posedge vif.aclk);
                         wait (vif.wvalid && vif.wready);
                         tr.data = vif.wdata;
+                        tr.wdata = vif.wdata;
                         tr.strb = vif.wstrb;
+                        tr.wstrb = vif.wstrb;
                         `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write data: 0x%08X, strb=0x%X", 
                                   tr.data, tr.strb), UVM_DEBUG)
                     end
@@ -97,6 +100,7 @@ class axi4_lite_monitor extends uvm_monitor;
                         @(posedge vif.aclk);
                         wait (vif.bvalid && vif.bready);
                         tr.resp = vif.bresp;
+                        tr.bresp = vif.bresp;
                         tr.completed = 1;
                         `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write response: 0x%X", tr.resp), UVM_DEBUG)
                     end
@@ -137,6 +141,7 @@ class axi4_lite_monitor extends uvm_monitor;
             if (vif.arvalid && vif.arready) begin
                 tr = axi4_lite_transaction::type_id::create("axi_read_tr");
                 tr.trans_type = AXI_READ;
+                tr.is_write = 0;
                 tr.addr = vif.araddr;
                 tr.timestamp = $realtime;
                 
@@ -148,7 +153,9 @@ class axi4_lite_monitor extends uvm_monitor;
                         @(posedge vif.aclk);
                         wait (vif.rvalid && vif.rready);
                         tr.data = vif.rdata;
+                        tr.rdata = vif.rdata;
                         tr.resp = vif.rresp;
+                        tr.rresp = vif.rresp;
                         tr.completed = 1;
                         `uvm_info("AXI4_LITE_MONITOR", $sformatf("Read response: DATA=0x%08X, RESP=0x%X", 
                                   tr.data, tr.resp), UVM_DEBUG)

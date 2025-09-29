@@ -265,6 +265,10 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
         super.new(name);
     endfunction
 
+    localparam time CONTROL_POST_CMD_DELAY_NS = 120ns;
+    localparam time CONTROL_DISABLE_WINDOW_NS = 600ns;
+    localparam time CONTROL_READBACK_DELAY_NS = 80ns;
+
     virtual task body();
         `uvm_info(get_type_name(), "Starting comprehensive register access sequence", UVM_MEDIUM)
 
@@ -367,26 +371,26 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
     // Force CONTROL register through disable/enable states to trigger toggle coverage
     task automatic toggle_control_states();
         // Ensure bridge starts enabled, then drive to a disabled state
-        drive_write(REG_CONTROL, 32'h0000_0001, 4);
-        #(120ns);
-        drive_write(REG_CONTROL, 32'h0000_0000, 4);
-        #(600ns);
+        drive_control_write_with_trace("initial_enable", 32'h0000_0001, 4, /*perform_readback=*/0, /*expected_enable_bit=*/1'b1);
+        #(CONTROL_POST_CMD_DELAY_NS);
+        drive_control_write_with_trace("disable_window_entry", 32'h0000_0000, 4, /*perform_readback=*/1, /*expected_enable_bit=*/1'b0);
+        #(CONTROL_DISABLE_WINDOW_NS);
 
         // While disabled, sample status and issue a reset pulse without enable asserted
         drive_read(REG_STATUS, 4, /*expect_error=*/0);
         #(100ns);
-        drive_write(REG_CONTROL, 32'h0000_0002, 4);
-        #(120ns);
+        drive_control_write_with_trace("stats_reset_pulse", 32'h0000_0002, 4, /*perform_readback=*/0, /*expected_enable_bit=*/1'b0);
+        #(CONTROL_POST_CMD_DELAY_NS);
 
         // Re-enable, apply enable+reset, then add a second disable window for coverage margin
-        drive_write(REG_CONTROL, 32'h0000_0001, 4);
-        #(120ns);
-        drive_write(REG_CONTROL, 32'h0000_0003, 4);
+        drive_control_write_with_trace("re_enable_primary", 32'h0000_0001, 4, /*perform_readback=*/0, /*expected_enable_bit=*/1'b1);
+        #(CONTROL_POST_CMD_DELAY_NS);
+        drive_control_write_with_trace("enable_with_reset", 32'h0000_0003, 4, /*perform_readback=*/0, /*expected_enable_bit=*/1'b1);
         #(150ns);
-        drive_write(REG_CONTROL, 32'h0000_0000, 4);
-        #(600ns);
-        drive_write(REG_CONTROL, 32'h0000_0001, 4);
-        #(120ns);
+        drive_control_write_with_trace("disable_window_reprobe", 32'h0000_0000, 4, /*perform_readback=*/1, /*expected_enable_bit=*/1'b0);
+        #(CONTROL_DISABLE_WINDOW_NS);
+        drive_control_write_with_trace("final_enable", 32'h0000_0001, 4, /*perform_readback=*/0, /*expected_enable_bit=*/1'b1);
+        #(CONTROL_POST_CMD_DELAY_NS);
     endtask
 
     // Apply different timing gaps and burst patterns to stress FIFOs
@@ -407,11 +411,12 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
         #(250ns);
     endtask
 
-    // Issue a single-beat write of byte_count bytes
-    task automatic drive_write(bit [31:0] addr, bit [31:0] value, int unsigned byte_count,
-                               bit expect_error = 0);
-        uart_frame_transaction req;
-        req = uart_frame_transaction::type_id::create("reg_write");
+    task automatic drive_write_core(string txn_label,
+                                    bit [31:0] addr,
+                                    bit [31:0] value,
+                                    int unsigned byte_count,
+                                    output uart_frame_transaction req);
+        req = uart_frame_transaction::type_id::create(txn_label);
         start_item(req);
 
         req.is_write = 1;
@@ -427,23 +432,14 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
         req.calculate_crc();
 
         finish_item(req);
-
-        if (expect_error) begin
-            `uvm_info(get_type_name(),
-                $sformatf("Issued expected-error write to 0x%08X", addr), UVM_MEDIUM)
-        end else begin
-            `uvm_info(get_type_name(),
-                $sformatf("Write 0x%08X (%0d bytes) to 0x%08X (CMD=0x%02X)",
-                          value, byte_count, addr, req.cmd),
-                UVM_MEDIUM)
-        end
     endtask
 
-    // Issue a single-beat read of byte_count bytes
-    task automatic drive_read(bit [31:0] addr, int unsigned byte_count,
-                              bit expect_error = 0);
-        uart_frame_transaction req;
-        req = uart_frame_transaction::type_id::create("reg_read");
+    task automatic drive_read_core(string txn_label,
+                                   bit [31:0] addr,
+                                   int unsigned byte_count,
+                                   bit expect_error,
+                                   output uart_frame_transaction req);
+        req = uart_frame_transaction::type_id::create(txn_label);
         start_item(req);
 
         req.is_write = 0;
@@ -468,6 +464,107 @@ class register_comprehensive_access_sequence extends uvm_sequence #(uart_frame_t
                 $sformatf("Read request (%0d bytes) from 0x%08X", byte_count, addr),
                 UVM_MEDIUM)
         end
+    endtask
+
+    task automatic drive_control_write_with_trace(string stage_label,
+                                                   bit [31:0] value,
+                                                   int unsigned byte_count,
+                                                   bit perform_readback,
+                                                   bit expected_enable_bit);
+        uart_frame_transaction ctrl_req;
+        time issue_time_ns;
+
+        drive_write_core({stage_label, "_control_write"}, REG_CONTROL, value, byte_count, ctrl_req);
+        issue_time_ns = $time / 1ns;
+
+        `uvm_info("CONTROL_TRACE",
+            $sformatf("[%s] CONTROL write value=0x%08X CMD=0x%02X (%0d bytes) at %0t ns",
+                      stage_label, value, ctrl_req.cmd, byte_count, issue_time_ns),
+            UVM_MEDIUM);
+
+        if (perform_readback) begin
+            #(CONTROL_READBACK_DELAY_NS);
+            verify_control_readback(stage_label, byte_count, expected_enable_bit);
+        end
+    endtask
+
+    task automatic verify_control_readback(string stage_label,
+                                            int unsigned byte_count,
+                                            bit expected_enable_bit);
+        uart_frame_transaction rd_req;
+        bit [31:0] observed_value;
+        int limit_bytes;
+        time read_time_ns;
+
+        drive_read_core({stage_label, "_control_read"}, REG_CONTROL, byte_count, /*expect_error=*/0, rd_req);
+        read_time_ns = $time / 1ns;
+
+        `uvm_info("CONTROL_TRACE",
+            $sformatf("[%s] CONTROL read CMD=0x%02X issued at %0t ns", stage_label, rd_req.cmd, read_time_ns),
+            UVM_MEDIUM);
+
+        if (!rd_req.response_received) begin
+            `uvm_error("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL read did not receive a response", stage_label));
+            return;
+        end
+
+        if (rd_req.response_status != STATUS_OK) begin
+            `uvm_error("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL read returned status 0x%02X", stage_label, rd_req.response_status));
+            return;
+        end
+
+        if (rd_req.response_data.size() < byte_count) begin
+            `uvm_warning("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL read returned %0d byte(s); expected %0d", stage_label,
+                          rd_req.response_data.size(), byte_count));
+        end
+
+        observed_value = '0;
+        limit_bytes = (rd_req.response_data.size() < byte_count) ? rd_req.response_data.size() : byte_count;
+        for (int i = 0; i < limit_bytes; i++) begin
+            observed_value[8*i +: 8] = rd_req.response_data[i];
+        end
+
+        if (observed_value[31:1] !== '0) begin
+            `uvm_error("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL read observed reserved bits set: 0x%08X", stage_label, observed_value));
+        end
+
+        if (observed_value[0] !== expected_enable_bit) begin
+            `uvm_error("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL bridge_enable mismatch: observed=%0b expected=%0b", stage_label,
+                          observed_value[0], expected_enable_bit));
+        end else begin
+            `uvm_info("CONTROL_TRACE",
+                $sformatf("[%s] CONTROL bridge_enable confirmed as %0b", stage_label, observed_value[0]),
+                UVM_MEDIUM);
+        end
+    endtask
+
+    // Issue a single-beat write of byte_count bytes
+    task automatic drive_write(bit [31:0] addr, bit [31:0] value, int unsigned byte_count,
+                               bit expect_error = 0);
+        uart_frame_transaction req;
+        drive_write_core("reg_write", addr, value, byte_count, req);
+
+        if (expect_error) begin
+            `uvm_info(get_type_name(),
+                $sformatf("Issued expected-error write to 0x%08X", addr), UVM_MEDIUM)
+        end else begin
+            `uvm_info(get_type_name(),
+                $sformatf("Write 0x%08X (%0d bytes) to 0x%08X (CMD=0x%02X)",
+                          value, byte_count, addr, req.cmd),
+                UVM_MEDIUM)
+        end
+    endtask
+
+    // Issue a single-beat read of byte_count bytes
+    task automatic drive_read(bit [31:0] addr, int unsigned byte_count,
+                              bit expect_error = 0);
+        uart_frame_transaction req;
+        drive_read_core("reg_read", addr, byte_count, expect_error, req);
     endtask
 
     // Drive burst transaction with optional auto-increment

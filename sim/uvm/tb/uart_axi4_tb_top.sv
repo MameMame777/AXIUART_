@@ -112,8 +112,9 @@ module uart_axi4_tb_top;
         
         // Set virtual interfaces in config database
         uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
-        uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
-    uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
+            uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
+            uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
+            uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
         // Note: AXIUART_Top uses internal AXI interface - no external AXI interface to set
         
         // Enable waveform dumping

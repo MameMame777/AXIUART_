@@ -88,15 +88,21 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         uart_frame_transaction uart_tr;
         axi4_lite_transaction axi_tr;
         bit match_found = 0;
+        bit uart_is_write;
         
         // Simple matching: find UART and AXI transactions with same address
         for (int i = 0; i < uart_queue.size(); i++) begin
             uart_tr = uart_queue[i];
+            uart_is_write = !uart_tr.cmd[7];
             
             for (int j = 0; j < axi_queue.size(); j++) begin
                 axi_tr = axi_queue[j];
                 
                 if (uart_tr.addr == axi_tr.addr) begin
+                    if (axi_tr.is_write != uart_is_write) begin
+                        // Wait for a matching transaction type before declaring a mismatch
+                        continue;
+                    end
                     // Found matching addresses, now verify transaction details
                     if (verify_transaction_match(uart_tr, axi_tr)) begin
                         match_count++;
