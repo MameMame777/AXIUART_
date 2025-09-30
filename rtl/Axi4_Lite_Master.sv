@@ -32,26 +32,26 @@ module Axi4_Lite_Master #(
     localparam [7:0] STATUS_AXI_SLVERR = 8'h05;
     localparam [7:0] STATUS_BUSY      = 8'h06;
     
-    // Command field parsing
-    logic rw_bit;
-    logic inc_bit;
+    // Command field registers
+    logic [7:0] cmd_reg;
+    logic       rw_bit;
+    logic       inc_bit;
     logic [1:0] size_field;
     logic [3:0] len_field;
-    
-    always_comb begin
-        rw_bit = cmd[7];
-        inc_bit = cmd[6];
-        size_field = cmd[5:4];
-        len_field = cmd[3:0];
-    end
+
+    assign rw_bit = cmd_reg[7];
+    assign inc_bit = cmd_reg[6];
+    assign size_field = cmd_reg[5:4];
+    assign len_field = cmd_reg[3:0];
     
     // Address alignment checker
+    logic [31:0] current_addr;
     logic addr_ok;
     logic [3:0] wstrb;
     logic [2:0] align_status;
     
     Address_Aligner addr_aligner (
-        .addr(addr),
+        .addr(current_addr),
         .size(size_field),
         .addr_ok(addr_ok),
         .wstrb(wstrb),
@@ -87,7 +87,6 @@ module Axi4_Lite_Master #(
     
     // Internal registers
     logic [3:0] beat_counter;
-    logic [31:0] current_addr;
     logic [5:0] data_byte_index;
     logic [7:0] status_reg;
     logic [15:0] timeout_counter;
@@ -144,6 +143,7 @@ module Axi4_Lite_Master #(
             timeout_counter <= '0;
             early_busy_sent <= 1'b0;
             transaction_done_reg <= 1'b0;
+            cmd_reg <= 8'h00;
         end else begin
             state <= state_next;
             
@@ -156,6 +156,7 @@ module Axi4_Lite_Master #(
                 timeout_counter <= '0;
                 early_busy_sent <= 1'b0;
                 transaction_done_reg <= 1'b0;  // Clear done flag when starting new transaction
+                cmd_reg <= cmd;
             end
             
             // Update beat counter and address for next beat
@@ -410,6 +411,8 @@ module Axi4_Lite_Master #(
             end
             if (w_handshake) begin
                 $display("DEBUG: AXI Master W handshake data=0x%08X wstrb=0x%X at time %0t", axi.wdata, axi.wstrb, $time);
+                $display("DEBUG: AXI Master context cmd=0x%02X size_field=0x%0X addr_ok=%0b align_status=0x%0X current_addr=0x%08X data_index=%0d", 
+                         cmd_reg, size_field, addr_ok, align_status, current_addr, data_byte_index);
             end
             if (b_handshake) begin
                 $display("DEBUG: AXI Master B handshake resp=0x%0X at time %0t", axi.bresp, $time);

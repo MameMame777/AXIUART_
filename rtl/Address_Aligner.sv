@@ -17,11 +17,11 @@ module Address_Aligner (
 
     // Address alignment and WSTRB generation
     always_comb begin
-        addr_ok = 1'b1;
+        addr_ok = 1'b0;
         wstrb = 4'b0000;
-        status_code = STATUS_OK;
-        
-        case (size)
+        status_code = STATUS_CMD_INV;
+
+        unique case (size)
             2'b00: begin  // 8-bit access
                 // Any address is valid for 8-bit access
                 wstrb = 4'b0001 << addr[1:0];
@@ -56,6 +56,11 @@ module Address_Aligner (
             end
             
             2'b11: begin  // Reserved size
+                wstrb = 4'b0000;
+                addr_ok = 1'b0;
+                status_code = STATUS_CMD_INV;
+            end
+            default: begin
                 wstrb = 4'b0000;
                 addr_ok = 1'b0;
                 status_code = STATUS_CMD_INV;

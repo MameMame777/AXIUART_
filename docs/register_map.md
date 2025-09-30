@@ -38,9 +38,19 @@ Global control register for AXIUART system operation.
 | 31:2   | reserved     | -      | 0     | Must be 0                               |
 
 **Side Effects:**
+
 - Writing 1 to bit 1 (reset_stats) generates a pulse to reset TX_COUNT and RX_COUNT
 - Bit 1 always reads as 0
-- Clearing bit 0 disables the entire UART bridge and resets internal state
+- Clearing bit 0 disables the entire UART bridge and resets internal state. During the disable window the DUT gates all outbound AXI transactions and emits BUSY (0x06) status on UART responses until the bridge settles.
+- UART readbacks may return STATUS_BUSY (0x80) immedately after disable or re-enable writes. Poll again after a minimum quiet period (see timing guidance below).
+- CONTROL readbacks are 4-byte payloads; truncated responses (1 byte) indicate that the bridge is still propagating the disable/enable command. Testbench logic applies an extended backoff before escalating to the status monitor.
+
+**Disable / Enable Timing Guidance:**
+
+- Minimum quiet window after writing 0x0000_0000: 3.6 µs (current verification default derived from `CONTROL_PARTIAL_BACKOFF_MULTIPLIER = 4`).
+- Recommended hold before re-enabling: 1.2 µs (`CONTROL_DISABLE_HOLD_NS`).
+- After re-enabling, allow at least 3.6 µs before assuming UART readbacks contain the full CONTROL payload.
+- `bridge_status_monitor` is the authoritative indicator for the bridge_enable state; rely on it if repeated readbacks remain truncated.
 
 ## STATUS (0x004, RO, reset=0x0000_0000)
 
@@ -53,6 +63,7 @@ System status and error reporting register.
 | 31:9   | reserved     | -      | 0     | Must be 0                               |
 
 **Error Codes:**
+
 - 0x00: No error
 - 0x01-0x0F: UART protocol errors
 - 0x10-0x1F: AXI4-Lite protocol errors  
@@ -70,6 +81,7 @@ Configuration register for UART and AXI parameters.
 | 31:16  | reserved     | -      | 0     | Must be 0                               |
 
 **Field Details:**
+
 - baud_div: Divider value for UART baud rate generation (implementation defined)
 - timeout_cfg: Timeout value in system clock cycles (×64 multiplier)
 
@@ -83,6 +95,7 @@ Debug control and monitoring register.
 | 31:4   | reserved     | -      | 0     | Must be 0                               |
 
 **Debug Modes:**
+
 - 0x0: Normal operation
 - 0x1: UART loopback mode
 - 0x2: AXI transaction logging
@@ -99,6 +112,7 @@ Transmit transaction counter (read-only).
 | 31:16  | reserved     | -      | 0     | Must be 0                               |
 
 **Behavior:**
+
 - Increments on each successful UART transmission
 - Can be reset by writing 1 to CONTROL[1] (reset_stats)
 - Wraps around at 65535
@@ -113,6 +127,7 @@ Receive transaction counter (read-only).
 | 31:16  | reserved     | -      | 0     | Must be 0                               |
 
 **Behavior:**
+
 - Increments on each successful UART reception
 - Can be reset by writing 1 to CONTROL[1] (reset_stats)
 - Wraps around at 65535
@@ -141,7 +156,7 @@ Hardware version identification register.
 | 23:16  | major_ver    | RO     | 1     | Major version number                    |
 | 31:24  | reserved     | -      | 0     | Reserved                                |
 
-**Current Version: 1.0.0**
+Current Version: 1.0.0
 
 ## Address Decoding Notes
 
@@ -177,4 +192,5 @@ $display("Version: %0d.%0d.%0d", version[23:16], version[15:8], version[7:0]);
 
 ## Change Log
 
+- 2025-09-30: Documented CONTROL disable quiet-window guidance, BUSY response semantics, and partial readback behaviour.
 - YYYY-MM-DD: Initial template created

@@ -96,6 +96,7 @@ package uart_axi4_test_pkg;
         bit truncate_frame = 0;
         bit wrong_sof = 0;
         bit error_inject = 0;        // General error injection flag
+    bit expect_error = 0;         // Expect an error response from DUT
         bit data_randomization = 0;  // Data randomization control
         
         // Response fields
@@ -143,6 +144,7 @@ package uart_axi4_test_pkg;
             `uvm_field_int(crc_valid, UVM_ALL_ON)
             `uvm_field_int(error_inject, UVM_ALL_ON)
             `uvm_field_int(data_randomization, UVM_ALL_ON)
+            `uvm_field_int(expect_error, UVM_ALL_ON)
             `uvm_field_int(response_status, UVM_ALL_ON)
             `uvm_field_array_int(response_data, UVM_ALL_ON)
             `uvm_field_int(response_received, UVM_ALL_ON)
@@ -316,6 +318,7 @@ package uart_axi4_test_pkg;
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
+    `include "tests/uart_axi4_multi_beat_write_test.sv"
     `include "tests/register_block_tests.sv"
     // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
     `include "tests/uart_coverage_debug_test.sv"

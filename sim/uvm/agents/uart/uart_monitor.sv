@@ -21,6 +21,7 @@ class uart_monitor extends uvm_monitor;
     
     // Internal variables
     bit monitor_enabled = 1;
+    localparam int MAX_RX_FRAME_BYTES = 80;
     
     function new(string name = "uart_monitor", uvm_component parent = null);
         super.new(name, parent);
@@ -139,8 +140,8 @@ class uart_monitor extends uvm_monitor;
                         waiting_for_sof = 1;
                         byte_count = 0;
                     end
-                end else if (byte_count > 20) begin
-                    `uvm_warning("UART_MONITOR", $sformatf("Frame too long (%0d bytes) - resetting to wait for SOF", byte_count))
+                end else if (byte_count > MAX_RX_FRAME_BYTES) begin
+                    `uvm_warning("UART_MONITOR", $sformatf("Frame length exceeded monitor limit (%0d > %0d) - resetting to wait for SOF", byte_count, MAX_RX_FRAME_BYTES))
                     waiting_for_sof = 1;
                     byte_count = 0;
                 end

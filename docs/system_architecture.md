@@ -42,6 +42,7 @@ The `AXIUART_Top` module serves as the complete system integration point, provid
 - **Parameter Configuration**: Allows system-wide parameter customization
 
 **Key Features:**
+
 - Parameterizable clock frequency, baud rates, and FIFO depths
 - Integrated enable/disable control through register block
 - System-level status monitoring and error aggregation
@@ -52,21 +53,26 @@ The `AXIUART_Top` module serves as the complete system integration point, provid
 The register block provides memory-mapped control and status for the UART bridge:
 
 **Control Registers:**
+
 - **CONTROL (0x1000)**: System enable, statistics reset
 - **CONFIG (0x1008)**: UART and AXI configuration parameters
 - **DEBUG (0x100C)**: Debug mode selection and control
 
 **Status Registers:**
+
 - **STATUS (0x1004)**: Bridge busy flag and error codes
 - **TX_COUNT/RX_COUNT (0x1010/0x1014)**: Transaction counters
 - **FIFO_STAT (0x1018)**: FIFO status and level monitoring
 - **VERSION (0x101C)**: Hardware version identification
 
 **Architecture Features:**
+
 - Full AXI4-Lite slave compliance with proper handshaking
 - Address decoding with SLVERR responses for invalid/unaligned addresses
 - Register field access control (RW/RO/W1C behaviors)
 - Synchronous reset with well-defined reset values
+
+Further details on CONTROL register disable timing, BUSY semantics, and verification expectations are documented in [`docs/register_map.md`](./register_map.md#control-register-0x1000) and [`docs/uvm_verification_plan.md`](./uvm_verification_plan.md#disable-enable-verification-scenarios).
 
 ### UART-AXI4 Bridge: Uart_Axi4_Bridge
 

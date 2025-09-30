@@ -195,3 +195,74 @@ class uart_axi4_burst_sequence extends uvm_sequence #(uart_frame_transaction);
     endtask
     
 endclass
+
+// Directed sequence targeting multi-beat auto-increment writes to stress WSTRB handling
+class uart_axi4_multi_beat_write_seq extends uvm_sequence #(uart_frame_transaction);
+
+    `uvm_object_utils(uart_axi4_multi_beat_write_seq)
+
+    int beats = 4;
+    logic [31:0] base_addr = 32'h1000;
+
+    function new(string name = "uart_axi4_multi_beat_write_seq");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        uart_frame_transaction req;
+        uart_frame_transaction enable_req;
+        int bytes_per_beat;
+        int total_bytes;
+
+        `uvm_info("MULTI_BEAT_SEQ", $sformatf("Starting %0d-beat auto-increment write sequence", beats), UVM_LOW)
+
+        bytes_per_beat = 1 << 2; // 32-bit beats
+        total_bytes = beats * bytes_per_beat;
+
+        // Ensure bridge is enabled before issuing the stress write
+        `uvm_create(enable_req)
+
+        enable_req.is_write = 1'b1;
+        enable_req.auto_increment = 1'b0;
+        enable_req.size = 2'b10;
+        enable_req.length = 4'd0;    // Single 32-bit beat
+        enable_req.addr = base_addr;
+        enable_req.data = new[bytes_per_beat];
+        enable_req.expect_error = 1'b0;
+
+        // Write CONTROL register with bridge_enable=1 while clearing other bits
+        enable_req.data[0] = 8'h01;
+        enable_req.data[1] = 8'h00;
+        enable_req.data[2] = 8'h00;
+        enable_req.data[3] = 8'h00;
+
+        enable_req.build_cmd();
+        enable_req.calculate_crc();
+
+        `uvm_send(enable_req)
+
+        `uvm_create(req)
+
+        req.is_write = 1'b1;
+        req.auto_increment = 1'b1;
+        req.size = 2'b10;        // 32-bit beats
+        req.length = beats - 1;  // LEN field encodes beats-1
+        req.addr = base_addr;
+        req.data = new[total_bytes];
+
+        for (int i = 0; i < total_bytes; i++) begin
+            req.data[i] = 8'hC0 + i;
+        end
+
+        // Keep bridge enabled when the CONTROL register beat is written
+        req.data[0] |= 8'h01;
+
+        req.build_cmd();
+        req.calculate_crc();
+
+        `uvm_send(req)
+
+        `uvm_info("MULTI_BEAT_SEQ", $sformatf("Completed multi-beat write: CMD=0x%02X ADDR=0x%08X", req.cmd, req.addr), UVM_LOW)
+    endtask
+
+endclass

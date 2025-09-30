@@ -24,6 +24,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     int match_count = 0;
     int mismatch_count = 0;
     int error_frame_count = 0;
+    int expected_error_count = 0;
     int crc_error_count = 0;
     int timeout_count = 0;
     int protocol_error_count = 0;
@@ -58,10 +59,30 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         end
 
         $cast(uart_tr, tr.clone());
-        uart_queue.push_back(uart_tr);
+
+        if (uart_tr.direction != UART_RX) begin
+            `uvm_info("SCOREBOARD",
+                $sformatf("Ignoring device-to-host UART frame CMD=0x%02X (direction=%s)",
+                          uart_tr.cmd, uart_tr.direction.name()),
+                UVM_HIGH)
+            return;
+        end
+
         uart_transactions_received++;
 
-        `uvm_info("SCOREBOARD", $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X", 
+        if (uart_tr.error_inject || uart_tr.force_crc_error || uart_tr.force_timeout ||
+            uart_tr.corrupt_frame_format || uart_tr.truncate_frame || uart_tr.wrong_sof) begin
+            error_frame_count++;
+            `uvm_info("SCOREBOARD",
+                $sformatf("Ignoring expected error-injected UART frame CMD=0x%02X ADDR=0x%08X (inject flags active)",
+                          uart_tr.cmd, uart_tr.addr),
+                UVM_MEDIUM)
+            return;
+        end
+
+        uart_queue.push_back(uart_tr);
+
+        `uvm_info("SCOREBOARD", $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X",
                   uart_tr.cmd, uart_tr.addr), UVM_DEBUG)
         
         // Check for matching AXI transaction
@@ -87,40 +108,48 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     virtual function void check_for_matches();
         uart_frame_transaction uart_tr;
         axi4_lite_transaction axi_tr;
-        bit match_found = 0;
         bit uart_is_write;
-        
-        // Simple matching: find UART and AXI transactions with same address
+        logic [1:0] uart_size;
+        logic [3:0] expected_wstrb;
+
         for (int i = 0; i < uart_queue.size(); i++) begin
             uart_tr = uart_queue[i];
             uart_is_write = !uart_tr.cmd[7];
-            
+            uart_size = uart_tr.cmd[5:4];
+            expected_wstrb = uart_is_write ? calculate_expected_wstrb(uart_tr.addr, uart_size) : 4'b0000;
+
             for (int j = 0; j < axi_queue.size(); j++) begin
                 axi_tr = axi_queue[j];
-                
-                if (uart_tr.addr == axi_tr.addr) begin
-                    if (axi_tr.is_write != uart_is_write) begin
-                        // Wait for a matching transaction type before declaring a mismatch
-                        continue;
-                    end
-                    // Found matching addresses, now verify transaction details
-                    if (verify_transaction_match(uart_tr, axi_tr)) begin
-                        match_count++;
-                        match_found = 1;
-                        `uvm_info("SCOREBOARD", $sformatf("Transaction match found: ADDR=0x%08X", uart_tr.addr), UVM_MEDIUM)
-                        
-                        // Remove matched transactions
-                        uart_queue.delete(i);
-                        axi_queue.delete(j);
-                        break;
-                    end else begin
-                        mismatch_count++;
-                        `uvm_error("SCOREBOARD", $sformatf("Transaction mismatch at ADDR=0x%08X", uart_tr.addr))
-                    end
+
+                if (uart_tr.addr != axi_tr.addr) begin
+                    continue;
+                end
+
+                if (axi_tr.is_write != uart_is_write) begin
+                    continue;
+                end
+
+                // Prefer candidates whose byte enables already agree with the UART request.
+                if (uart_is_write && (axi_tr.wstrb !== expected_wstrb)) begin
+                    continue;
+                end
+
+                if (verify_transaction_match(uart_tr, axi_tr)) begin
+                    match_count++;
+                    `uvm_info("SCOREBOARD", $sformatf("Transaction match found: ADDR=0x%08X", uart_tr.addr), UVM_MEDIUM)
+
+                    uart_queue.delete(i);
+                    axi_queue.delete(j);
+                    return;
+                end else begin
+                    mismatch_count++;
+                    `uvm_error("SCOREBOARD", $sformatf("Transaction mismatch at ADDR=0x%08X", uart_tr.addr))
+
+                    uart_queue.delete(i);
+                    axi_queue.delete(j);
+                    return;
                 end
             end
-            
-            if (match_found) break;
         end
     endfunction
     
@@ -129,28 +158,83 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         bit is_write = !uart_tr.cmd[7]; // RW bit (inverted)
         logic [1:0] size = uart_tr.cmd[5:4];
         logic [3:0] wstrb_expected;
-        
+        bit expect_error = uart_tr.expect_error;
+        bit bridge_enabled = 1'b1;
+        bit treat_error_ok;
+
+        if (cfg.bridge_status_vif != null) begin
+            bridge_enabled = cfg.bridge_status_vif.bridge_enable;
+        end
+
+        treat_error_ok = expect_error || !bridge_enabled;
+
         // Check transaction type matches
         if (is_write != axi_tr.is_write) begin
             `uvm_error("SCOREBOARD", "Transaction type mismatch (read/write)")
             return 0;
         end
-        
-        // Check WSTRB for write transactions
+
         if (is_write) begin
+            logic [1:0] bresp = axi_tr.bresp;
+
+            if (treat_error_ok) begin
+                if (bresp == 2'b00) begin
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("Expected AXI error on write at ADDR=0x%08X but BRESP=0 (bridge_enable=%0b expect_error=%0b)",
+                                  axi_tr.addr, bridge_enabled, expect_error))
+                    return 0;
+                end
+
+                expected_error_count++;
+                `uvm_info("SCOREBOARD",
+                    $sformatf("Expected error write observed: ADDR=0x%08X BRESP=0x%0X (bridge_enable=%0b expect_error=%0b)",
+                              axi_tr.addr, bresp, bridge_enabled, expect_error),
+                    UVM_MEDIUM)
+                return 1;
+            end
+
+            if (bresp != 2'b00) begin
+                `uvm_error("SCOREBOARD",
+                    $sformatf("Unexpected AXI write response 0x%0X at ADDR=0x%08X", bresp, axi_tr.addr))
+                return 0;
+            end
+
             wstrb_expected = calculate_expected_wstrb(uart_tr.addr, size);
             if (axi_tr.wstrb != wstrb_expected) begin
-                `uvm_error("SCOREBOARD", $sformatf("WSTRB mismatch: expected 0x%X, got 0x%X", 
+                `uvm_error("SCOREBOARD", $sformatf("WSTRB mismatch: expected 0x%X, got 0x%X",
                           wstrb_expected, axi_tr.wstrb))
                 return 0;
             end
-            
-            // Check write data matches
+
             if (!verify_write_data(uart_tr, axi_tr)) begin
                 return 0;
             end
+        end else begin
+            logic [1:0] rresp = axi_tr.rresp;
+
+            if (treat_error_ok) begin
+                if (rresp == 2'b00) begin
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("Expected AXI error on read at ADDR=0x%08X but RRESP=0 (bridge_enable=%0b expect_error=%0b)",
+                                  axi_tr.addr, bridge_enabled, expect_error))
+                    return 0;
+                end
+
+                expected_error_count++;
+                `uvm_info("SCOREBOARD",
+                    $sformatf("Expected error read observed: ADDR=0x%08X RRESP=0x%0X (bridge_enable=%0b expect_error=%0b)",
+                              axi_tr.addr, rresp, bridge_enabled, expect_error),
+                    UVM_MEDIUM)
+                return 1;
+            end
+
+            if (rresp != 2'b00) begin
+                `uvm_error("SCOREBOARD",
+                    $sformatf("Unexpected AXI read response 0x%0X at ADDR=0x%08X", rresp, axi_tr.addr))
+                return 0;
+            end
         end
-        
+
         return 1;
     endfunction
     
@@ -200,6 +284,8 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         `uvm_info("SCOREBOARD", "=== SCOREBOARD FINAL REPORT ===", UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("UART transactions received: %0d", uart_transactions_received), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("AXI transactions received: %0d", axi4_lite_transactions_received), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Error-injected UART frames ignored: %0d", error_frame_count), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Expected error transactions observed: %0d", expected_error_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Matches found: %0d", match_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Mismatches found: %0d", mismatch_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Unmatched UART transactions: %0d", uart_queue.size()), UVM_LOW)

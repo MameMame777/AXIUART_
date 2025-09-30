@@ -31,6 +31,8 @@ class register_comprehensive_test extends register_validation_base_test;
 
     virtual task run_phase(uvm_phase phase);
         register_comprehensive_access_sequence access_seq;
+        register_disable_window_campaign_sequence disable_seq;
+        uart_axi4_error_sequence error_seq;
 
         phase.raise_objection(this, "Executing register comprehensive access sequence");
 
@@ -42,6 +44,12 @@ class register_comprehensive_test extends register_validation_base_test;
         end
 
         access_seq.start(env.uart_agt.sequencer);
+
+        disable_seq = register_disable_window_campaign_sequence::type_id::create("disable_seq");
+        disable_seq.start(env.uart_agt.sequencer);
+
+        error_seq = uart_axi4_error_sequence::type_id::create("error_seq");
+        error_seq.start(env.uart_agt.sequencer);
 
         // Allow post-sequence settling for coverage sampling
         repeat (2000) @(posedge uart_axi4_tb_top.clk);
