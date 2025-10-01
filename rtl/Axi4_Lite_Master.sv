@@ -322,15 +322,27 @@ module Axi4_Lite_Master #(
         axi.arvalid = arvalid_int;
         axi.rready  = rready_int;
 
-        // Pack write data based on size and byte index when active
+        // Pack write data based on size, byte index, and current address alignment
         if (wvalid_int) begin
             case (size_field)
                 2'b00: begin  // 8-bit
-                    axi.wdata[7:0] = write_data[data_byte_index];
+                    int lane;
+                    lane = current_addr[1:0];
+                    axi.wdata[(lane * 8) +: 8] = write_data[data_byte_index];
                 end
                 2'b01: begin  // 16-bit
-                    axi.wdata[7:0]  = write_data[data_byte_index];
-                    axi.wdata[15:8] = write_data[data_byte_index + 1];
+                    logic [7:0] byte0;
+                    logic [7:0] byte1;
+                    byte0 = write_data[data_byte_index];
+                    byte1 = write_data[data_byte_index + 1];
+
+                    if (current_addr[1] == 1'b0) begin
+                        axi.wdata[7:0]  = byte0;
+                        axi.wdata[15:8] = byte1;
+                    end else begin
+                        axi.wdata[23:16] = byte0;
+                        axi.wdata[31:24] = byte1;
+                    end
                 end
                 2'b10: begin  // 32-bit
                     axi.wdata[7:0]   = write_data[data_byte_index];

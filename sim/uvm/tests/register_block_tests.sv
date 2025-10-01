@@ -30,7 +30,8 @@ class register_comprehensive_test extends register_validation_base_test;
     endfunction
 
     virtual task run_phase(uvm_phase phase);
-        register_comprehensive_access_sequence access_seq;
+    register_comprehensive_access_sequence access_seq;
+    register_alignment_sequence alignment_seq;
         register_disable_window_campaign_sequence disable_seq;
         uart_axi4_error_sequence error_seq;
 
@@ -44,6 +45,9 @@ class register_comprehensive_test extends register_validation_base_test;
         end
 
         access_seq.start(env.uart_agt.sequencer);
+
+    alignment_seq = register_alignment_sequence::type_id::create("alignment_seq");
+    alignment_seq.start(env.uart_agt.sequencer);
 
         disable_seq = register_disable_window_campaign_sequence::type_id::create("disable_seq");
         disable_seq.start(env.uart_agt.sequencer);

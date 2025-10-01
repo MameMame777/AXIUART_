@@ -1136,6 +1136,109 @@ class register_comprehensive_access_sequence extends register_uart_sequence_base
     endfunction
 endclass
 
+// Alignment-focused UART register sequence targeting alignment and WSTRB coverage gaps
+class register_alignment_sequence extends register_uart_sequence_base;
+    `uvm_object_utils(register_alignment_sequence)
+
+    function new(string name = "register_alignment_sequence");
+        super.new(name);
+    endfunction
+
+    virtual task body();
+        `uvm_info(get_type_name(), "Starting register alignment coverage sequence", UVM_MEDIUM)
+
+        drive_byte_lane_coverage();
+        drive_halfword_lane_coverage();
+        drive_misaligned_error_campaign();
+        drive_burst_matrix();
+
+        `uvm_info(get_type_name(), "Register alignment coverage sequence completed", UVM_MEDIUM)
+    endtask
+
+    task automatic drive_byte_lane_coverage();
+        bit [31:0] base_addr;
+
+        base_addr = REG_DEBUG;
+        // Lane 0 receives aligned single-byte traffic from the comprehensive access sequence.
+        // Focus on upper lanes to exercise partial WSTRB error paths without perturbing
+        // the scoreboard's aligned data predictions.
+        for (int lane = 1; lane < 4; lane++) begin
+            bit [31:0] value;
+
+            value = 32'h0;
+            value[7:0] = 8'hA0 + lane;
+            drive_write(base_addr + lane, value, 1, /*expect_error=*/1);
+            #(60ns);
+        end
+    endtask
+
+    task automatic drive_halfword_lane_coverage();
+        drive_write(REG_CONFIG, 32'h0000_55AA, 2, /*expect_error=*/0);
+        #(80ns);
+        drive_write(REG_CONFIG + 32'h2, 32'h0000_AA55, 2, /*expect_error=*/0);
+        #(80ns);
+    endtask
+
+    task automatic drive_misaligned_error_campaign();
+        drive_write(REG_CONFIG + 32'h1, 32'h0000_00F1, 2, /*expect_error=*/1);
+        #(70ns);
+        drive_write(REG_CONFIG + 32'h3, 32'h0000_0F0F, 2, /*expect_error=*/1);
+        #(70ns);
+        drive_write(REG_CONTROL + 32'h1, 32'hDEAD_BEEF, 4, /*expect_error=*/1);
+        #(90ns);
+    endtask
+
+    task automatic drive_burst_matrix();
+    drive_alignment_burst("burst_inc_8bit", REG_DEBUG, 1, 4, /*auto_increment=*/1'b1, /*expect_error=*/1);
+        drive_alignment_burst("burst_fixed_16bit", REG_CONFIG, 2, 2, /*auto_increment=*/1'b0, /*expect_error=*/0);
+        drive_alignment_burst("burst_inc_16bit_misaligned", REG_CONFIG + 32'h1, 2, 3, /*auto_increment=*/1'b1, /*expect_error=*/1);
+        drive_alignment_burst("burst_inc_32bit_misaligned", REG_CONTROL + 32'h1, 4, 2, /*auto_increment=*/1'b1, /*expect_error=*/1);
+    endtask
+
+    task automatic drive_alignment_burst(string label,
+                                         bit [31:0] base_addr,
+                                         int unsigned byte_count,
+                                         int unsigned beats,
+                                         bit auto_increment,
+                                         bit expect_error);
+        uart_frame_transaction req;
+        int unsigned total_bytes;
+
+        if (beats == 0) begin
+            beats = 1;
+        end
+
+        total_bytes = byte_count * beats;
+        req = uart_frame_transaction::type_id::create({label, "_txn"});
+        start_item(req);
+
+        req.is_write = 1;
+        req.auto_increment = auto_increment;
+        req.size = infer_size(byte_count);
+        req.length = beats - 1;
+        req.addr = base_addr;
+        req.sof = SOF_HOST_TO_DEVICE;
+        req.direction = UART_RX;
+        req.error_inject = 0;
+        req.expect_error = expect_error;
+        req.data = new[total_bytes];
+        for (int i = 0; i < total_bytes; i++) begin
+            req.data[i] = (8'h40 + i[7:0]);
+        end
+        req.build_cmd();
+        req.calculate_crc();
+
+        finish_item(req);
+
+        `uvm_info(get_type_name(),
+            $sformatf("[%s] Burst write base=0x%08X size=%0d beats=%0d auto_inc=%0d expect_error=%0d",
+                      label, base_addr, byte_count, beats, auto_increment, expect_error),
+            UVM_MEDIUM)
+
+        #(110ns);
+    endtask
+endclass
+
 // Disable window campaign sequence introducing randomized idle and error scenarios
 class register_disable_window_campaign_sequence extends register_uart_sequence_base;
     `uvm_object_utils(register_disable_window_campaign_sequence)

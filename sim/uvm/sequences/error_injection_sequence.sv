@@ -37,12 +37,14 @@ class uart_axi4_error_sequence extends uvm_sequence #(uart_frame_transaction);
             cmd == 8'h20; // 2-byte write
             addr[0] == 1; // Odd address for 2-byte access
             data.size() == 2;
+            expect_error == 1;
         })
         
         `uvm_do_with(req, {
             cmd == 8'h40; // 4-byte write  
             addr[1:0] != 0; // Non-word aligned for 4-byte access
             data.size() == 4;
+            expect_error == 1;
         })
         
         // Test reserved command bits

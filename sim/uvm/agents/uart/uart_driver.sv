@@ -8,6 +8,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Configuration
     uart_axi4_env_config cfg;
     uvm_tlm_analysis_fifo#(uart_frame_transaction) tx_response_fifo;
+    uvm_analysis_port #(uart_frame_transaction) tx_request_ap;
     
     // Virtual interface
     virtual uart_if vif;
@@ -17,6 +18,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     
     function new(string name = "uart_driver", uvm_component parent = null);
         super.new(name, parent);
+        tx_request_ap = new("tx_request_ap", this);
     endfunction
     
     virtual function void build_phase(uvm_phase phase);
@@ -52,6 +54,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             
             `uvm_info("UART_DRIVER", $sformatf("Driving transaction: CMD=0x%02X, ADDR=0x%08X", 
                       req.cmd, req.addr), UVM_MEDIUM);
+
+            if (tx_request_ap != null) begin
+                uart_frame_transaction req_copy;
+                $cast(req_copy, req.clone());
+                tx_request_ap.write(req_copy);
+            end
 
             if (tx_response_fifo != null) begin
                 flush_monitor_responses();

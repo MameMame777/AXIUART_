@@ -73,6 +73,12 @@ class uart_axi4_env extends uvm_env;
             `uvm_info("ENV", "Connected UART monitor to scoreboard", UVM_LOW)
         end
         
+        if (cfg.enable_scoreboard && scoreboard != null && cfg.uart_agent_is_active &&
+            uart_agt.driver != null) begin
+            uart_agt.driver.tx_request_ap.connect(scoreboard.uart_expected_analysis_imp);
+            `uvm_info("ENV", "Connected UART driver to scoreboard metadata stream", UVM_LOW)
+        end
+
         // Connect UART agent to coverage
         if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
             uart_agt.monitor.analysis_port.connect(coverage.analysis_export);

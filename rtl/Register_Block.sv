@@ -49,7 +49,6 @@ module Register_Block #(
     
     // Internal signals
     logic [11:0] addr_offset;
-    logic        valid_addr;
     logic        write_enable;
     logic        read_enable;
     logic [31:0] read_data;
@@ -139,10 +138,56 @@ module Register_Block #(
 
     assign addr_offset = active_addr[11:0];
 
-    // Check if address is within valid range and properly aligned
-    assign valid_addr = (active_addr >= BASE_ADDR && active_addr <= (BASE_ADDR + REG_VERSION + 4)) &&
-                        (addr_offset >= REG_CONTROL && addr_offset <= REG_VERSION) &&
-                        (addr_offset[1:0] == 2'b00); // 32-bit aligned
+    // Helper function to validate supported WSTRB patterns and alignment
+    function automatic bit is_wstrb_supported(logic [1:0] addr_lsb, logic [3:0] wstrb);
+        case (wstrb)
+            4'b0001: return (addr_lsb == 2'b00);            // Byte lane 0 only
+            4'b0011: return (addr_lsb == 2'b00);            // Lower halfword
+            4'b1100: return (addr_lsb == 2'b10);            // Upper halfword
+            4'b1111: return (addr_lsb == 2'b00);            // Full word
+            default: return 1'b0;                           // Unsupported pattern
+        endcase
+    endfunction
+
+    function automatic logic [31:0] apply_wstrb_mask(logic [31:0] current,
+                                                     logic [31:0] wdata,
+                                                     logic [3:0] wstrb);
+        logic [31:0] mask;
+        mask = '0;
+        for (int i = 0; i < 4; i++) begin
+            if (wstrb[i]) begin
+                mask[8*i +: 8] = 8'hFF;
+            end
+        end
+        return (current & ~mask) | (wdata & mask);
+    endfunction
+
+    function automatic bit is_write_access_valid(logic [11:0] offset,
+                                                 logic [3:0] wstrb);
+        logic [11:0] aligned_offset;
+        bit within_register_range;
+        aligned_offset = {offset[11:2], 2'b00};
+        within_register_range = (aligned_offset >= REG_CONTROL) && (aligned_offset <= REG_VERSION);
+        if (!within_register_range) begin
+            return 1'b0;
+        end
+        if (offset > (REG_VERSION + 12'd3)) begin
+            return 1'b0;
+        end
+        return is_wstrb_supported(offset[1:0], wstrb);
+    endfunction
+
+    function automatic bit is_read_access_valid(logic [11:0] offset);
+        logic [11:0] aligned_offset;
+        aligned_offset = {offset[11:2], 2'b00};
+        if ((aligned_offset < REG_CONTROL) || (aligned_offset > REG_VERSION)) begin
+            return 1'b0;
+        end
+        if (offset > (REG_VERSION + 12'd3)) begin
+            return 1'b0;
+        end
+        return (offset[1:0] == 2'b00);
+    endfunction
 
     // AXI4-Lite control signals
     assign aw_handshake = axi.awvalid && axi.awready;
@@ -167,6 +212,8 @@ module Register_Block #(
     assign axi.rresp = read_resp;
     
     // Register write logic
+    logic reset_stats_pulse;
+
     always_ff @(posedge clk) begin
         if (rst) begin
             control_reg <= 32'h0000_0001;  // bridge_enable = 1 (enabled by default)
@@ -175,7 +222,10 @@ module Register_Block #(
             write_resp <= RESP_OKAY;
             write_addr_reg <= BASE_ADDR;
             read_addr_reg <= BASE_ADDR;
+            reset_stats_pulse <= 1'b0;
         end else begin
+            reset_stats_pulse <= 1'b0;
+
             if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
                 write_resp <= RESP_OKAY;
@@ -186,27 +236,42 @@ module Register_Block #(
             end
 
             if (write_enable) begin
-                if (valid_addr) begin
-                    case (addr_offset)
+                logic [11:0] write_offset;
+                logic [11:0] aligned_offset;
+                bit write_ok;
+                logic [31:0] masked_value;
+
+                write_offset = write_addr_reg[11:0];
+                aligned_offset = {write_offset[11:2], 2'b00};
+                write_ok = is_write_access_valid(write_offset, axi.wstrb);
+
+                if (write_ok) begin
+                    case (aligned_offset)
                         REG_CONTROL: begin
-                            control_reg[0] <= axi.wdata[0];
-                            control_reg[1] <= 1'b0; // Always reads as 0, pulse generated
-                            control_reg[31:2] <= 30'b0; // Reserved bits
+                            masked_value = apply_wstrb_mask(control_reg, axi.wdata, axi.wstrb);
+                            control_reg[0] <= masked_value[0];
+                            control_reg[1] <= 1'b0; // Reserved bit forced low
+                            control_reg[31:2] <= '0;
+                            if (axi.wstrb[0] && axi.wdata[1]) begin
+                                reset_stats_pulse <= 1'b1;
+                            end
                         end
-                        
+
                         REG_CONFIG: begin
-                            config_reg[7:0] <= axi.wdata[7:0];
-                            config_reg[15:8] <= axi.wdata[15:8];
+                            masked_value = apply_wstrb_mask(config_reg, axi.wdata, axi.wstrb);
+                            config_reg[7:0] <= masked_value[7:0];
+                            config_reg[15:8] <= masked_value[15:8];
                             config_reg[31:16] <= 16'b0;
                         end
-                        
+
                         REG_DEBUG: begin
-                            debug_reg[3:0] <= axi.wdata[3:0];
+                            masked_value = apply_wstrb_mask(debug_reg, axi.wdata, axi.wstrb);
+                            debug_reg[3:0] <= masked_value[3:0];
                             debug_reg[31:4] <= 28'b0;
                         end
-                        
+
                         default: begin
-                            // Write to read-only or invalid register - ignore data, return OKAY
+                            // Writes to RO registers succeed but have no effect
                         end
                     endcase
                     write_resp <= RESP_OKAY;
@@ -217,53 +282,62 @@ module Register_Block #(
         end
     end
     
-    // Register read logic - Test data for address 0x00001000
+    assign bridge_reset_stats = reset_stats_pulse;
+
+    // Register read logic
     always_comb begin
+        logic [11:0] read_offset;
+        logic [11:0] aligned_offset;
+        bit read_ok;
+
+        read_offset = read_addr_reg[11:0];
+        aligned_offset = {read_offset[11:2], 2'b00};
+        read_ok = is_read_access_valid(read_offset);
+
         read_resp = RESP_OKAY;
-        read_data = 32'h12345678; // Simple test pattern for 0x1000
-        
-        if (valid_addr) begin
-            case (addr_offset)
+        read_data = '0;
+
+        if (read_ok) begin
+            case (aligned_offset)
                 REG_CONTROL: begin
                     read_data = control_reg;
                 end
-                
+
                 REG_STATUS: begin
-                    read_data[0] = bridge_busy;              
-                    read_data[8:1] = error_code;             
-                    read_data[31:9] = 23'b0;                 
+                    read_data[0] = bridge_busy;
+                    read_data[8:1] = error_code;
+                    read_data[31:9] = '0;
                 end
-                
+
                 REG_CONFIG: begin
                     read_data = config_reg;
                 end
-                
+
                 REG_DEBUG: begin
                     read_data = debug_reg;
                 end
-                
+
                 REG_TX_COUNT: begin
-                    read_data[15:0] = tx_count;              
-                    read_data[31:16] = 16'b0;                
+                    read_data[15:0] = tx_count;
+                    read_data[31:16] = '0;
                 end
-                
+
                 REG_RX_COUNT: begin
-                    read_data[15:0] = rx_count;              
-                    read_data[31:16] = 16'b0;                
+                    read_data[15:0] = rx_count;
+                    read_data[31:16] = '0;
                 end
-                
+
                 REG_FIFO_STAT: begin
-                    read_data[7:0] = fifo_status;            
-                    read_data[31:8] = 24'b0;                 
+                    read_data[7:0] = fifo_status;
+                    read_data[31:8] = '0;
                 end
-                
+
                 REG_VERSION: begin
-                    read_data = 32'h0001_0000;              // Version 1.0.0
+                    read_data = 32'h0001_0000;  // Version 1.0.0
                 end
-                
+
                 default: begin
-                    read_data = 32'h12345678; // Default test pattern
-                    read_resp = RESP_OKAY;
+                    read_data = '0;
                 end
             endcase
         end else begin
@@ -273,14 +347,15 @@ module Register_Block #(
     
     // Output register mappings
     assign bridge_enable = control_reg[0];
-    assign bridge_reset_stats = write_enable && valid_addr && (addr_offset == REG_CONTROL) && axi.wdata[1];
     assign baud_div_config = config_reg[7:0];
     assign timeout_config = config_reg[15:8];
     assign debug_mode = debug_reg[3:0];
 
     `ifdef ENABLE_DEBUG
     always_ff @(posedge clk) begin
-        if (!rst && write_enable && valid_addr && (addr_offset == REG_CONTROL)) begin
+        if (!rst && write_enable &&
+            is_write_access_valid(write_addr_reg[11:0], axi.wstrb) &&
+            ({write_addr_reg[11:2], 2'b00} == REG_CONTROL)) begin
             $display("DEBUG: Register_Block CONTROL write data=0x%08X -> bridge_enable=%0b at time %0t", axi.wdata, axi.wdata[0], $time);
         end
     end
