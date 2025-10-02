@@ -116,15 +116,21 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     endfunction
 
     function bit is_addr_reserved(logic [31:0] addr);
+        bit result;
         if (addr < REG_BASE_ADDR) begin
-            return 1'b1;
+            result = 1'b1;
+        end else if (addr > REG_LAST_VALID_ADDR) begin
+            result = 1'b1;
+        end else begin
+            result = 1'b0;
         end
-
-        if (addr > REG_LAST_VALID_ADDR) begin
-            return 1'b1;
-        end
-
-        return 1'b0;
+        
+        `uvm_info("SCOREBOARD_ADDR_CHECK",
+            $sformatf("Address 0x%08X: base=0x%08X last_valid=0x%08X reserved=%0b",
+                      addr, REG_BASE_ADDR, REG_LAST_VALID_ADDR, result),
+            UVM_HIGH)
+        
+        return result;
     endfunction
 
     function void apply_expected_metadata(ref uart_frame_transaction uart_tr);
@@ -377,9 +383,14 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (!expect_error && reserved_addr) begin
             expect_error = 1'b1;
             expectation.expect_error = 1'b1;
-            `uvm_info("SCOREBOARD",
-                $sformatf("Auto-classifying reserved address 0x%08X as expected error",
-                          expectation.beat_addr[beat_index]),
+            `uvm_info("SCOREBOARD_RESERVED_FIX",
+                $sformatf("Auto-classifying reserved address 0x%08X as expected error (was expect_error=%0b)",
+                          expectation.beat_addr[beat_index], expect_error),
+                UVM_MEDIUM)
+        end else if (reserved_addr) begin
+            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+                $sformatf("Reserved address 0x%08X already has expect_error=%0b",
+                          expectation.beat_addr[beat_index], expect_error),
                 UVM_MEDIUM)
         end
 
