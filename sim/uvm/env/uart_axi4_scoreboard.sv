@@ -345,6 +345,14 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (cfg.bridge_status_vif != null) begin
             bridge_enabled = cfg.bridge_status_vif.bridge_enable;
             
+            // Auto-set expect_error when bridge is disabled
+            if (!bridge_enabled) begin
+                expect_error = 1'b1;
+                `uvm_info("SCOREBOARD_BRIDGE_DISABLE",
+                    $sformatf("Bridge disabled, auto-setting expect_error=1 for ADDR=0x%08X", axi_tr.addr),
+                    UVM_MEDIUM)
+            end
+            
             // Monitor bridge_enable state transitions for correlation analysis
             if (bridge_enabled != previous_bridge_enable) begin
                 bridge_enable_transitions++;
