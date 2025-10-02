@@ -144,6 +144,11 @@ module Axi4_Lite_Master #(
             early_busy_sent <= 1'b0;
             transaction_done_reg <= 1'b0;
             cmd_reg <= 8'h00;
+            // Initialize read_data array to prevent X-state propagation
+            for (int i = 0; i < 64; i++) begin
+                read_data[i] <= '0;
+            end
+            read_data_count <= '0;
         end else begin
             state <= state_next;
             

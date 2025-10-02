@@ -90,6 +90,10 @@ module Frame_Builder (
             data_index <= '0;
             is_read_reg <= 1'b0;
             build_response_prev <= 1'b0;
+            // Initialize data array to prevent X-state propagation
+            for (int i = 0; i < 64; i++) begin
+                data_reg[i] <= '0;
+            end
         end else begin
             state <= state_next;
             build_response_prev <= build_response;

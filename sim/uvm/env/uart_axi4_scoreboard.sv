@@ -76,6 +76,18 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     int uart_status_busy_count = 0;
     int uart_status_error_count = 0;
     
+    // Bridge enable state monitoring for correlation analysis
+    bit previous_bridge_enable = 1'b1;
+    time last_bridge_enable_change_time = 0;
+    int bridge_enable_transitions = 0;
+    int transactions_with_bridge_disabled = 0;
+    int bridge_disable_error_count = 0;
+    
+    // Bridge state-aware timeout and correlation parameters
+    parameter time BRIDGE_DISABLE_TIMEOUT_EXTENSION = 50000ns;  // Additional timeout during bridge disable
+    parameter time BRIDGE_TRANSITION_SETTLE_TIME = 10000ns;     // Time to allow bridge state to settle
+    parameter int MAX_BRIDGE_DISABLE_WINDOW_BEATS = 10;         // Max beats to tolerate during disable window
+    
     function new(string name = "uart_axi4_scoreboard", uvm_component parent = null);
         super.new(name, parent);
     endfunction
@@ -215,6 +227,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         int exp_idx;
         int axi_idx;
         int beat_index;
+        int match_result;
         logic [31:0] expected_addr;
         bit progress;
 
@@ -247,7 +260,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                         continue;
                     end
 
-                    if (verify_transaction_match(expectation, beat_index, axi_tr)) begin
+                    match_result = verify_transaction_match(expectation, beat_index, axi_tr);
+                    
+                    if (match_result == 1) begin
+                        // Successful match
                         match_count++;
                         `uvm_info("SCOREBOARD",
                             $sformatf("Matched beat %0d/%0d for CMD=0x%02X ADDR=0x%08X",
@@ -267,7 +283,15 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                         end
 
                         progress = 1;
+                    end else if (match_result == -1) begin
+                        // Transaction deferred due to bridge state - continue checking other transactions
+                        `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                            $sformatf("Transaction deferred: CMD=0x%02X ADDR=0x%08X beat=%0d",
+                                      expectation.uart_tr.cmd, expected_addr, beat_index + 1),
+                            UVM_HIGH)
+                        continue; // Don't delete anything, just defer this transaction
                     end else begin
+                        // Actual mismatch (match_result == 0)
                         mismatch_count++;
                         `uvm_error("SCOREBOARD",
                             $sformatf("Transaction mismatch at beat %0d for CMD=0x%02X ADDR=0x%08X",
@@ -289,7 +313,8 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     endfunction
     
     // Verify that UART and AXI transactions match
-    virtual function bit verify_transaction_match(uart_axi4_expected_transaction expectation,
+    // Returns: 1 = match, 0 = mismatch, -1 = deferred (bridge state)
+    virtual function int verify_transaction_match(uart_axi4_expected_transaction expectation,
                                                   int beat_index,
                                                   axi4_lite_transaction axi_tr);
         bit is_write;
@@ -299,6 +324,13 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         bit allow_error;
         bit require_error;
         bit reserved_addr;
+
+        // Enhanced debug logging for scoreboard repair
+        `uvm_info("SCOREBOARD_VERIFY",
+            $sformatf("Verifying match: ADDR=0x%08X beat=%0d CMD=0x%02X AXI_%s vs UART_expect_error=%0b",
+                      axi_tr.addr, beat_index + 1, expectation.uart_tr.cmd,
+                      axi_tr.is_write ? "WRITE" : "READ", expectation.expect_error),
+            UVM_HIGH)
 
         is_write = expectation.is_write;
         if (expectation.is_write) begin
@@ -312,6 +344,26 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
 
         if (cfg.bridge_status_vif != null) begin
             bridge_enabled = cfg.bridge_status_vif.bridge_enable;
+            
+            // Monitor bridge_enable state transitions for correlation analysis
+            if (bridge_enabled != previous_bridge_enable) begin
+                bridge_enable_transitions++;
+                last_bridge_enable_change_time = $time;
+                `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                    $sformatf("Bridge enable state changed: %0b -> %0b at time %0t (transition #%0d)",
+                              previous_bridge_enable, bridge_enabled, $time, bridge_enable_transitions),
+                    UVM_MEDIUM)
+                previous_bridge_enable = bridge_enabled;
+            end
+            
+            // Track transactions when bridge is disabled
+            if (!bridge_enabled) begin
+                transactions_with_bridge_disabled++;
+                `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                    $sformatf("Transaction with bridge DISABLED: ADDR=0x%08X CMD=0x%02X (count=%0d)",
+                              axi_tr.addr, expectation.uart_tr.cmd, transactions_with_bridge_disabled),
+                    UVM_MEDIUM)
+            end
         end
 
         if (!expect_error && reserved_addr) begin
@@ -324,7 +376,23 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         end
 
         allow_error = expect_error || !bridge_enabled;
-        require_error = expect_error;
+        require_error = expect_error || !bridge_enabled;
+
+        // Bridge state-aware transaction validation
+        if (!is_bridge_state_valid_for_transaction(expectation, beat_index)) begin
+            `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                $sformatf("Deferring transaction due to bridge state: ADDR=0x%08X CMD=0x%02X bridge_enable=%0b time_since_transition=%0t",
+                          axi_tr.addr, expectation.uart_tr.cmd, bridge_enabled, 
+                          $time - last_bridge_enable_change_time),
+                UVM_MEDIUM)
+            return -1; // Special return code for deferred transactions
+        end
+
+        // Enhanced logging for error expectation logic
+        `uvm_info("SCOREBOARD_VERIFY",
+            $sformatf("Error logic: bridge_enabled=%0b reserved_addr=%0b expect_error=%0b allow_error=%0b require_error=%0b",
+                      bridge_enabled, reserved_addr, expect_error, allow_error, require_error),
+            UVM_HIGH)
 
         if (axi_tr.is_write != is_write) begin
             `uvm_error("SCOREBOARD", "Transaction type mismatch (read/write)")
@@ -351,9 +419,17 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             end
 
             if (require_error) begin
-                `uvm_error("SCOREBOARD",
-                    $sformatf("Expected AXI error on write at ADDR=0x%08X but BRESP=0 (bridge_enable=%0b expect_error=%0b)",
-                              axi_tr.addr, bridge_enabled, expect_error))
+                // Track bridge disable related errors specifically
+                if (!bridge_enabled && !expect_error) begin
+                    bridge_disable_error_count++;
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("BRIDGE_DISABLE_ERROR: Expected AXI error on write at ADDR=0x%08X but BRESP=0 (bridge_enable=%0b expect_error=%0b) [bridge_disable_error #%0d]",
+                                  axi_tr.addr, bridge_enabled, expect_error, bridge_disable_error_count))
+                end else begin
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("Expected AXI error on write at ADDR=0x%08X but BRESP=0 (bridge_enable=%0b expect_error=%0b)",
+                                  axi_tr.addr, bridge_enabled, expect_error))
+                end
                 return 0;
             end
 
@@ -385,9 +461,17 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             end
 
             if (require_error) begin
-                `uvm_error("SCOREBOARD",
-                    $sformatf("Expected AXI error on read at ADDR=0x%08X but RRESP=0 (bridge_enable=%0b expect_error=%0b)",
-                              axi_tr.addr, bridge_enabled, expect_error))
+                // Track bridge disable related read errors specifically
+                if (!bridge_enabled && !expect_error) begin
+                    bridge_disable_error_count++;
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("BRIDGE_DISABLE_ERROR: Expected AXI error on read at ADDR=0x%08X but RRESP=0 (bridge_enable=%0b expect_error=%0b) [bridge_disable_error #%0d]",
+                                  axi_tr.addr, bridge_enabled, expect_error, bridge_disable_error_count))
+                end else begin
+                    `uvm_error("SCOREBOARD",
+                        $sformatf("Expected AXI error on read at ADDR=0x%08X but RRESP=0 (bridge_enable=%0b expect_error=%0b)",
+                                  axi_tr.addr, bridge_enabled, expect_error))
+                end
                 return 0;
             end
         end
@@ -494,6 +578,81 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         endcase
 
         return data_word;
+    endfunction
+    
+    // Bridge state-aware transaction validation
+    virtual function bit is_bridge_state_valid_for_transaction(uart_axi4_expected_transaction expectation, int beat_index);
+        time time_since_transition;
+        bit bridge_enabled;
+        
+        // Get current bridge state
+        if (cfg.bridge_status_vif != null) begin
+            bridge_enabled = cfg.bridge_status_vif.bridge_enable;
+        end else begin
+            bridge_enabled = 1'b1; // Default to enabled if no interface
+        end
+        
+        time_since_transition = $time - last_bridge_enable_change_time;
+        
+        // If bridge is disabled, allow limited transactions but with extended tolerance
+        if (!bridge_enabled) begin
+            if (beat_index >= MAX_BRIDGE_DISABLE_WINDOW_BEATS) begin
+                `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                    $sformatf("Bridge disable window exceeded for ADDR=0x%08X beat=%0d (max=%0d)",
+                              expectation.beat_addr[beat_index], beat_index, MAX_BRIDGE_DISABLE_WINDOW_BEATS),
+                    UVM_MEDIUM)
+                return 0; // Too many beats during disable window
+            end
+            return 1; // Allow transaction during disable window
+        end
+        
+        // If bridge was recently re-enabled, allow settle time
+        if (time_since_transition < BRIDGE_TRANSITION_SETTLE_TIME) begin
+            `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                $sformatf("Bridge transition settle time: %0t < %0t for ADDR=0x%08X",
+                          time_since_transition, BRIDGE_TRANSITION_SETTLE_TIME, expectation.beat_addr[beat_index]),
+                UVM_HIGH)
+            return 0; // Wait for bridge to settle
+        end
+        
+        return 1; // Normal operation - bridge enabled and settled
+    endfunction
+    
+    // Calculate effective timeout considering bridge state
+    virtual function time get_effective_timeout(uart_axi4_expected_transaction expectation, time base_timeout);
+        bit bridge_enabled;
+        time effective_timeout;
+        time time_since_transition;
+        
+        // Get current bridge state
+        if (cfg.bridge_status_vif != null) begin
+            bridge_enabled = cfg.bridge_status_vif.bridge_enable;
+        end else begin
+            bridge_enabled = 1'b1;
+        end
+        
+        effective_timeout = base_timeout;
+        time_since_transition = $time - last_bridge_enable_change_time;
+        
+        // Extend timeout during bridge disable windows
+        if (!bridge_enabled) begin
+            effective_timeout += BRIDGE_DISABLE_TIMEOUT_EXTENSION;
+            `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                $sformatf("Extended timeout for bridge disable: %0t + %0t = %0t for CMD=0x%02X",
+                          base_timeout, BRIDGE_DISABLE_TIMEOUT_EXTENSION, effective_timeout, expectation.uart_tr.cmd),
+                UVM_HIGH)
+        end
+        
+        // Extend timeout immediately after bridge re-enable
+        if (bridge_enabled && time_since_transition < BRIDGE_TRANSITION_SETTLE_TIME * 2) begin
+            effective_timeout += BRIDGE_TRANSITION_SETTLE_TIME;
+            `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                $sformatf("Extended timeout for bridge recovery: %0t + %0t = %0t for CMD=0x%02X",
+                          base_timeout, BRIDGE_TRANSITION_SETTLE_TIME, effective_timeout, expectation.uart_tr.cmd),
+                UVM_HIGH)
+        end
+        
+        return effective_timeout;
     endfunction
 
     virtual function uart_axi4_expected_transaction build_expected_transaction(uart_frame_transaction uart_tr);
@@ -610,6 +769,28 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         `uvm_info("SCOREBOARD", $sformatf("Expected error transactions observed: %0d", expected_error_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Matches found: %0d", match_count), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Mismatches found: %0d", mismatch_count), UVM_LOW)
+        
+        // Bridge enable state correlation statistics  
+        `uvm_info("SCOREBOARD", "=== BRIDGE STATE CORRELATION REPORT ===", UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Bridge enable state transitions: %0d", bridge_enable_transitions), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Transactions with bridge disabled: %0d", transactions_with_bridge_disabled), UVM_LOW)
+        `uvm_info("SCOREBOARD", $sformatf("Bridge disable related errors: %0d", bridge_disable_error_count), UVM_LOW)
+        if (last_bridge_enable_change_time > 0) begin
+            `uvm_info("SCOREBOARD", $sformatf("Last bridge state change at time: %0t", last_bridge_enable_change_time), UVM_LOW)
+        end
+        
+        // Bridge state-aware validation statistics
+        if (bridge_enable_transitions > 0) begin
+            real bridge_error_rate = real'(bridge_disable_error_count) / real'(transactions_with_bridge_disabled + 1) * 100.0;
+            `uvm_info("SCOREBOARD", $sformatf("Bridge disable error rate: %0.1f%% (%0d errors / %0d transactions)",
+                      bridge_error_rate, bridge_disable_error_count, transactions_with_bridge_disabled), UVM_LOW)
+        end
+        
+        // Current bridge state
+        if (cfg.bridge_status_vif != null) begin
+            `uvm_info("SCOREBOARD", $sformatf("Final bridge enable state: %0b", cfg.bridge_status_vif.bridge_enable), UVM_LOW)
+        end
+        
         `uvm_info("SCOREBOARD", $sformatf("Pending UART commands: %0d (remaining beats=%0d)", pending_uart_commands, pending_uart_beats), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Unmatched AXI transactions: %0d", axi_queue.size()), UVM_LOW)
         

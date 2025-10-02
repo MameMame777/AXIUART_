@@ -165,10 +165,15 @@ module Frame_Parser #(
         if (rst) begin
             state <= IDLE;
             cmd_reg <= '0;
+            current_cmd <= '0;  // Initialize current_cmd to prevent X-state
             addr_reg <= '0;
             data_byte_count <= '0;
             received_crc <= '0;
             error_status_reg <= STATUS_OK;
+            // Initialize data array to prevent X-state propagation
+            for (int i = 0; i < 64; i++) begin
+                data_reg[i] <= '0;
+            end
         end else begin
             state <= state_next;
             
