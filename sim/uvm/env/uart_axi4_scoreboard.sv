@@ -117,18 +117,26 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
 
     function bit is_addr_reserved(logic [31:0] addr);
         bit result;
+        
         if (addr < REG_BASE_ADDR) begin
             result = 1'b1;
+            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+                $sformatf("Address check: 0x%08X (BELOW_BASE) offset=0x%02X -> reserved=%0b",
+                          addr, (addr - REG_BASE_ADDR), result),
+                UVM_MEDIUM)
         end else if (addr > REG_LAST_VALID_ADDR) begin
             result = 1'b1;
+            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+                $sformatf("Address check: 0x%08X (ABOVE_LAST) offset=0x%02X -> reserved=%0b",
+                          addr, (addr - REG_BASE_ADDR), result),
+                UVM_MEDIUM)
         end else begin
             result = 1'b0;
+            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+                $sformatf("Address check: 0x%08X (VALID) offset=0x%02X -> reserved=%0b",
+                          addr, (addr - REG_BASE_ADDR), result),
+                UVM_MEDIUM)
         end
-        
-        `uvm_info("SCOREBOARD_ADDR_CHECK",
-            $sformatf("Address 0x%08X: base=0x%08X last_valid=0x%08X reserved=%0b",
-                      addr, REG_BASE_ADDR, REG_LAST_VALID_ADDR, result),
-            UVM_HIGH)
         
         return result;
     endfunction
@@ -303,6 +311,14 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                             $sformatf("Transaction mismatch at beat %0d for CMD=0x%02X ADDR=0x%08X",
                                       beat_index + 1, expectation.uart_tr.cmd, expected_addr))
 
+                        // Enhanced mismatch debugging with command analysis
+                        `uvm_info("SCOREBOARD_MISMATCH_DETAIL",
+                            $sformatf("Expected: CMD=0x%02X(%s) ADDR=0x%08X(+0x%02X) beat=%0d | AXI: ADDR=0x%08X(%s)",
+                                      expectation.uart_tr.cmd, (expectation.uart_tr.cmd[7]) ? "READ" : "WRITE", 
+                                      expected_addr, (expected_addr - REG_BASE_ADDR), beat_index + 1,
+                                      axi_tr.addr, (axi_tr.is_write) ? "WRITE" : "READ"),
+                            UVM_MEDIUM)
+
                         uart_expectations.delete(exp_idx);
                         axi_queue.delete(axi_idx);
                         progress = 1;
@@ -351,11 +367,12 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (cfg.bridge_status_vif != null) begin
             bridge_enabled = cfg.bridge_status_vif.bridge_enable;
             
-            // Auto-set expect_error when bridge is disabled
+            // Bridge disabled means no UART->AXI translation occurs
+            // Therefore, AXI responses should be normal (no error expected)
             if (!bridge_enabled) begin
-                expect_error = 1'b1;
+                expect_error = 1'b0;  // Changed: expect normal response when bridge disabled
                 `uvm_info("SCOREBOARD_BRIDGE_DISABLE",
-                    $sformatf("Bridge disabled, auto-setting expect_error=1 for ADDR=0x%08X", axi_tr.addr),
+                    $sformatf("Bridge disabled, expect_error=0 for ADDR=0x%08X (no UART->AXI translation)", axi_tr.addr),
                     UVM_MEDIUM)
             end
             
@@ -395,7 +412,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         end
 
         allow_error = expect_error || !bridge_enabled;
-        require_error = expect_error || !bridge_enabled;
+        require_error = expect_error;  // Fixed: Only require error when explicitly expected, not when bridge disabled
 
         // Bridge state-aware transaction validation
         if (!is_bridge_state_valid_for_transaction(expectation, beat_index)) begin

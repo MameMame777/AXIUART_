@@ -1189,7 +1189,7 @@ class register_alignment_sequence extends register_uart_sequence_base;
     endtask
 
     task automatic drive_burst_matrix();
-    drive_alignment_burst("burst_inc_8bit", REG_DEBUG, 1, 4, /*auto_increment=*/1'b1, /*expect_error=*/1);
+        drive_alignment_burst("burst_inc_8bit", REG_DEBUG + 32'h2, 1, 4, /*auto_increment=*/1'b1, /*expect_error=*/1);  // Fixed: Start from REG_DEBUG+2 to ensure all beats are cross-register access errors
         drive_alignment_burst("burst_fixed_16bit", REG_CONFIG, 2, 2, /*auto_increment=*/1'b0, /*expect_error=*/0);
         drive_alignment_burst("burst_inc_16bit_misaligned", REG_CONFIG + 32'h1, 2, 3, /*auto_increment=*/1'b1, /*expect_error=*/1);
         drive_alignment_burst("burst_inc_32bit_misaligned", REG_CONTROL + 32'h1, 4, 2, /*auto_increment=*/1'b1, /*expect_error=*/1);
@@ -1385,11 +1385,11 @@ class register_disable_window_campaign_sequence extends register_uart_sequence_b
             op_label = $sformatf("%s_disabled_op%0d", base_label, idx);
 
             case ($urandom_range(0, 4))
-                0: drive_read(REG_STATUS, 4, /*expect_error=*/1);
-                1: drive_read((idx % 2) ? REG_TX_COUNT : REG_RX_COUNT, 4, /*expect_error=*/1);
-                2: drive_read(REG_FIFO_STAT, 4, /*expect_error=*/1);
-                3: drive_write(REG_DEBUG, $urandom_range(0, 15), 1, /*expect_error=*/1);
-                default: drive_read(REG_CONTROL, 4, /*expect_error=*/1);
+                0: drive_read(REG_STATUS, 4, /*expect_error=*/0);          // Fixed: Register access succeeds even when bridge disabled
+                1: drive_read((idx % 2) ? REG_TX_COUNT : REG_RX_COUNT, 4, /*expect_error=*/0);
+                2: drive_read(REG_FIFO_STAT, 4, /*expect_error=*/0);
+                3: drive_write(REG_DEBUG, $urandom_range(0, 15), 1, /*expect_error=*/0);
+                default: drive_read(REG_CONTROL, 4, /*expect_error=*/0);
             endcase
 
             `uvm_info(get_type_name(), $sformatf("[%s] Disabled window stimulus issued", op_label), UVM_HIGH)

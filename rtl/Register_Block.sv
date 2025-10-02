@@ -167,25 +167,51 @@ module Register_Block #(
         logic [11:0] aligned_offset;
         bit within_register_range;
         aligned_offset = {offset[11:2], 2'b00};
-        within_register_range = (aligned_offset >= REG_CONTROL) && (aligned_offset <= REG_VERSION);
+        
+        // Check if aligned offset matches any valid register
+        case (aligned_offset)
+            REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
+            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION: begin
+                within_register_range = 1'b1;
+            end
+            default: begin
+                within_register_range = 1'b0;
+            end
+        endcase
+        
         if (!within_register_range) begin
             return 1'b0;
         end
-        if (offset > (REG_VERSION + 12'd3)) begin
+        
+        // Ensure access doesn't exceed the 4-byte register boundary
+        if (offset > (aligned_offset + 12'd3)) begin
             return 1'b0;
         end
+        
         return is_wstrb_supported(offset[1:0], wstrb);
     endfunction
 
     function automatic bit is_read_access_valid(logic [11:0] offset);
         logic [11:0] aligned_offset;
         aligned_offset = {offset[11:2], 2'b00};
-        if ((aligned_offset < REG_CONTROL) || (aligned_offset > REG_VERSION)) begin
+        
+        // Check if aligned offset matches any valid register
+        case (aligned_offset)
+            REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
+            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION: begin
+                // Valid register found
+            end
+            default: begin
+                return 1'b0;  // Invalid register address
+            end
+        endcase
+        
+        // Ensure access doesn't exceed the 4-byte register boundary
+        if (offset > (aligned_offset + 12'd3)) begin
             return 1'b0;
         end
-        if (offset > (REG_VERSION + 12'd3)) begin
-            return 1'b0;
-        end
+        
+        // AXI4-Lite requires word-aligned reads for simplicity
         return (offset[1:0] == 2'b00);
     endfunction
 
