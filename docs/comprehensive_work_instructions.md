@@ -1,6 +1,6 @@
 # AXIUART SystemVerilog UVM Verification – Comprehensive Work Instructions
 
-_Last updated: 2025-09-30_  
+ _Last updated: 2025-10-02_  
 _Target environment: DSIM v20240422.0.0 · SystemVerilog UVM 1.2 · Windows PowerShell_
 
 ---
@@ -21,15 +21,15 @@ SystemVerilog verification engineers on this project commit to the following:
 4. **Security and confidentiality** – keep project data local, avoid hard-coded secrets, and prefer relative paths.
 5. **Knowledge sharing** – document insights in `docs/diary_YYYYMMDD.md` and update this guide whenever processes change.
 
-## 3. Project snapshot (30 Sep 2025)
+## 3. Project snapshot (02 Oct 2025)
 
 ### 3.0 Goal and status summary
 
 - **Project goal**: Deliver a production-ready UART ⇔ AXI4-Lite bridge with UVM-driven verification that maintains `UVM_ERROR = 0`, achieves ≥ 60 % toggle coverage in Phase 4, and progresses toward the Phase 5 stretch targets without sacrificing stability.
-- **Current status (2025-09-30)**:
-  - Regressions finish in ≤ 322 ms with `UVM_ERROR = 0` across curated tests.
-  - Coverage snapshot — Line 100 %, Toggle 14.0 %, Expression 83.3 %, Functional 25.0 %; disable-focused `register_comprehensive_test` (seed 12345, quiet-period multiplier 4) now reports Frame 50.13 %, Burst 46.88 %, Error 50.00 %, Total 49.00 %, while the standalone `register_block_test` still lags at Frame 29.55 %, Burst 28.13 %, Error 50.00 %, Total 35.89 % and leaves 17 UART responses unmatched in the scoreboard.
-  - Tooling (`run_uvm.ps1`, MXD wave capture, metrics export) is stable; next focus areas are register access diversity and asynchronous UART error scenarios.
+- **Current status (2025-10-02)**:
+  - `register_comprehensive_test` (executed 2025-10-02 05:35 via `run_uvm.ps1`) finishes with 33 `UVM_ERROR` reports and 16 scoreboard mismatches on reserved register accesses; the reserved-address auto-classification and metadata propagation path must be validated before resuming the coverage push.
+  - `coverage_work_plan_20251001.md` captures the latest metrics (Line 100 %, Expression 66.7 %, frame functional 32.05 %, burst functional 47.92 %, error functional 50.00 %) and exposes the blind spots that block the Phase 4 objectives.
+  - Tooling (`run_uvm.ps1`, MXD capture, coverage export) remains stable, but every engineer must treat the scoreboard mismatch as a priority defect while layering the new coverage sequences.
 
 ### 3.1 System overview
 
@@ -39,118 +39,93 @@ SystemVerilog verification engineers on this project commit to the following:
 
 ### 3.2 Verification status
 
-- **Stability**: latest regression completes in ≤ 322 ms with `UVM_ERROR = 0`.
-- **Infrastructure**: `run_uvm.ps1` standardises compilation, execution, waveform (MXD), and metrics export.
-- **Coverage summary**:
+- **Stability**: The latest full regression (`register_comprehensive_test`, 2025-10-02) fails with scoreboard mismatches; treat regression repair as a release blocker.
+- **Infrastructure**: `run_uvm.ps1` continues to standardise compilation, execution, waveform (MXD), and coverage export; environment variable checks remain mandatory.
+- **Coverage summary (per `coverage_work_plan_20251001.md`)**:
 
-| Metric | Previous | Current | Next milestone | Stretch goal |
-| ------ | -------- | ------- | -------------- | ------------ |
-| Line | 100.0 % | 100.0 % | 100.0 % (maintain) | 100.0 % |
-| Toggle | 22.7 % | 14.0 % | ≥ 60 % (Phase 4 lock-in) | ≥ 85 % (Phase 5) |
-| Expression | 66.7 % | 83.3 % | ≥ 92 % (Phase 4) | ≥ 96 % (Phase 5) |
-| Functional | 0.0 % | 25.0 % | ≥ 70 % (Phase 4) | ≥ 90 % (Phase 5) |
+| Metric | Latest value | Short-term goal | Notes |
+| ------ | ------------ | ---------------- | ----- |
+| Line | 100.0 % | 100 % | Keep regression green while fixing scoreboard defect. |
+| Expression (`AXIUART_Top`) | 66.7 % | ≥ 87 % | Missing the `system_busy && (bridge_error_code != 8'h00)` branch. |
+| Functional (`frame_coverage`) | 32.05 % | ≥ 40 % | `align_status` bins never sampled; partial WSTRB absent. |
+| Functional (`burst_coverage`) | 47.92 % | ≥ 55 % | `burst_len_type_size` cross stuck at 8.33 %. |
+| Functional (`error_coverage`) | 50.00 % | ≥ 60 % | Need CRC-bad, timeout, and AXI SLVERR in one regression window. |
 
-> Focus: `register_block_inst` toggle coverage is 13.7 %. Prioritise register access diversity, parallel AXI transactions, and asynchronous UART error scenarios to unlock the ≥ 60 % milestone.
+> Focus: unblock reserved-address handling, then drive misaligned, partial-strobe, and error-response stimulus to close the identified coverage gaps.
 
 ### 3.3 Key achievements to date
 
-- `UVM_ERROR = 0` maintained across all curated tests.
+- Reserved-address auto-classification and metadata plumbing added to `uart_axi4_scoreboard`; failure analysis is now focused on validating the behaviour against live regressions.
 - Timescale aligned across RTL and UVM sources (seven files corrected).
 - Advanced coverage sequences and dynamic configuration tests implemented.
 - Baud-rate configuration changes validated without regression failures.
 
-## 4. Immediate priorities and success criteria
+### 3.4 Latest regression evidence (02 Oct 2025)
 
-- [ ] **Drive toggle coverage** to ≥ 50 % within the next two regressions and lock in ≥ 60 % before closing Phase 4. Plan follow-up work that elevates the metric to ≥ 85 % during Phase 5 by stressing concurrent register, UART, and AXI activity.
-- [ ] **Push expression coverage** past ≥ 92 % in Phase 4 by exhausting every conditional path, then pursue ≥ 96 % in Phase 5 through rare-error injection, timeout variations, and watchdog sequencing.
-- [ ] **Build functional coverage** infrastructure that measures ≥ 70 % by the Phase 4 exit review, then extend covergroups (frame cross, AXI response × FIFO depth, recovery paths) to achieve ≥ 90 % in Phase 5.
-- [ ] **Retain perfect stability**: any run with `UVM_ERROR > 0` or compilation warnings is a blocker and must be resolved before chasing higher coverage.
+- `sim/uvm/run_uvm.ps1 -TestName register_comprehensive_test` (seed 1) executed at 2025-10-02 05:35 completed with `UVM_ERROR = 33`, `mismatch_count = 16`, and four unmatched AXI transactions attributed to reserved-space accesses (ADDR=0x00001020/0x00001024, RESP=0x2).
+- The DSIM transcript (`sim/uvm/dsim.log`) confirms both read and write BRESP/RRESP failures despite the new reserved-address hook; expectation metadata either failed to latch or was dropped when sequences bypassed UART metadata.
+- Coverage artefacts were generated under `sim/exec/coverage_report/` and the MXD waveform archived as `archive/waveforms/register_comprehensive_test_20251002_053320.mxd`; reuse these assets when correlating scoreboard behaviour.
 
-### 4.1 Next action checklist – bridge_enable toggle recovery
+## 4. Immediate priorities and success criteria (updated 02 Oct 2025)
 
-Use the following checklist to drive the next verification sprint. Replace `□` with `■` (full-width characters) as each item is completed, and record progress in `docs/diary_YYYYMMDD.md`.
+The scoreboard regression must be cleared before pursuing the Phase 4 coverage stretch goals. Follow the investigation-first approach, then execute the aligned work plan from `coverage_work_plan_20251001.md`.
 
-#### Phase A – Verify CONTROL register propagation
+### 4.1 Investigation checklist — complete before implementing fixes
 
-- ■ Capture the UART-side CONTROL writes
-  - ■ Tag the relevant transactions in `register_comprehensive_access_sequence` logs (time stamp and command field) for quick correlation.
-  - ■ Add a temporary comment in the diary noting the expected disable window length.
-- ■ Read back the CONTROL register immediately after each disable attempt
-  - ■ Extend the sequence with a post-write read and compare result; log discrepancies with `uvm_error`.
-  - ■ Preserve the change set so it can be reverted once confirmation is complete.
+- [ ] Review `sim/uvm/dsim.log` around time 21 090 510 000 ps to confirm BRESP/RRESP `0x2` events at ADDR=0x00001020/0x00001024 and capture call stacks for both UART and AXI monitor messages.
+- [ ] Inspect the scoreboard expectation queue (enable `UVM_HIGH` for `uart_axi4_scoreboard`) to verify whether `expect_error` is being autocompleted when `is_addr_reserved()` fires.
+- [ ] Cross-check UART metadata: ensure `uart_expected_queue` receives entries for sequences that bypass the UART agent (direct AXI stimulus) and document any gaps in `docs/diary_20251002.md`.
+- [ ] Confirm DSIM environment variables via `Test-DsimEnvironment` and note the exact `run_uvm.ps1` command (test name, seed, verbosity) used for reproducing the failure.
+- [ ] Update the daily diary with the investigation findings before making RTL/UVM edits.
 
-#### Phase B – Observe DUT response during the disable window
+### 4.2 Action plan derived from `coverage_work_plan_20251001.md`
 
-- □ Inspect AXI4-Lite handshake in the waveform
-  - □ Check that `axi_internal.awvalid/awready` and `wvalid/wready` assert while `bridge_enable` is expected to drop.
-  - □ Ensure `internal_rst` within `AXIUART_Top` does not reset the bridge before the write commits.
-- □ Instrument additional status if needed
-  - □ Enable `bridge_status_monitor` debug messaging (`UVM_MEDIUM`) to capture timestamps for low/high transitions.
-  - □ Document any RTL signals that need temporary visibility (`DEFINE_SIM` outputs only).
+Progress through the phases in order; do not advance until exit criteria for the active phase are satisfied and recorded. Retain MXD waveforms and coverage bundles after every run.
 
-#### Phase C – Force a confirmed low transition
+#### Phase 0 – Regression baseline and scoreboard repair (Owner: Verification)
 
-- ■ Introduce a dedicated disable experiment
-  - ■ Add a focused sequence step that writes `0x0000_0000` with extended idle cycles afterward.
-  - □ Optionally drive an out-of-band AXI-lite stimulus (compile-time guard) if UART writes still fail to propagate.
-- ■ Re-run `register_comprehensive_test`
-  - ■ Execute `run_uvm.ps1` with coverage enabled and archive the resulting MXD.
-  - ■ Verify that `bridge_status_monitor` reports a low transition and that the toggle bin is no longer empty.
+- [ ] Implement targeted logging or assertions inside `uart_axi4_scoreboard::verify_transaction_match()` to trace when reserved-address auto-classification triggers.
+- [ ] Audit `register_sequences.sv` and any direct AXI sequences to ensure `expect_error` metadata is set for reserved ranges; patch missing cases.
+- [ ] Re-run `register_comprehensive_test` with `-Coverage on -Verbosity UVM_LOW` and capture mismatch deltas; repeat until `mismatch_count == 0` and `UVM_ERROR == 0`.
+- [ ] Archive the passing log, MXD, and coverage reports and summarise the fix path in the diary.
 
-#### Phase D – Close the loop
+#### Phase 1 – Alignment & WSTRB coverage (Priority A)
 
-- ■ Update `docs/diary_YYYYMMDD.md`
-  - ■ Summarise observations, commands executed, and coverage deltas.
-  - ■ Note any temporary code left in place and the plan for removal.
-- ■ Refresh this checklist
-  - ■ Replace completed `□` symbols with `■`.
-  - □ Add new action items if additional gaps are uncovered during execution.
+- [ ] Clone `register_comprehensive_sequence` into `register_alignment_sequence` and randomise misaligned addresses (`ADDR % bytes_per_beat != 0`).
+- [ ] Add partial-width write cases (8 b/16 b) with deterministic WSTRB patterns; verify scoreboard acceptance for each pattern.
+- [ ] Extend functional coverpoints to sample `align_status` and `wstrb_coverage`, then drive the sequence until each bin records at least one hit.
+- [ ] Exit when `align_status > 0 %` and `wstrb_coverage ≥ 40 %` in the coverage report.
 
-### 4.2 Next action checklist – Documentation alignment and disable coverage drive
+#### Phase 2 – Burst cross coverage (Priority A)
 
-Once the verification plan and register block documentation reflect the current CONTROL disable behaviour, execute the following sequence to lift coverage and solidify scoreboard handling. Replace `□` with `■` as work completes and capture outcomes in the daily diary.
+- [ ] Introduce `multi_burst_sequence` with configurable burst lengths (1/2/4/8) and both incrementing and fixed-address modes.
+- [ ] Ensure AXI monitor captures `burst_len_type_size`; confirm scoreboard handles the additional beats without leaving entries unmatched.
+- [ ] Run directed regressions to populate cross bins until `burst_len_type_size ≥ 33 %` and the size distribution exceeds 55 %.
 
-#### Phase E – Synchronise documentation and design intent
+#### Phase 3 – Error/status campaign (Priority B)
 
-- ■ Update `docs/uvm_verification_plan.md`
-  - ■ Insert disable/enable scenarios into the feature matrix with explicit coverage targets (toggle ≥ 80 %, functional ≥ 70 %).
-  - ■ Document scoreboard expectations for CONTROL writes during the disabled window and the required response handling.
-- ■ Refresh `docs/register_map.md`
-  - ■ Clarify CONTROL register semantics, including BUSY status returns and permissible operations while the bridge is disabled.
-  - ■ Add timing notes for disable window entry/exit so testbench delays can be derived unambiguously.
-- ■ Cross-link both documents
-  - ■ Reference the updated sections from `docs/design_overview.md` and `docs/system_architecture.md` to keep high-level artefacts consistent.
-  - ■ Record document revision IDs in `docs/diary_YYYYMMDD.md` for traceability.
+- [ ] Augment `error_injection_sequence` to chain CRC faults, forced timeouts, and manual SLVERR responses within one simulation window.
+- [ ] Use `bridge_status_vif` to hold the DUT BUSY and observe non-OK UART response statuses; log expected-error classifications in the scoreboard.
+- [ ] Exit when `response_status ≥ 50 %` and combined error coverpoints reach ≥ 75 %.
 
-#### Phase F – Expand disable-period stimulus toward ≥ 80 % coverage
+#### Phase 4 – Expression coverage closure (Priority C)
 
-- ■ Analyse existing coverage hot spots
-  - ■ Parsed `sim/uvm/dsim.log` for `register_block_test`, capturing Frame 29.55 %, Burst 28.13 %, Error 50.00 %, Total 35.89 % and confirming 17 unmatched UART responses pending scoreboard classification.
-  - ■ Correlated the results with the `register_comprehensive_test` (seed 12345) snapshot (Frame 50.13 %, Burst 46.88 %, Error 50.00 %, Total 49.00 %) to confirm disable stimulus still under-drives AXI handshake bins and leaves `register_block_inst` toggle coverage at 13.7 %.
-- □ Design new UVM sequences
-  - □ Create constrained-random disable windows varying idle duration, intervening AXI traffic, and UART command mix.
-  - □ Add directed tests that interleave disable periods with read/write bursts and error injection (CRC, timeout) to force rare branches.
-- □ Implement and integrate stimulus
-  - □ Extend `uart_axi4_register_block_sequence.sv` (or derivative) with parameterised disable patterns and functional coverage sampling.
-  - □ Register the new tests in the regression manifest and ensure `run_uvm.ps1` entries include `-Coverage on`.
-- □ Validate coverage lift
-  - □ Run focused regressions capturing MXD and metrics artefacts; archive seeds that produce new bins.
-  - □ Confirm toggle coverage for the disable feature reaches ≥ 80 % and functional coverage crosses ≥ 70 %; document deltas in the diary.
+- [ ] Develop `uart_axi4_busy_error_test` that maintains `system_busy` while forcing `bridge_error_code` to a non-zero value (e.g., invalid SOF).
+- [ ] Confirm both branches of `system_busy && (bridge_error_code == 8'h00)` record hits in the expression report (target ≥ 87 %).
+- [ ] Add assertions or scoreboard messages to detect regressions in future runs.
 
-#### Phase G – Refine scoreboard UART response handling
+#### Phase D – Instrumentation & tracking (Priority D)
 
-- □ Define response classification rules
-  - □ Enumerate which UART frames are acknowledgements without AXI counterparts and codify them as allowable unmatched responses.
-  - □ Add requirements to the verification plan so future contributors recognise the expected behaviour.
-- □ Implement scoreboard enhancements
-  - □ Introduce a dedicated response queue or flag in `uart_axi4_scoreboard` to separate status frames from request transactions.
-  - □ Update checks to promote unmatched-but-expected responses to informational logs while preserving true mismatch detection.
-- □ Update testbench observability
-  - □ Augment monitors or analysis FIFOs to tag UART items with response metadata for the scoreboard.
-  - □ Add functional coverage points that validate classification of CONTROL disable acknowledgements.
-- □ Regression and documentation closure
-  - □ Re-run the disable-focused regression suite and confirm the scoreboard warning about unmatched UART frames is resolved or downgraded per design.
-  - □ Capture the implementation summary in `docs/diary_YYYYMMDD.md` and update `docs/uvm_verification_plan.md` with the new checking strategy.
+- [ ] Update `uart_axi4_coverage.sv` to emit per-coverpoint hit summaries during `final_phase` for rapid log triage.
+- [ ] Tag all new sequences/tests with unique `uvm_info` headers to simplify log searches.
+- [ ] Archive coverage HTML bundles and MXD files under timestamped directories and document paths in the diary.
+
+### 4.3 Active TODO governance
+
+- Every engineer is personally responsible for maintaining the live TODO list. Update the shared tracker (this document plus the repository TODO tooling or issue tracker) before and after each focused work block.
+- When a checkbox above is completed, immediately annotate the completion date in the diary and reflect the status in the active TODO list; do not wait until the end of the day.
+- New discoveries must result in new TODO entries—capture them in `docs/diary_YYYYMMDD.md` and replicate them in the shared tracker so that ownership remains visible.
+- Periodically (at least once per day) reconcile the diary, this document, and the tracker to ensure no task is orphaned.
 
 ## 5. Operating procedure
 
