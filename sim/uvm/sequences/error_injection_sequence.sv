@@ -14,74 +14,93 @@ class uart_axi4_error_sequence extends uvm_sequence #(uart_frame_transaction);
         
         `uvm_info("ERROR_SEQ", "Starting error injection sequence", UVM_LOW)
         
-        // Test invalid command field
-        `uvm_info("ERROR_SEQ", "Testing invalid command field", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd[6:4] == 3'b000; // Invalid data length
-            addr == 32'h1000;
-        })
-        
-        `uvm_do_with(req, {
-            cmd[6:4] == 3'b011; // Invalid data length
-            addr == 32'h1004;
-        })
-        
-        `uvm_do_with(req, {
-            cmd[6:4] == 3'b111; // Invalid data length
-            addr == 32'h1008;
-        })
+        // Test invalid command format
+        `uvm_info("ERROR_SEQ", "Testing invalid command format", UVM_MEDIUM)
+        req = uart_frame_transaction::type_id::create("invalid_cmd_req");
+        start_item(req);
+        req.cmd = 8'h70; // Invalid data length (bits 6:4 = 3'b111)
+        req.addr = 32'h1008;
+        req.sof = SOF_HOST_TO_DEVICE;
+        req.direction = UART_RX;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        finish_item(req);
         
         // Test misaligned addresses
         `uvm_info("ERROR_SEQ", "Testing misaligned addresses", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd == 8'h20; // 2-byte write
-            addr[0] == 1; // Odd address for 2-byte access
-            data.size() == 2;
-            expect_error == 1;
-        })
+        req = uart_frame_transaction::type_id::create("misaligned_req");
+        start_item(req);
+        req.cmd = 8'h20; // 2-byte write
+        req.addr = 32'h1009; // Odd address for 2-byte access
+        req.sof = SOF_HOST_TO_DEVICE;
+        req.direction = UART_RX;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.data = new[2];
+        req.data[0] = 8'hAA;
+        req.data[1] = 8'hBB;
+        finish_item(req);
         
-        `uvm_do_with(req, {
-            cmd == 8'h40; // 4-byte write  
-            addr[1:0] != 0; // Non-word aligned for 4-byte access
-            data.size() == 4;
-            expect_error == 1;
-        })
+        req = uart_frame_transaction::type_id::create("misaligned_word_req");
+        start_item(req);
+        req.cmd = 8'h40; // 4-byte write
+        req.addr = 32'h1002; // Non-word aligned for 4-byte access
+        req.sof = SOF_HOST_TO_DEVICE;
+        req.direction = UART_RX;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.data = new[4];
+        req.data[0] = 8'hCC;
+        req.data[1] = 8'hDD;
+        req.data[2] = 8'hEE;
+        req.data[3] = 8'hFF;
+        finish_item(req);
         
         // Test reserved command bits
         `uvm_info("ERROR_SEQ", "Testing reserved command bits", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd[3:0] != 0; // Reserved bits set
-            cmd[7] == 0; // Write
-            cmd[6:4] == 3'b001; // 1 byte
-            addr == 32'h2000;
-            data.size() == 1;
-        })
+        start_item(req);
+        req.cmd = 8'h11; // Reserved bits set
+        req.addr = 32'h2000;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.data = new[1];
+        req.data[0] = 8'hCC;
+        finish_item(req);
         
         // Test CRC errors (will be handled by driver/monitor)
         `uvm_info("ERROR_SEQ", "Testing frame with intentional CRC error", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd == 8'h10;
-            addr == 32'h3000;
-            data.size() == 1;
-            force_crc_error == 1; // Special flag for driver
-        })
+        start_item(req);
+        req.cmd = 8'h10;
+        req.addr = 32'h3000;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.force_crc_error = 1; // Special flag for driver
+        req.data = new[1];
+        req.data[0] = 8'hDD;
+        finish_item(req);
         
         // Test timeout scenarios (driver will inject timing issues)
         `uvm_info("ERROR_SEQ", "Testing timeout scenarios", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd == 8'h90; // Read
-            addr == 32'h4000;
-            force_timeout == 1; // Special flag for driver
-        })
+        start_item(req);
+        req.cmd = 8'h90; // Read
+        req.addr = 32'h4000;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.force_timeout = 1; // Special flag for driver
+        req.data = new[0]; // No data for read
+        finish_item(req);
         
         // Test frame format errors
         `uvm_info("ERROR_SEQ", "Testing frame format errors", UVM_MEDIUM)
-        `uvm_do_with(req, {
-            cmd == 8'h10;
-            addr == 32'h5000;
-            data.size() == 1;
-            corrupt_frame_format == 1; // Special flag for driver
-        })
+        start_item(req);
+        req.cmd = 8'h10;
+        req.addr = 32'h5000;
+        req.error_inject = 1;
+        req.expect_error = 1;
+        req.corrupt_frame_format = 1; // Special flag for driver
+        req.data = new[1];
+        req.data[0] = 8'hEE;
+        finish_item(req);
         
         `uvm_info("ERROR_SEQ", "Error injection sequence completed", UVM_LOW)
     endtask

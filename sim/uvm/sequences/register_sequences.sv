@@ -43,16 +43,18 @@ virtual class register_uart_sequence_base extends uvm_sequence #(uart_frame_tran
         req = uart_frame_transaction::type_id::create(txn_label);
         start_item(req);
 
+        // Set all fields explicitly without randomization
         req.is_write = 1;
         req.auto_increment = 0;
         req.size = infer_size(byte_count);
-        req.length = 4'h0; // Single beat
+        req.length = 4'h0;
         req.addr = addr;
         req.sof = SOF_HOST_TO_DEVICE;
         req.direction = UART_RX;
         req.error_inject = 0;
         req.expect_error = expect_error;
         assign_data(req, value, byte_count);
+        
         req.build_cmd();
         req.calculate_crc();
 
@@ -67,6 +69,7 @@ virtual class register_uart_sequence_base extends uvm_sequence #(uart_frame_tran
         req = uart_frame_transaction::type_id::create(txn_label);
         start_item(req);
 
+        // Set all fields explicitly without randomization
         req.is_write = 0;
         req.auto_increment = 0;
         req.size = infer_size(byte_count);
@@ -77,6 +80,7 @@ virtual class register_uart_sequence_base extends uvm_sequence #(uart_frame_tran
         req.error_inject = 0;
         req.expect_error = expect_error;
         req.data = new[0];
+        
         req.build_cmd();
         req.calculate_crc();
 
@@ -1212,6 +1216,7 @@ class register_alignment_sequence extends register_uart_sequence_base;
         req = uart_frame_transaction::type_id::create({label, "_txn"});
         start_item(req);
 
+        // Set all fields explicitly without randomization
         req.is_write = 1;
         req.auto_increment = auto_increment;
         req.size = infer_size(byte_count);
@@ -1221,10 +1226,12 @@ class register_alignment_sequence extends register_uart_sequence_base;
         req.direction = UART_RX;
         req.error_inject = 0;
         req.expect_error = expect_error;
+        
         req.data = new[total_bytes];
         for (int i = 0; i < total_bytes; i++) begin
             req.data[i] = (8'h40 + i[7:0]);
         end
+        
         req.build_cmd();
         req.calculate_crc();
 

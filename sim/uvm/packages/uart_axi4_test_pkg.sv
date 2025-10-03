@@ -69,9 +69,9 @@ package uart_axi4_test_pkg;
         // Frame fields - standardized naming
         rand logic [7:0]  sof;      // Start of Frame byte
         rand logic [7:0]  cmd;
-        rand logic [31:0] addr;
+        logic [31:0] addr;          // CRITICAL: Remove rand to prevent randomization override
         rand logic [7:0]  len;      // Length byte
-        rand logic [7:0]  data[];
+        logic [7:0]  data[];        // CRITICAL: Remove rand to prevent randomization override
         logic [7:0]       crc;
         
         // Standardized frame fields for compatibility
@@ -121,10 +121,7 @@ package uart_axi4_test_pkg;
         // Constraints
         constraint c_valid_size { size inside {2'b00, 2'b01, 2'b10}; }
         constraint c_valid_length { length <= 15; } // Max 16 beats
-        constraint c_data_size { 
-            data.size() == (length + 1) * (1 << size);
-            solve length, size before data;
-        }
+        // Note: data size constraint removed as data is now non-rand and managed explicitly
         
         `uvm_object_utils_begin(uart_frame_transaction)
             `uvm_field_int(sof, UVM_ALL_ON)
