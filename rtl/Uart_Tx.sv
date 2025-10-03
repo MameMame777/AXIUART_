@@ -10,6 +10,7 @@ module Uart_Tx #(
     input  logic       rst,
     input  logic [7:0] tx_data,               // Data to transmit
     input  logic       tx_start,              // Start transmission pulse
+    input  logic       uart_cts_n,            // Clear to Send (active low)
     output logic       uart_tx,               // UART TX line
     output logic       tx_busy,               // Transmission in progress
     output logic       tx_done                // Transmission complete pulse
@@ -88,18 +89,22 @@ module Uart_Tx #(
         
         case (tx_state)
             IDLE: begin
-                if (tx_start) begin
+                // Only start transmission if CTS is asserted (active low)
+                if (tx_start && !uart_cts_n) begin
                     tx_state_next = START_BIT;
                 end
             end
             
             START_BIT: begin
-                if (baud_tick) begin
+                // Check CTS before proceeding - if CTS is deasserted, hold in START_BIT
+                if (baud_tick && !uart_cts_n) begin
                     tx_state_next = DATA_BITS;
                 end
             end
             
             DATA_BITS: begin
+                // Continue transmission regardless of CTS during data bits
+                // (CTS is checked at frame boundaries only)
                 if (baud_tick) begin
                     // Shift right for LSB-first transmission
                     tx_shift_reg_next = {1'b0, tx_shift_reg[7:1]};

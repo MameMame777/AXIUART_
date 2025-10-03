@@ -23,12 +23,25 @@ set_property -dict { PACKAGE_PIN K18   IOSTANDARD LVCMOS33 } [get_ports { rst }]
 ###################################################################################
 # UART Interface - JB Connector (Pmod USBUART)
 ###################################################################################
+# PMOD UART 4-pin interface with hardware flow control
+# Standard PMOD UART pinout:
+# Pin1 (JB1): RTS (Request to Send - FPGA output, active low)
+# Pin2 (JB2): RXD (Receive Data - FPGA input from device TX)  
+# Pin3 (JB3): TXD (Transmit Data - FPGA output to device RX)
+# Pin4 (JB4): CTS (Clear to Send - FPGA input, active low)
+##Pmod Header JB (Zybo Z7-20 only)
 
-# UART Transmit Data (FPGA TX → Pmod RX) - matches RTL signal uart_tx
+# UART Request to Send (FPGA RTS → Device CTS) - Active Low
+set_property -dict { PACKAGE_PIN T5    IOSTANDARD LVCMOS33 } [get_ports { uart_rts_n }]
+
+# UART Receive Data (Device TX → FPGA RX) - matches RTL signal uart_rx
+set_property -dict { PACKAGE_PIN U7    IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]
+
+# UART Transmit Data (FPGA TX → Device RX) - matches RTL signal uart_tx
 set_property -dict { PACKAGE_PIN W8    IOSTANDARD LVCMOS33 } [get_ports { uart_tx }]
 
-# UART Receive Data (Pmod TX → FPGA RX) - matches RTL signal uart_rx
-set_property -dict { PACKAGE_PIN U7    IOSTANDARD LVCMOS33 } [get_ports { uart_rx }]
+# UART Clear to Send (Device RTS → FPGA CTS) - Active Low
+set_property -dict { PACKAGE_PIN W7    IOSTANDARD LVCMOS33 } [get_ports { uart_cts_n }]
 
 ###################################################################################
 # System Status Outputs (Optional - for debugging/monitoring)
@@ -49,16 +62,16 @@ set_property -dict { PACKAGE_PIN U7    IOSTANDARD LVCMOS33 } [get_ports { uart_r
 
 # UART Interface Timing Constraints
 # UART signals are asynchronous but need proper timing relationship with system clock
-set_input_delay -clock [get_clocks sys_clk_pin] -min 1.0 [get_ports {uart_rx}]
-set_input_delay -clock [get_clocks sys_clk_pin] -max 3.0 [get_ports {uart_rx}]
+set_input_delay -clock [get_clocks sys_clk_pin] -min 1.0 [get_ports {uart_rx uart_cts_n}]
+set_input_delay -clock [get_clocks sys_clk_pin] -max 3.0 [get_ports {uart_rx uart_cts_n}]
 
-set_output_delay -clock [get_clocks sys_clk_pin] -min 1.0 [get_ports {uart_tx}]
-set_output_delay -clock [get_clocks sys_clk_pin] -max 3.0 [get_ports {uart_tx}]
+set_output_delay -clock [get_clocks sys_clk_pin] -min 1.0 [get_ports {uart_tx uart_rts_n}]
+set_output_delay -clock [get_clocks sys_clk_pin] -max 3.0 [get_ports {uart_tx uart_rts_n}]
 
-# False path constraints for asynchronous UART receive signal
-# UART RX is asynchronous and handled by oversampling in RTL
-set_false_path -from [get_ports uart_rx] -to [get_clocks sys_clk_pin]
-set_false_path -from [get_clocks sys_clk_pin] -to [get_ports uart_tx]
+# False path constraints for asynchronous UART signals
+# UART RX/CTS are asynchronous and handled by synchronizers in RTL
+set_false_path -from [get_ports {uart_rx uart_cts_n}] -to [get_clocks sys_clk_pin]
+set_false_path -from [get_clocks sys_clk_pin] -to [get_ports {uart_tx uart_rts_n}]
 # Reset signal is external and asynchronous
 set_false_path -from [get_ports rst] -to [all_clocks]
 
@@ -71,8 +84,8 @@ set_false_path -from [get_ports rst] -to [all_clocks]
 
 # Set slew rate and drive strength for UART output signals
 # Slower slew rate reduces EMI for UART communication
-set_property SLEW SLOW [get_ports {uart_tx}]
-set_property DRIVE 8 [get_ports {uart_tx}]
+set_property SLEW SLOW [get_ports {uart_tx uart_rts_n}]
+set_property DRIVE 8 [get_ports {uart_tx uart_rts_n}]
 
 # Optional: LED output characteristics if status LEDs are implemented
 # set_property SLEW SLOW [get_ports {system_ready system_busy system_error}]

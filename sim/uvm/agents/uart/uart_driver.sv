@@ -46,8 +46,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     virtual task run_phase(uvm_phase phase);
         uart_frame_transaction req;
         
-        // Initialize UART RX line to idle (high)
-        vif.uart_rx = 1'b1;
+        // Initialize UART interface signals
+        vif.uart_rx = 1'b1;      // RX line idle (high)
+        vif.uart_cts_n = 1'b0;   // CTS deasserted (low) - allow DUT to transmit
         
         forever begin
             seq_item_port.get_next_item(req);
@@ -717,6 +718,42 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             `uvm_info("UART_DRIVER", "TX stop bit timing variation detected", UVM_DEBUG);
         end
         
+    endtask
+
+    // Task to control CTS signal for flow control testing
+    virtual task assert_cts(bit enable);
+        vif.uart_cts_n = enable ? 1'b0 : 1'b1;  // Active low logic
+        `uvm_info("UART_DRIVER", $sformatf("CTS %s", enable ? "asserted (low)" : "deasserted (high)"), UVM_MEDIUM);
+    endtask
+
+    // Task to wait for RTS assertion/deassertion
+    virtual task wait_for_rts(bit expected_state, int timeout_cycles = 1000);
+        logic expected_rts_n = expected_state ? 1'b0 : 1'b1;  // Active low logic
+        int cycle_count = 0;
+        
+        while (vif.uart_rts_n !== expected_rts_n && cycle_count < timeout_cycles) begin
+            @(posedge vif.clk);
+            cycle_count++;
+        end
+        
+        if (cycle_count >= timeout_cycles) begin
+            `uvm_warning("UART_DRIVER", $sformatf("Timeout waiting for RTS %s", expected_state ? "assertion" : "deassertion"));
+        end else begin
+            `uvm_info("UART_DRIVER", $sformatf("RTS %s detected", expected_state ? "asserted" : "deasserted"), UVM_MEDIUM);
+        end
+    endtask
+
+    // Task to simulate flow control scenario
+    virtual task simulate_flow_control_backpressure(int hold_cycles);
+        `uvm_info("UART_DRIVER", $sformatf("Simulating flow control backpressure for %0d cycles", hold_cycles), UVM_MEDIUM);
+        
+        // Assert CTS to prevent transmission
+        assert_cts(1'b0);  // Deassert CTS (high) to block transmission
+        repeat (hold_cycles) @(posedge vif.clk);
+        
+        // Release CTS to allow transmission
+        assert_cts(1'b1);  // Assert CTS (low) to allow transmission
+        `uvm_info("UART_DRIVER", "Flow control backpressure released", UVM_MEDIUM);
     endtask
 
 endclass

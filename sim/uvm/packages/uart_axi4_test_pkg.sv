@@ -24,6 +24,15 @@ package uart_axi4_test_pkg;
     parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'h5A;  // Host to device SOF  
     parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (should be same as spec)
     
+    // Command constants
+    parameter logic [7:0] READ_CMD  = 8'h80;  // Read command (bit 7 = 1)
+    parameter logic [7:0] WRITE_CMD = 8'h00;  // Write command (bit 7 = 0)
+    
+    // Register addresses for testing
+    parameter logic [31:0] TEST_REG_ADDR        = 32'h0000_1000;
+    parameter logic [31:0] STATUS_REG_ADDR      = 32'h0000_1004;
+    parameter logic [31:0] FIFO_STATUS_REG_ADDR = 32'h0000_1008;
+    
     // Status codes
     parameter logic [7:0] STATUS_OK         = 8'h00;
     parameter logic [7:0] STATUS_CRC_ERR    = 8'h01;
@@ -309,6 +318,7 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_axi4_register_block_sequence.sv"
     `include "sequences/register_sequences.sv"
     `include "sequences/coverage_sequences.sv"
+    `include "sequences/flow_control_sequences.sv"       // RTS/CTS flow control sequences
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
@@ -321,6 +331,7 @@ package uart_axi4_test_pkg;
     `include "tests/uart_coverage_debug_test.sv"
     `include "tests/uart_axi4_optimized_coverage_test.sv"
     `include "tests/uart_axi4_register_block_test.sv"
+    `include "tests/uart_flow_control_tests.sv"         // RTS/CTS flow control tests
     // `include "tests/axiuart_register_toggle_test.sv"  // Temporarily disabled - field definition issues  
     // `include "tests/simple_register_sweep_test.sv"    // Temporarily disabled - field definition issues
     // `include "tests/axiuart_coverage_tests.sv" // Temporarily disabled due to compilation issues

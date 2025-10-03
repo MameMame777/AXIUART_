@@ -52,6 +52,7 @@ class uart_monitor extends uvm_monitor;
         fork
             collect_rx_transactions();
             collect_tx_transactions();
+            monitor_rts_cts_signals();  // Add flow control monitoring
         join
     endtask
     
@@ -584,6 +585,42 @@ class uart_monitor extends uvm_monitor;
     virtual function void disable_monitor();
         monitor_enabled = 0;
         `uvm_info("UART_MONITOR", "Monitor disabled", UVM_LOW)
+    endfunction
+
+    // Monitor RTS/CTS flow control signals
+    virtual task monitor_rts_cts_signals();
+        logic prev_rts_n = 1'b1;
+        logic prev_cts_n = 1'b1;
+        
+        forever begin
+            @(posedge vif.clk);
+            
+            if (!monitor_enabled) continue;
+            
+            // Monitor RTS signal changes
+            if (vif.uart_rts_n !== prev_rts_n) begin
+                `uvm_info("UART_MONITOR", $sformatf("RTS signal changed: %s", 
+                          vif.uart_rts_n ? "deasserted (high)" : "asserted (low)"), UVM_MEDIUM);
+                prev_rts_n = vif.uart_rts_n;
+            end
+            
+            // Monitor CTS signal changes
+            if (vif.uart_cts_n !== prev_cts_n) begin
+                `uvm_info("UART_MONITOR", $sformatf("CTS signal changed: %s", 
+                          vif.uart_cts_n ? "deasserted (high)" : "asserted (low)"), UVM_MEDIUM);
+                prev_cts_n = vif.uart_cts_n;
+            end
+        end
+    endtask
+
+    // Check for flow control violations
+    virtual function bit check_flow_control_violation();
+        // Check if transmission occurred while CTS was deasserted
+        if (vif.uart_cts_n == 1'b1 && vif.uart_tx == 1'b0) begin
+            `uvm_error("UART_MONITOR", "Flow control violation: TX transmission while CTS deasserted");
+            return 1;
+        end
+        return 0;
     endfunction
 
 endclass

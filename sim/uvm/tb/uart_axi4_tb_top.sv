@@ -54,7 +54,9 @@ module uart_axi4_tb_top;
         
         // UART interface - external connections
         .uart_rx(uart_if_inst.uart_rx),
-        .uart_tx(uart_if_inst.uart_tx)
+        .uart_tx(uart_if_inst.uart_tx),
+        .uart_rts_n(uart_if_inst.uart_rts_n),   // Request to Send (active low)
+        .uart_cts_n(uart_if_inst.uart_cts_n)    // Clear to Send (active low)
         
         // System status outputs (simulation only)
         `ifdef DEFINE_SIM

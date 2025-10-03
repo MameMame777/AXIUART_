@@ -18,7 +18,9 @@ module AXIUART_Top #(
     
     // UART interface (external connections)
     input  logic        uart_rx,
-    output logic        uart_tx
+    output logic        uart_tx,
+    output logic        uart_rts_n,         // Request to Send (active low)
+    input  logic        uart_cts_n          // Clear to Send (active low)
 
     // System status outputs - simulation only
     `ifdef DEFINE_SIM
@@ -52,6 +54,11 @@ module AXIUART_Top #(
     logic [15:0] rx_count;
     logic [7:0]  fifo_status;
     
+    // Flow control signals
+    logic        rx_fifo_full;
+    logic        rx_fifo_high;
+    logic        tx_ready;
+    
     // Internal reset logic
     logic internal_rst;
     assign internal_rst = rst;
@@ -70,6 +77,10 @@ module AXIUART_Top #(
         .rst(internal_rst),
         .uart_rx(uart_rx),
         .uart_tx(uart_tx),
+        .uart_cts_n(uart_cts_n),        // Clear to Send input
+        .rx_fifo_full_out(rx_fifo_full),    // RX FIFO status for RTS control
+        .rx_fifo_high_out(rx_fifo_high),    // RX FIFO high threshold
+        .tx_ready_out(tx_ready),            // TX readiness status
     .axi(axi_internal),  // 内部レジスタブロックに直接接続
     .bridge_enable(bridge_enable),
         
@@ -106,6 +117,21 @@ module AXIUART_Top #(
         .rx_count(rx_count),
         .fifo_status(fifo_status)
     );
+    
+    // Hardware Flow Control Logic
+    // RTS (Request to Send) - Active Low
+    // Assert RTS_n when RX FIFO has space and system is ready to receive
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            uart_rts_n <= 1'b1;  // Deassert RTS (not ready) on reset
+        end else begin
+            // Assert RTS (ready to receive) when:
+            // - RX FIFO is not full
+            // - RX FIFO is not approaching high threshold
+            // - Bridge is enabled and functional
+            uart_rts_n <= rx_fifo_full || rx_fifo_high || !bridge_enable;
+        end
+    end
     
     // AXI4-Lite Address Router and Interconnect
     // Implements proper AXI handshaking and response multiplexing

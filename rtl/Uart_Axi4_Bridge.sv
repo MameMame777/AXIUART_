@@ -18,6 +18,10 @@ module Uart_Axi4_Bridge #(
     // UART interface
     input  logic        uart_rx,
     output logic        uart_tx,
+    input  logic        uart_cts_n,            // Clear to Send (active low)
+    output logic        rx_fifo_full_out,      // RX FIFO full status
+    output logic        rx_fifo_high_out,      // RX FIFO high threshold status
+    output logic        tx_ready_out,          // TX ready status
     
     // AXI4-Lite master interface
     axi4_lite_if.master axi,
@@ -136,6 +140,7 @@ module Uart_Axi4_Bridge #(
         .rst(rst),
         .tx_data(tx_data),
         .tx_start(tx_start),
+        .uart_cts_n(uart_cts_n),        // Clear to Send input
         .uart_tx(uart_tx),
         .tx_busy(tx_busy),
         .tx_done(tx_done)
@@ -479,13 +484,26 @@ module Uart_Axi4_Bridge #(
             bridge_error_code = 8'h00; // No error
         end
         
-        // FIFO status flags
+        // FIFO status flags - Enhanced for flow control
         fifo_status_flags[0] = rx_fifo_full;
         fifo_status_flags[1] = rx_fifo_empty;
         fifo_status_flags[2] = tx_fifo_full;
         fifo_status_flags[3] = tx_fifo_empty;
-        fifo_status_flags[7:4] = rx_fifo_count[3:0]; // RX FIFO level (lower 4 bits)
+        fifo_status_flags[4] = (rx_fifo_count > (RX_FIFO_DEPTH * 3/4)); // High threshold
+        fifo_status_flags[5] = (tx_fifo_count < (TX_FIFO_DEPTH / 4));   // TX low threshold
+        fifo_status_flags[6] = (rx_fifo_count > (RX_FIFO_DEPTH / 2));   // RX half full
+        fifo_status_flags[7] = rx_fifo_full;   // Duplicate for easy access
     end
+    
+    // Flow control output assignments (internal signals)
+    // rx_fifo_full comes directly from FIFO .full port
+    assign rx_fifo_high = fifo_status_flags[4];  // High threshold (75% full)
+    assign tx_ready = !tx_busy && !tx_fifo_empty && bridge_enable;
+    
+    // Flow control port output assignments
+    assign rx_fifo_full_out = rx_fifo_full;
+    assign rx_fifo_high_out = rx_fifo_high;
+    assign tx_ready_out = tx_ready;
     
     // Output assignments
     assign tx_transaction_count = tx_count_reg;

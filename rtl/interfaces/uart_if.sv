@@ -11,6 +11,10 @@ interface uart_if (
     logic uart_tx;
     logic uart_rx;
     
+    // Hardware flow control signals
+    logic uart_rts_n;    // Request to Send (active low) - FPGA output
+    logic uart_cts_n;    // Clear to Send (active low) - FPGA input
+    
     // Additional signals for UVM monitoring and control
     logic tx_busy;
     logic rx_valid;
@@ -35,6 +39,8 @@ interface uart_if (
     modport driver (
         output uart_rx,
         input  uart_tx,
+        input  uart_rts_n,      // Monitor RTS output from DUT
+        output uart_cts_n,      // Control CTS input to DUT
         output baud_divisor,
         input  tx_busy,
         input  rx_valid,
@@ -46,6 +52,8 @@ interface uart_if (
     modport monitor (
         input uart_tx,
         input uart_rx,
+        input uart_rts_n,       // Monitor RTS signal
+        input uart_cts_n,       // Monitor CTS signal
         input baud_divisor,
         input tx_busy,
         input rx_valid,
@@ -64,6 +72,8 @@ interface uart_if (
     modport dut (
         input  uart_rx,
         output uart_tx,
+        output uart_rts_n,      // RTS output from DUT
+        input  uart_cts_n,      // CTS input to DUT
         output tx_busy,
         output rx_valid,
         output rx_data,
