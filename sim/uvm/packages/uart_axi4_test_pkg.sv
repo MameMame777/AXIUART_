@@ -21,8 +21,8 @@ package uart_axi4_test_pkg;
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
     
     // Frame constants from protocol specification
-    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'h5A;  // Host to device SOF  
-    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (should be same as spec)
+    parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hA5;  // Host to device SOF (corrected to match RTL)
+    parameter logic [7:0] SOF_DEVICE_TO_HOST = 8'h5A;  // Device to host SOF (matches RTL Frame_Builder)
     
     // Command constants
     parameter logic [7:0] READ_CMD  = 8'h80;  // Read command (bit 7 = 1)

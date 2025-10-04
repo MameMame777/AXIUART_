@@ -20,16 +20,16 @@ module Uart_Rx #(
     localparam int BAUD_DIV = CLK_FREQ_HZ / (BAUD_RATE * OVERSAMPLE);
     localparam int BAUD_WIDTH = $clog2(BAUD_DIV);
     
-    logic [BAUD_WIDTH-1:0] baud_counter;
-    logic baud_tick;
+    (* mark_debug = "true" *) logic [BAUD_WIDTH-1:0] baud_counter;
+    (* mark_debug = "true" *) logic baud_tick;
     
     // Sample counter for bit timing
     localparam int SAMPLE_WIDTH = $clog2(OVERSAMPLE);
-    logic [SAMPLE_WIDTH-1:0] sample_counter;
-    logic sample_tick;
+    (* mark_debug = "true" *) logic [SAMPLE_WIDTH-1:0] sample_counter;
+    (* mark_debug = "true" *) logic sample_tick;
     
     // Bit counter
-    logic [3:0] bit_counter;
+    (* mark_debug = "true" *) logic [3:0] bit_counter;
     
     // State machine
     typedef enum logic [1:0] {
@@ -39,15 +39,15 @@ module Uart_Rx #(
         STOP_BIT
     } rx_state_t;
     
-    rx_state_t rx_state, rx_state_next;
+    (* mark_debug = "true" *) rx_state_t rx_state, rx_state_next;
     
     // Data shift register
-    logic [7:0] rx_shift_reg;
+    (* mark_debug = "true" *) logic [7:0] rx_shift_reg;
     logic [7:0] rx_shift_reg_next;
     
     // Input synchronizer (2-stage for proper metastability prevention)
-    logic [1:0] rx_sync;
-    logic rx_synced;
+    (* mark_debug = "true" *) logic [1:0] rx_sync;
+    (* mark_debug = "true" *) logic rx_synced;
     
     always_ff @(posedge clk) begin
         if (rst) begin

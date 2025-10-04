@@ -286,37 +286,38 @@ class uart_monitor extends uvm_monitor;
         `uvm_info("UART_MONITOR", $sformatf("RX byte: 0x%02X", data), UVM_DEBUG)
     endtask
     
-    // Collect single byte from TX line
+    // Collect single byte from TX line (Clock-synchronized sampling)
     virtual task collect_uart_tx_byte(output logic [7:0] data);
-        time bit_time_ns;
-        time half_bit_ns;
+        int bit_time_cycles;
+        int half_bit_cycles;
 
-        bit_time_ns = (cfg.bit_time_ns > 0) ? time'(cfg.bit_time_ns) : time'(1_000_000_000 / cfg.baud_rate);
-        half_bit_ns = bit_time_ns >> 1;
-        if (half_bit_ns == 0) begin
-            half_bit_ns = 1;
+        // Calculate cycles based on configuration
+        bit_time_cycles = (cfg.clk_freq_hz / cfg.baud_rate);
+        half_bit_cycles = bit_time_cycles / 2;
+        if (half_bit_cycles == 0) begin
+            half_bit_cycles = 1;
         end
 
         // Sample start bit midpoint
-        #(half_bit_ns);
+        repeat (half_bit_cycles) @(posedge vif.clk);
         if (vif.uart_tx != 1'b0) begin
             `uvm_info("UART_MONITOR", "TX start bit timing variation detected", UVM_DEBUG)
         end
 
         // Advance to the optimal sampling point for the first data bit.
-        #(half_bit_ns);
+        repeat (half_bit_cycles) @(posedge vif.clk);
         data[0] = vif.uart_tx;
         `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", 0, data[0], $realtime), UVM_MEDIUM)
 
         // Sample remaining data bits at full bit intervals.
         for (int i = 1; i < 8; i++) begin
-            #(bit_time_ns);
+            repeat (bit_time_cycles) @(posedge vif.clk);
             data[i] = vif.uart_tx;
             `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", i, data[i], $realtime), UVM_MEDIUM)
         end
 
         // Sample stop bit midpoint
-        #(bit_time_ns);
+        repeat (bit_time_cycles) @(posedge vif.clk);
         if (vif.uart_tx != 1'b1) begin
             `uvm_info("UART_MONITOR", "TX stop bit timing variation detected", UVM_DEBUG)
         end

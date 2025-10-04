@@ -1,0 +1,24 @@
+=== Logic Analyzer Configuration for 125MHz Sampling ===
+
+System Configuration:
+- FPGA Clock: 125 MHz
+- Logic Analyzer Sampling: 125 MHz
+- UART Baud Rate: 115200 bps
+
+Timing Analysis:
+- Sampling Period: 8 ns (125MHz)
+- UART Bit Period: 8680.56 ns (115200 baud)
+- Samples per UART bit: 8680.56ns / 8ns = 1085 samples
+- This is EXCELLENT resolution for UART capture!
+
+Problem Analysis:
+- RX≠1 trigger doesn't work because:
+  1. UART RX idles at logic HIGH (1)
+  2. Only goes LOW (0) during start bits
+  3. Current trigger condition is inverted
+
+SOLUTION - Correct Trigger Settings:
+1. Change trigger to: RX falling edge (1→0 transition)
+2. Or use level trigger: RX = 0
+3. Set pre-trigger to 10% to see idle state
+4. Capture depth: at least 200μs to see complete transactions

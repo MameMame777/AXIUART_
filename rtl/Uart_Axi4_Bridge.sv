@@ -77,7 +77,7 @@ module Uart_Axi4_Bridge #(
     logic [31:0] parser_addr;
     logic [7:0] parser_data_out [0:63];
     logic [5:0] parser_data_count;
-    logic parser_frame_valid;
+    (* mark_debug = "true" *) logic parser_frame_valid;
     logic [7:0] parser_error_status;
     logic parser_frame_error;
     logic parser_frame_consumed;
@@ -85,8 +85,8 @@ module Uart_Axi4_Bridge #(
     
     // AXI master signals
     logic [7:0] axi_write_data [0:63];
-    logic axi_start_transaction;
-    logic axi_transaction_done;
+    (* mark_debug = "true" *) logic axi_start_transaction;
+    (* mark_debug = "true" *) logic axi_transaction_done;
     logic [7:0] axi_status;
     logic [7:0] axi_read_data [0:63];
     logic [5:0] axi_read_data_count;
@@ -100,7 +100,7 @@ module Uart_Axi4_Bridge #(
     logic builder_build_response;
     logic builder_is_read_response;
     logic builder_busy;
-    logic builder_response_complete;
+    (* mark_debug = "true" *) logic builder_response_complete;
     
     // Main control state machine
     typedef enum logic [2:0] {
