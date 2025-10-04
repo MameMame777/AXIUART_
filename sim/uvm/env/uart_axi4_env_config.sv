@@ -4,7 +4,7 @@
 class uart_axi4_env_config extends uvm_object;
     
     // Clock and timing parameters
-    int clk_freq_hz = 50_000_000;
+    int clk_freq_hz = 125_000_000;
     int baud_rate = 115200;
     int bit_time_ns = 8680; // 1/115200 * 1e9
     int byte_time_ns = 86800; // bit_time_ns * 10

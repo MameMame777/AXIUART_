@@ -48,7 +48,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         
         // Initialize UART interface signals
         vif.uart_rx = 1'b1;      // RX line idle (high)
-        vif.uart_cts_n = 1'b0;   // CTS deasserted (low) - allow DUT to transmit
+        vif.uart_cts_n = 1'b0;   // CTS asserted (low) - allow DUT to transmit
         
         forever begin
             seq_item_port.get_next_item(req);

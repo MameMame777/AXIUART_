@@ -15,7 +15,7 @@ package uart_axi4_test_pkg;
     typedef enum { AXI_WRITE, AXI_READ } axi_trans_type_t;
     
     // Protocol constants
-    parameter int CLK_FREQ_HZ = 50_000_000;
+    parameter int CLK_FREQ_HZ = 125_000_000;
     parameter int BAUD_RATE = 115200;
     parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop

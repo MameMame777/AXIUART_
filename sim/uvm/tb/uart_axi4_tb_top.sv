@@ -40,7 +40,7 @@ module uart_axi4_tb_top;
     
     // DUT instance - Using complete AXIUART_Top system
     AXIUART_Top #(
-        .CLK_FREQ_HZ(50_000_000),
+        .CLK_FREQ_HZ(125_000_000),
         .BAUD_RATE(115200),
         .AXI_TIMEOUT(1000),
         .UART_OVERSAMPLE(16),

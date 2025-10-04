@@ -20,8 +20,8 @@ module AXIUART_Top #(
     input  logic        uart_rx,
     output logic        uart_tx,
     output logic        uart_rts_n,         // Request to Send (active low)
-    input  logic        uart_cts_n          // Clear to Send (active low)
-
+    input  logic        uart_cts_n,          // Clear to Send (active low)
+    output logic        led                 // General purpose LEDs
     // System status outputs - simulation only
     `ifdef DEFINE_SIM
     // Simulation-only system status outputs
@@ -120,15 +120,16 @@ module AXIUART_Top #(
     
     // Hardware Flow Control Logic
     // RTS (Request to Send) - Active Low
-    // Assert RTS_n when RX FIFO has space and system is ready to receive
+    // Assert RTS_n (Low) when system is ready to receive
     always_ff @(posedge clk) begin
         if (rst) begin
             uart_rts_n <= 1'b1;  // Deassert RTS (not ready) on reset
         end else begin
-            // Assert RTS (ready to receive) when:
-            // - RX FIFO is not full
-            // - RX FIFO is not approaching high threshold
-            // - Bridge is enabled and functional
+            // Deassert RTS (not ready to receive) when:
+            // - RX FIFO is full
+            // - RX FIFO is approaching high threshold
+            // - Bridge is disabled
+            // Otherwise assert RTS (ready to receive)
             uart_rts_n <= rx_fifo_full || rx_fifo_high || !bridge_enable;
         end
     end
@@ -136,6 +137,29 @@ module AXIUART_Top #(
     // AXI4-Lite Address Router and Interconnect
     // Implements proper AXI handshaking and response multiplexing
     
+    logic clk_div;
+    logic [25:0] clk_div_counter;  // 26-bit counter for ~1Hz blink
+    // Clock divider for LED indication - creates ~1Hz visible blink (125MHz / 2^26 ≈ 1.86Hz)
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            clk_div_counter <= 26'd0;
+        end else begin
+            clk_div_counter <= clk_div_counter + 1;
+        end
+    end
+
+    // Generate visible blink signal from MSB of counter
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            clk_div <= 1'b0;
+        end else begin
+            clk_div <= clk_div_counter[25];  // Use MSB for ~1Hz toggle
+        end        
+    end
+
+    assign led = clk_div;        // System Heartbeat
+
+
     // Address decode signals
     // System status outputs (simulation only)
     `ifdef DEFINE_SIM
