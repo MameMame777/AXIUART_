@@ -3,7 +3,7 @@
 // Frame Parser Module for UART-AXI4 Bridge
 // Implements state machine from Section 6.6 of protocol specification
 module Frame_Parser #(
-    parameter int CLK_FREQ_HZ = 50_000_000,
+    parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,
     parameter int TIMEOUT_BYTE_TIMES = 10     // Timeout after 10 byte times of idle
 )(

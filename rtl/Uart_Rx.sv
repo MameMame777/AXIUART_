@@ -3,7 +3,7 @@
 // UART Receiver Module for UART-AXI4 Bridge
 // 8N1 format with 16x oversampling, LSB-first transmission
 module Uart_Rx #(
-    parameter int CLK_FREQ_HZ = 50_000_000,    // System clock frequency
+    parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,          // UART baud rate
     parameter int OVERSAMPLE = 16              // Oversampling factor
 )(

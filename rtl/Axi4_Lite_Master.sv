@@ -3,8 +3,8 @@
 // AXI4-Lite Master Module for UART-AXI4 Bridge
 // Performs AXI4-Lite transactions based on parsed UART commands
 module Axi4_Lite_Master #(
-    parameter int AXI_TIMEOUT = 1000,      // Timeout in clock cycles
-    parameter int EARLY_BUSY_THRESHOLD = 100  // Early BUSY threshold
+    parameter int AXI_TIMEOUT = 2500,          // Timeout in clock cycles (20μs @ 125MHz)
+    parameter int EARLY_BUSY_THRESHOLD = 250   // Early BUSY threshold (2μs @ 125MHz)
 )(
     input  logic        clk,
     input  logic        rst,
@@ -217,6 +217,33 @@ module Axi4_Lite_Master #(
                 if (axi.rresp != 2'b00) begin  // OKAY = 2'b00
                     status_reg <= STATUS_AXI_SLVERR;
                 end
+                
+                // Read data capture - moved from separate always_ff block
+                case (size_field)
+                    2'b00: begin  // 8-bit
+                        read_data[data_byte_index] <= axi.rdata[7:0];
+                    end
+                    2'b01: begin  // 16-bit
+                        read_data[data_byte_index] <= axi.rdata[7:0];
+                        read_data[data_byte_index + 1] <= axi.rdata[15:8];
+                    end
+                    2'b10: begin  // 32-bit
+                        read_data[data_byte_index] <= axi.rdata[7:0];
+                        read_data[data_byte_index + 1] <= axi.rdata[15:8];
+                        read_data[data_byte_index + 2] <= axi.rdata[23:16];
+                        read_data[data_byte_index + 3] <= axi.rdata[31:24];
+                    end
+                endcase
+                
+                // Update read data count
+                if (beat_counter >= len_field) begin
+                    read_data_count <= data_byte_index + beat_size;
+                end
+            end
+            
+            // Reset read_data_count when idle
+            if (state == IDLE) begin
+                read_data_count <= '0;
             end
         end
     end
@@ -356,37 +383,6 @@ module Axi4_Lite_Master #(
                     axi.wdata[31:24] = write_data[data_byte_index + 3];
                 end
             endcase
-        end
-    end
-    
-    // Read data capture
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            read_data_count <= '0;
-        end else if ((state == READ_DATA) && r_handshake) begin
-            // Unpack read data based on size
-            case (size_field)
-                2'b00: begin  // 8-bit
-                    read_data[data_byte_index] <= axi.rdata[7:0];
-                end
-                2'b01: begin  // 16-bit
-                    read_data[data_byte_index] <= axi.rdata[7:0];
-                    read_data[data_byte_index + 1] <= axi.rdata[15:8];
-                end
-                2'b10: begin  // 32-bit
-                    read_data[data_byte_index] <= axi.rdata[7:0];
-                    read_data[data_byte_index + 1] <= axi.rdata[15:8];
-                    read_data[data_byte_index + 2] <= axi.rdata[23:16];
-                    read_data[data_byte_index + 3] <= axi.rdata[31:24];
-                end
-            endcase
-            
-            // Update read data count
-            if (beat_counter >= len_field) begin
-                read_data_count <= data_byte_index + beat_size;
-            end
-        end else if (state == IDLE) begin
-            read_data_count <= '0;
         end
     end
     

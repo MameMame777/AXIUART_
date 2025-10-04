@@ -3,7 +3,7 @@
 // UART Transmitter Module for UART-AXI4 Bridge
 // 8N1 format with configurable baud rate, LSB-first transmission
 module Uart_Tx #(
-    parameter int CLK_FREQ_HZ = 50_000_000,    // System clock frequency
+    parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200           // UART baud rate
 )(
     input  logic       clk,

@@ -3,9 +3,9 @@
 // Top-level UART-AXI4-Lite Bridge Module
 // Implements complete protocol per AXIUART_/docs/uart_axi4_protocol.md
 module Uart_Axi4_Bridge #(
-    parameter int CLK_FREQ_HZ = 50_000_000,     // System clock frequency
+    parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,           // UART baud rate
-    parameter int AXI_TIMEOUT = 1000,           // AXI timeout in clock cycles
+    parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
     parameter int TX_FIFO_DEPTH = 64,           // TX FIFO depth
