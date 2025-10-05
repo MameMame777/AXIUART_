@@ -28,9 +28,9 @@ module Frame_Builder (
     output logic        builder_busy,
     output logic        response_complete,
     // Debug signals
-    (* mark_debug = "true" *) output logic [7:0] debug_cmd_echo,
-    (* mark_debug = "true" *) output logic [7:0] debug_cmd_out,
-    (* mark_debug = "true" *) output logic [3:0] debug_state
+    output logic [7:0] debug_cmd_echo,
+    output logic [7:0] debug_cmd_out,
+    output logic [3:0] debug_state
 );
 
     // Protocol constants
@@ -42,18 +42,18 @@ module Frame_Builder (
     localparam [7:0] SOF_DEVICE_TO_HOST_CORRECTED = SOF_DEVICE_TO_HOST ^ SOF_CORRECTION_MASK;
     
     // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
-    (* mark_debug = "true" *) logic [7:0] debug_sof_raw;        // SOF before correction LUT
-    (* mark_debug = "true" *) logic [7:0] debug_sof_sent;       // SOF after UART staging FIFO
-    (* mark_debug = "true" *) logic       debug_sof_valid;      // SOF timing alignment
-    (* mark_debug = "true" *) logic [7:0] debug_crc_input;      // CRC module input bus
-    (* mark_debug = "true" *) logic [7:0] debug_crc_result;     // End of CRC pipeline
-    (* mark_debug = "true" *) logic [3:0] debug_frame_state;    // Frame builder FSM state
-    (* mark_debug = "true" *) logic [7:0] debug_status_input;   // STATUS before any correction
-    (* mark_debug = "true" *) logic [7:0] debug_status_output;  // STATUS sent to UART
-    (* mark_debug = "true" *) logic [7:0] debug_cmd_echo_in;    // CMD_ECHO received from bridge
-    (* mark_debug = "true" *) logic [7:0] debug_cmd_echo_out;   // CMD_ECHO sent to UART
-    (* mark_debug = "true" *) logic       debug_response_type;  // Read/Write response type flag
-    (* mark_debug = "true" *) logic [5:0] debug_data_count;     // Response data count
+    logic [7:0] debug_sof_raw;        // SOF before correction LUT
+    logic [7:0] debug_sof_sent;       // SOF after UART staging FIFO
+    logic       debug_sof_valid;      // SOF timing alignment
+    logic [7:0] debug_crc_input;      // CRC module input bus
+    logic [7:0] debug_crc_result;     // End of CRC pipeline
+    logic [3:0] debug_frame_state;    // Frame builder FSM state
+    logic [7:0] debug_status_input;   // STATUS before any correction
+    logic [7:0] debug_status_output;  // STATUS sent to UART
+    logic [7:0] debug_cmd_echo_in;    // CMD_ECHO received from bridge
+    logic [7:0] debug_cmd_echo_out;   // CMD_ECHO sent to UART
+    logic       debug_response_type;  // Read/Write response type flag
+    logic [5:0] debug_data_count;     // Response data count
     
     // STATUS correction pattern discovered: 0x06 -> 0x80 (XOR 0x86)
     localparam [7:0] STATUS_CORRECTION_MASK = 8'h86;
@@ -359,9 +359,9 @@ module Frame_Builder (
     assign debug_state = state[3:0];
 
     // TX FIFO関連のデバッグ信号
-    (* mark_debug = "true" *) logic [7:0] debug_tx_fifo_data_out;
-    (* mark_debug = "true" *) logic debug_tx_fifo_wr_en_out;
-    (* mark_debug = "true" *) logic debug_cmd_state_active;
+    logic [7:0] debug_tx_fifo_data_out;
+    logic debug_tx_fifo_wr_en_out;
+    logic debug_cmd_state_active;
     
     assign debug_tx_fifo_data_out = tx_fifo_data;
     assign debug_tx_fifo_wr_en_out = tx_fifo_wr_en;

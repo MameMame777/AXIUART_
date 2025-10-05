@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 module AXIUART_Top #(
     parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 115200,           // UART baud rate
+    parameter int BAUD_RATE = 9600,            // UART baud rate
     parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
@@ -39,25 +39,25 @@ module AXIUART_Top #(
     );
     
     // Bridge control and status signals
-    (* mark_debug = "true" *) logic        bridge_enable;
+    logic        bridge_enable;
     logic        bridge_reset_stats;
     logic [7:0]  baud_div_config;
     logic [7:0]  timeout_config;
     logic [3:0]  debug_mode;
     
-    (* mark_debug = "true" *) logic        bridge_busy;
-    (* mark_debug = "true" *) logic [7:0]  bridge_error_code;
-    (* mark_debug = "true" *) logic [15:0] tx_count;
-    (* mark_debug = "true" *) logic [15:0] rx_count;
-    (* mark_debug = "true" *) logic [7:0]  fifo_status;
+    logic        bridge_busy;
+    logic [7:0]  bridge_error_code;
+    logic [15:0] tx_count;
+    logic [15:0] rx_count;
+    logic [7:0]  fifo_status;
     
     // Flow control signals
-    (* mark_debug = "true" *) logic        rx_fifo_full;
-    (* mark_debug = "true" *) logic        rx_fifo_high;
-    (* mark_debug = "true" *) logic        tx_ready;
+    logic        rx_fifo_full;
+    logic        rx_fifo_high;
+    logic        tx_ready;
     
     // Internal reset logic
-    (* mark_debug = "true" *) logic internal_rst;
+    logic internal_rst;
     assign internal_rst = rst;
     
     // UART-AXI4 Bridge instantiation

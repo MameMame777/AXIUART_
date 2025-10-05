@@ -39,13 +39,13 @@ module Uart_Axi4_Bridge #(
     output logic [15:0] rx_transaction_count,  // RX transaction counter
     output logic [7:0]  fifo_status_flags,     // FIFO status flags
     // Debug signals for HW debug
-    (* mark_debug = "true" *) output logic [7:0] debug_parser_cmd,
-    (* mark_debug = "true" *) output logic [7:0] debug_builder_cmd_echo,
-    (* mark_debug = "true" *) output logic [7:0] debug_builder_cmd_out,
-    (* mark_debug = "true" *) output logic [7:0] debug_parser_status,
-    (* mark_debug = "true" *) output logic [7:0] debug_builder_status,
-    (* mark_debug = "true" *) output logic [3:0] debug_parser_state,
-    (* mark_debug = "true" *) output logic [3:0] debug_builder_state,
+    output logic [7:0] debug_parser_cmd,
+    output logic [7:0] debug_builder_cmd_echo,
+    output logic [7:0] debug_builder_cmd_out,
+    output logic [7:0] debug_parser_status,
+    output logic [7:0] debug_builder_status,
+    output logic [3:0] debug_parser_state,
+    output logic [3:0] debug_builder_state,
     
     // Statistics reset input
     input  logic        reset_statistics       // Pulse to reset counters
@@ -56,21 +56,21 @@ module Uart_Axi4_Bridge #(
     localparam int TX_FIFO_WIDTH = $clog2(TX_FIFO_DEPTH) + 1;
     
     // Debug signals for FPGA debugging - Phase 3 & 4 (ref: fpga_debug_work_plan.md)
-    (* mark_debug = "true" *) logic [7:0] debug_uart_tx_data;      // UART TX data cross-check
-    (* mark_debug = "true" *) logic       debug_uart_tx_valid;     // UART TX byte start marker
-    (* mark_debug = "true" *) logic [7:0] debug_uart_rx_data;      // UART RX data validation
-    (* mark_debug = "true" *) logic       debug_uart_rx_valid;     // UART RX parser timing
-    (* mark_debug = "true" *) logic [31:0] debug_axi_awaddr;       // AXI write address tracking
-    (* mark_debug = "true" *) logic [31:0] debug_axi_wdata;        // AXI write data ordering
-    (* mark_debug = "true" *) logic [1:0]  debug_axi_bresp;        // AXI write response mapping
-    (* mark_debug = "true" *) logic [31:0] debug_axi_araddr;       // AXI read address tracking
-    (* mark_debug = "true" *) logic [1:0]  debug_axi_rresp;        // AXI read response validation
-    (* mark_debug = "true" *) logic [3:0]  debug_axi_state;        // AXI transaction FSM state
-    (* mark_debug = "true" *) logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
-    (* mark_debug = "true" *) logic [7:0]  debug_builder_cmd_echo; // CMD_ECHO from Bridge to Builder
-    (* mark_debug = "true" *) logic [7:0]  debug_axi_status_out;   // STATUS from AXI Master to Bridge
-    (* mark_debug = "true" *) logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
-    (* mark_debug = "true" *) logic [3:0]  debug_bridge_state;     // Bridge main FSM state
+    logic [7:0] debug_uart_tx_data;      // UART TX data cross-check
+    logic       debug_uart_tx_valid;     // UART TX byte start marker
+    logic [7:0] debug_uart_rx_data;      // UART RX data validation
+    logic       debug_uart_rx_valid;     // UART RX parser timing
+    logic [31:0] debug_axi_awaddr;       // AXI write address tracking
+    logic [31:0] debug_axi_wdata;        // AXI write data ordering
+    logic [1:0]  debug_axi_bresp;        // AXI write response mapping
+    logic [31:0] debug_axi_araddr;       // AXI read address tracking
+    logic [1:0]  debug_axi_rresp;        // AXI read response validation
+    logic [3:0]  debug_axi_state;        // AXI transaction FSM state
+    logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
+    logic [7:0]  debug_builder_cmd_echo; // CMD_ECHO from Bridge to Builder
+    logic [7:0]  debug_axi_status_out;   // STATUS from AXI Master to Bridge
+    logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
+    logic [3:0]  debug_bridge_state;     // Bridge main FSM state
     
     // UART RX signals
     logic [7:0] rx_data;
@@ -94,12 +94,12 @@ module Uart_Axi4_Bridge #(
     logic [RX_FIFO_WIDTH-1:0] rx_fifo_count;
     
     // TX FIFO signals
-    (* mark_debug = "true" *) logic [7:0] tx_fifo_data;
-    (* mark_debug = "true" *) logic tx_fifo_wr_en;
+    logic [7:0] tx_fifo_data;
+    logic tx_fifo_wr_en;
     logic tx_fifo_full;
-    (* mark_debug = "true" *) logic tx_fifo_empty;
-    (* mark_debug = "true" *) logic tx_fifo_rd_en;
-    (* mark_debug = "true" *) logic [7:0] tx_fifo_rd_data;
+    logic tx_fifo_empty;
+    logic tx_fifo_rd_en;
+    logic [7:0] tx_fifo_rd_data;
     logic [TX_FIFO_WIDTH-1:0] tx_fifo_count;
     
     // Frame parser signals
@@ -107,7 +107,7 @@ module Uart_Axi4_Bridge #(
     logic [31:0] parser_addr;
     logic [7:0] parser_data_out [0:63];
     logic [5:0] parser_data_count;
-    (* mark_debug = "true" *) logic parser_frame_valid;
+    logic parser_frame_valid;
     logic [7:0] parser_error_status;
     logic parser_frame_error;
     logic parser_frame_consumed;
@@ -115,8 +115,8 @@ module Uart_Axi4_Bridge #(
     
     // AXI master signals
     logic [7:0] axi_write_data [0:63];
-    (* mark_debug = "true" *) logic axi_start_transaction;
-    (* mark_debug = "true" *) logic axi_transaction_done;
+    logic axi_start_transaction;
+    logic axi_transaction_done;
     logic [7:0] axi_status;
     logic [7:0] axi_read_data [0:63];
     logic [5:0] axi_read_data_count;
@@ -130,7 +130,7 @@ module Uart_Axi4_Bridge #(
     logic builder_build_response;
     logic builder_is_read_response;
     logic builder_busy;
-    (* mark_debug = "true" *) logic builder_response_complete;
+    logic builder_response_complete;
     
     // Main control state machine
     typedef enum logic [2:0] {
@@ -289,7 +289,7 @@ module Uart_Axi4_Bridge #(
     assign rx_fifo_wr_en = rx_valid && !rx_error && !rx_fifo_full;
     
     // TX FIFO read control and UART TX feeding
-    (* mark_debug = "true" *) logic tx_start_req, tx_start_reg;
+    logic tx_start_req, tx_start_reg;
     
     assign tx_start_req = !tx_fifo_empty && !tx_busy && !tx_start_reg;
     assign tx_fifo_rd_en = tx_start_req;
@@ -582,8 +582,8 @@ module Uart_Axi4_Bridge #(
     assign debug_builder_status = builder_status_code;
     
     // 新しいデバッグ信号: CMD キャプチャ状況
-    (* mark_debug = "true" *) logic [7:0] debug_captured_cmd;
-    (* mark_debug = "true" *) logic [31:0] debug_captured_addr;
+    logic [7:0] debug_captured_cmd;
+    logic [31:0] debug_captured_addr;
     
     assign debug_captured_cmd = captured_cmd;
     assign debug_captured_addr = captured_addr;

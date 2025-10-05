@@ -32,14 +32,14 @@ module Frame_Parser #(
     input  logic        frame_consumed,     // Frame has been processed
     output logic        parser_busy,        // Parser is active
     // Debug signals for HW analysis
-    (* mark_debug = "true" *) output logic [7:0] debug_cmd_in,
-    (* mark_debug = "true" *) output logic [7:0] debug_cmd_decoded,
-    (* mark_debug = "true" *) output logic [7:0] debug_status_out,
-    (* mark_debug = "true" *) output logic [7:0] debug_crc_in,
-    (* mark_debug = "true" *) output logic [7:0] debug_crc_calc,
-    (* mark_debug = "true" *) output logic       debug_crc_error,
-    (* mark_debug = "true" *) output logic [3:0] debug_state,
-    (* mark_debug = "true" *) output logic [7:0] debug_error_cause
+    output logic [7:0] debug_cmd_in,
+    output logic [7:0] debug_cmd_decoded,
+    output logic [7:0] debug_status_out,
+    output logic [7:0] debug_crc_in,
+    output logic [7:0] debug_crc_calc,
+    output logic       debug_crc_error,
+    output logic [3:0] debug_state,
+    output logic [7:0] debug_error_cause
 );
 
     // Protocol constants
@@ -54,11 +54,11 @@ module Frame_Parser #(
     localparam [7:0] STATUS_LEN_RANGE = 8'h07;
     
     // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
-    (* mark_debug = "true" *) logic [7:0] debug_rx_sof_raw;     // Received SOF before correction
-    (* mark_debug = "true" *) logic [7:0] debug_rx_sof_proc;    // SOF after processing (should be 0x5A)
-    (* mark_debug = "true" *) logic       debug_crc_match;      // CRC validation result
-    (* mark_debug = "true" *) logic [7:0] debug_status_gen;     // STATUS generation trace
-    (* mark_debug = "true" *) logic [7:0] debug_error_cause_internal;    // Error source classification
+    logic [7:0] debug_rx_sof_raw;     // Received SOF before correction
+    logic [7:0] debug_rx_sof_proc;    // SOF after processing (should be 0x5A)
+    logic       debug_crc_match;      // CRC validation result
+    logic [7:0] debug_status_gen;     // STATUS generation trace
+    logic [7:0] debug_error_cause_internal;    // Error source classification
     
     // Error cause encoding: 0x0=No error, 0x1=CRC mismatch, 0x2=AXI timeout, 0x3=Unsupported command
     
@@ -122,13 +122,13 @@ module Frame_Parser #(
     logic [5:0] expected_data_bytes;
     
     // Debug signals for hardware analysis - CMD parsing
-    (* mark_debug = "true" *) logic [7:0] debug_rx_cmd_raw;
-    (* mark_debug = "true" *) logic [7:0] debug_rx_cmd_parsed;
-    (* mark_debug = "true" *) logic       debug_rx_rw_bit;
-    (* mark_debug = "true" *) logic       debug_rx_inc_bit;
-    (* mark_debug = "true" *) logic [1:0] debug_rx_size_field;
-    (* mark_debug = "true" *) logic [3:0] debug_rx_len_field;
-    (* mark_debug = "true" *) logic [5:0] debug_rx_expected_bytes;
+    logic [7:0] debug_rx_cmd_raw;
+    logic [7:0] debug_rx_cmd_parsed;
+    logic       debug_rx_rw_bit;
+    logic       debug_rx_inc_bit;
+    logic [1:0] debug_rx_size_field;
+    logic [3:0] debug_rx_len_field;
+    logic [5:0] debug_rx_expected_bytes;
     
     always_comb begin
         rw_bit = current_cmd[7];

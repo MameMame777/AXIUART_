@@ -4,7 +4,7 @@
 // 8N1 format with configurable baud rate, LSB-first transmission
 module Uart_Tx #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 9600           // UART baud rate
+    parameter int BAUD_RATE = 115200           // UART baud rate
 )(
     input  logic       clk,
     input  logic       rst,
@@ -41,10 +41,10 @@ module Uart_Tx #(
     logic [7:0] tx_shift_reg_next;
     
     // Debug signals for FPGA debugging - UART bit-level analysis
-    logic [7:0] debug_uart_tx_shift_reg;    // Shift register contents
-    logic       debug_uart_tx_bit;          // Current bit being sent
-    logic [2:0] debug_uart_tx_state;        // TX state machine
-    logic [3:0] debug_uart_bit_counter;     // Bit position counter
+    (* mark_debug = "true" *) logic [7:0] debug_uart_tx_shift_reg;    // Shift register contents
+    (* mark_debug = "true" *) logic       debug_uart_tx_bit;          // Current bit being sent
+    (* mark_debug = "true" *) logic [2:0] debug_uart_tx_state;        // TX state machine
+    (* mark_debug = "true" *) logic [3:0] debug_uart_bit_counter;     // Bit position counter
     
     // Baud rate generator
     always_ff @(posedge clk) begin
