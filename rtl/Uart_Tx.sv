@@ -40,6 +40,12 @@ module Uart_Tx #(
     logic [7:0] tx_shift_reg;
     logic [7:0] tx_shift_reg_next;
     
+    // Debug signals for FPGA debugging - UART bit-level analysis
+    (* mark_debug = "true" *) logic [7:0] debug_uart_tx_shift_reg;    // Shift register contents
+    (* mark_debug = "true" *) logic       debug_uart_tx_bit;          // Current bit being sent
+    (* mark_debug = "true" *) logic [2:0] debug_uart_tx_state;        // TX state machine
+    (* mark_debug = "true" *) logic [3:0] debug_uart_bit_counter;     // Bit position counter
+    
     // Baud rate generator
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -153,6 +159,12 @@ module Uart_Tx #(
     assign uart_tx = uart_tx_int;
     assign tx_busy = (tx_state != IDLE);
     assign tx_done = tx_done_int;
+    
+    // Debug signal assignments - UART bit-level debugging
+    assign debug_uart_tx_shift_reg = tx_shift_reg;
+    assign debug_uart_tx_bit = uart_tx_int;
+    assign debug_uart_tx_state = tx_state;
+    assign debug_uart_bit_counter = bit_counter;
 
     // Assertions for verification
     `ifdef ENABLE_UART_TX_ASSERTIONS

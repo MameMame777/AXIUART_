@@ -38,6 +38,14 @@ module Uart_Axi4_Bridge #(
     output logic [15:0] tx_transaction_count,  // TX transaction counter
     output logic [15:0] rx_transaction_count,  // RX transaction counter
     output logic [7:0]  fifo_status_flags,     // FIFO status flags
+    // Debug signals for HW debug
+    (* mark_debug = "true" *) output logic [7:0] debug_parser_cmd,
+    (* mark_debug = "true" *) output logic [7:0] debug_builder_cmd_echo,
+    (* mark_debug = "true" *) output logic [7:0] debug_builder_cmd_out,
+    (* mark_debug = "true" *) output logic [7:0] debug_parser_status,
+    (* mark_debug = "true" *) output logic [7:0] debug_builder_status,
+    (* mark_debug = "true" *) output logic [3:0] debug_parser_state,
+    (* mark_debug = "true" *) output logic [3:0] debug_builder_state,
     
     // Statistics reset input
     input  logic        reset_statistics       // Pulse to reset counters
@@ -58,6 +66,11 @@ module Uart_Axi4_Bridge #(
     (* mark_debug = "true" *) logic [31:0] debug_axi_araddr;       // AXI read address tracking
     (* mark_debug = "true" *) logic [1:0]  debug_axi_rresp;        // AXI read response validation
     (* mark_debug = "true" *) logic [3:0]  debug_axi_state;        // AXI transaction FSM state
+    (* mark_debug = "true" *) logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
+    (* mark_debug = "true" *) logic [7:0]  debug_builder_cmd_echo; // CMD_ECHO from Bridge to Builder
+    (* mark_debug = "true" *) logic [7:0]  debug_axi_status_out;   // STATUS from AXI Master to Bridge
+    (* mark_debug = "true" *) logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
+    (* mark_debug = "true" *) logic [3:0]  debug_bridge_state;     // Bridge main FSM state
     
     // UART RX signals
     logic [7:0] rx_data;
@@ -81,12 +94,12 @@ module Uart_Axi4_Bridge #(
     logic [RX_FIFO_WIDTH-1:0] rx_fifo_count;
     
     // TX FIFO signals
-    logic [7:0] tx_fifo_data;
-    logic tx_fifo_wr_en;
+    (* mark_debug = "true" *) logic [7:0] tx_fifo_data;
+    (* mark_debug = "true" *) logic tx_fifo_wr_en;
     logic tx_fifo_full;
-    logic tx_fifo_empty;
-    logic tx_fifo_rd_en;
-    logic [7:0] tx_fifo_rd_data;
+    (* mark_debug = "true" *) logic tx_fifo_empty;
+    (* mark_debug = "true" *) logic tx_fifo_rd_en;
+    (* mark_debug = "true" *) logic [7:0] tx_fifo_rd_data;
     logic [TX_FIFO_WIDTH-1:0] tx_fifo_count;
     
     // Frame parser signals
@@ -130,6 +143,10 @@ module Uart_Axi4_Bridge #(
     
     main_state_t main_state, main_state_next;
 
+    // CMD保持用レジスタ - Frame_Parserの出力が消える前にキャプチャ
+    logic [7:0] captured_cmd;
+    logic [31:0] captured_addr;
+    
     localparam logic [31:0] CONTROL_ADDR = 32'h0000_1000;
     localparam logic [7:0] STATUS_BUSY_CODE = 8'h06;
     
@@ -218,7 +235,15 @@ module Uart_Axi4_Bridge #(
         .error_status(parser_error_status),
         .frame_error(parser_frame_error),
         .frame_consumed(parser_frame_consumed),
-        .parser_busy(parser_busy)
+        .parser_busy(parser_busy),
+        .debug_cmd_in(debug_parser_cmd),
+        .debug_cmd_decoded(),
+        .debug_status_out(debug_parser_status),
+        .debug_crc_in(),
+        .debug_crc_calc(),
+        .debug_crc_error(),
+        .debug_state(debug_parser_state),
+        .debug_error_cause()
     );
     
     // AXI4-Lite master instance
@@ -228,8 +253,8 @@ module Uart_Axi4_Bridge #(
     ) axi_master (
         .clk(clk),
         .rst(rst),
-        .cmd(parser_cmd),
-        .addr(parser_addr),
+        .cmd(captured_cmd),      // 修正: parser_cmd → captured_cmd
+        .addr(captured_addr),    // 修正: parser_addr → captured_addr
         .write_data(axi_write_data),
         .start_transaction(axi_start_transaction),
         .transaction_done(axi_transaction_done),
@@ -254,14 +279,17 @@ module Uart_Axi4_Bridge #(
         .tx_fifo_wr_en(tx_fifo_wr_en),
         .tx_fifo_full(tx_fifo_full),
         .builder_busy(builder_busy),
-        .response_complete(builder_response_complete)
+        .response_complete(builder_response_complete),
+        .debug_cmd_echo(debug_builder_cmd_echo),
+        .debug_cmd_out(debug_builder_cmd_out),
+        .debug_state(debug_builder_state)
     );
     
     // RX FIFO write control
     assign rx_fifo_wr_en = rx_valid && !rx_error && !rx_fifo_full;
     
     // TX FIFO read control and UART TX feeding
-    logic tx_start_req, tx_start_reg;
+    (* mark_debug = "true" *) logic tx_start_req, tx_start_reg;
     
     assign tx_start_req = !tx_fifo_empty && !tx_busy && !tx_start_reg;
     assign tx_fifo_rd_en = tx_start_req;
@@ -297,8 +325,20 @@ module Uart_Axi4_Bridge #(
     always_ff @(posedge clk) begin
         if (rst) begin
             main_state <= MAIN_IDLE;
+            captured_cmd <= 8'h00;
+            captured_addr <= 32'h00000000;
         end else begin
             main_state <= main_state_next;
+            
+            // Frame_Parserの出力が有効な時にキャプチャ
+            if (parser_frame_valid && (main_state == MAIN_IDLE)) begin
+                captured_cmd <= parser_cmd;
+                captured_addr <= parser_addr;
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Bridge captured CMD=0x%02X, ADDR=0x%08X at time %0t", 
+                             parser_cmd, parser_addr, $time);
+                `endif
+            end
         end
     end
     
@@ -374,13 +414,13 @@ module Uart_Axi4_Bridge #(
             MAIN_BUILD_RESPONSE: begin
                 // Issue build response only once per frame
                 builder_build_response = !builder_start_issued;
-                builder_cmd_echo = parser_cmd;
-                builder_addr_echo = parser_addr;
+                builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
+                builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
                 
                 `ifdef ENABLE_DEBUG
                     if (!builder_start_issued) begin
-                        $display("DEBUG: Bridge starting response - parser_frame_error=%b, parser_cmd=0x%02X at time %0t", 
-                                 parser_frame_error, parser_cmd, $time);
+                        $display("DEBUG: Bridge starting response - parser_frame_error=%b, captured_cmd=0x%02X at time %0t", 
+                                 parser_frame_error, captured_cmd, $time);
                     end
                 `endif
                 
@@ -428,10 +468,10 @@ module Uart_Axi4_Bridge #(
 
             MAIN_DISABLED_RESPONSE: begin
                 builder_build_response = !builder_start_issued;
-                builder_cmd_echo = parser_cmd;
-                builder_addr_echo = parser_addr;
+                builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
+                builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
                 builder_status_code = STATUS_BUSY_CODE;
-                builder_is_read_response = parser_cmd[7];
+                builder_is_read_response = captured_cmd[7]; // 修正: parser_cmd[7] → captured_cmd[7]
                 builder_response_data_count = 6'h00;
                 main_state_next = MAIN_WAIT_RESPONSE;
             end
@@ -537,5 +577,15 @@ module Uart_Axi4_Bridge #(
     assign debug_axi_araddr = axi.araddr;          // AXI read address  
     assign debug_axi_rresp = axi.rresp;            // AXI read response
     assign debug_axi_state = {1'b0, main_state};   // AXI transaction FSM state (padded to 4 bits)
+    
+    // Debug signal assignments for newly added HW debug signals
+    assign debug_builder_status = builder_status_code;
+    
+    // 新しいデバッグ信号: CMD キャプチャ状況
+    (* mark_debug = "true" *) logic [7:0] debug_captured_cmd;
+    (* mark_debug = "true" *) logic [31:0] debug_captured_addr;
+    
+    assign debug_captured_cmd = captured_cmd;
+    assign debug_captured_addr = captured_addr;
 
 endmodule

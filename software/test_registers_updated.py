@@ -59,12 +59,12 @@ class TestRegisterAccess:
         # Address (little-endian, 4 bytes)
         frame.extend(struct.pack('<I', addr))
         
-        # For read commands, no length/data fields
+        # For read commands, no additional fields needed
         if cmd == 0xA0:  # Read command
             # No additional fields for read
             pass
-        elif cmd == 0x80:  # Write command  
-            frame.append(len(data))  # Length field
+        elif cmd == 0x20:  # Write command  
+            # Data only (no length field - LEN is embedded in CMD)
             frame.extend(data)       # Data
         
         # Calculate and append CRC (exclude SOF)
@@ -140,7 +140,7 @@ class TestRegisterAccess:
     def write_register(self, addr: int, value: int) -> bool:
         """Write 32-bit register"""
         data = struct.pack('<I', value)  # 32-bit little-endian
-        response = self.send_command(0x80, addr, data)  # Write command
+        response = self.send_command(0x20, addr, data)  # Write command: 32-bit (SIZE=10), LEN=0
         
         if not response:
             return False
@@ -148,6 +148,14 @@ class TestRegisterAccess:
         if len(response) >= 2:
             sof, status = response[0], response[1]
             print(f"📋 Write response - SOF: 0x{sof:02X}, STATUS: 0x{status:02X}")
+            
+            # Full response debugging
+            print(f"📋 Full write response: {' '.join(f'{b:02X}' for b in response)}")
+            if len(response) >= 4:
+                cmd_echo = response[2]
+                crc = response[3]
+                print(f"📋 CMD_ECHO: 0x{cmd_echo:02X}, CRC: 0x{crc:02X}")
+            
             return status == 0x00
         
         return False

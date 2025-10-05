@@ -30,7 +30,16 @@ module Frame_Parser #(
     
     // Control
     input  logic        frame_consumed,     // Frame has been processed
-    output logic        parser_busy         // Parser is active
+    output logic        parser_busy,        // Parser is active
+    // Debug signals for HW analysis
+    (* mark_debug = "true" *) output logic [7:0] debug_cmd_in,
+    (* mark_debug = "true" *) output logic [7:0] debug_cmd_decoded,
+    (* mark_debug = "true" *) output logic [7:0] debug_status_out,
+    (* mark_debug = "true" *) output logic [7:0] debug_crc_in,
+    (* mark_debug = "true" *) output logic [7:0] debug_crc_calc,
+    (* mark_debug = "true" *) output logic       debug_crc_error,
+    (* mark_debug = "true" *) output logic [3:0] debug_state,
+    (* mark_debug = "true" *) output logic [7:0] debug_error_cause
 );
 
     // Protocol constants
@@ -49,7 +58,7 @@ module Frame_Parser #(
     (* mark_debug = "true" *) logic [7:0] debug_rx_sof_proc;    // SOF after processing (should be 0x5A)
     (* mark_debug = "true" *) logic       debug_crc_match;      // CRC validation result
     (* mark_debug = "true" *) logic [7:0] debug_status_gen;     // STATUS generation trace
-    (* mark_debug = "true" *) logic [3:0] debug_error_cause;    // Error source classification
+    (* mark_debug = "true" *) logic [7:0] debug_error_cause_internal;    // Error source classification
     
     // Error cause encoding: 0x0=No error, 0x1=CRC mismatch, 0x2=AXI timeout, 0x3=Unsupported command
     
@@ -112,11 +121,29 @@ module Frame_Parser #(
     logic [3:0] len_field;
     logic [5:0] expected_data_bytes;
     
+    // Debug signals for hardware analysis - CMD parsing
+    (* mark_debug = "true" *) logic [7:0] debug_rx_cmd_raw;
+    (* mark_debug = "true" *) logic [7:0] debug_rx_cmd_parsed;
+    (* mark_debug = "true" *) logic       debug_rx_rw_bit;
+    (* mark_debug = "true" *) logic       debug_rx_inc_bit;
+    (* mark_debug = "true" *) logic [1:0] debug_rx_size_field;
+    (* mark_debug = "true" *) logic [3:0] debug_rx_len_field;
+    (* mark_debug = "true" *) logic [5:0] debug_rx_expected_bytes;
+    
     always_comb begin
         rw_bit = current_cmd[7];
         inc_bit = current_cmd[6];
         size_field = current_cmd[5:4];
         len_field = current_cmd[3:0];
+        
+        // Debug signal assignments
+        debug_rx_cmd_raw = rx_fifo_data;
+        debug_rx_cmd_parsed = current_cmd;
+        debug_rx_rw_bit = rw_bit;
+        debug_rx_inc_bit = inc_bit;
+        debug_rx_size_field = size_field;
+        debug_rx_len_field = len_field;
+        debug_rx_expected_bytes = expected_data_bytes;
         
         // Calculate expected data bytes for write commands
         case (size_field)
@@ -230,11 +257,11 @@ module Frame_Parser #(
                 if (!cmd_valid) begin
                     error_status_reg <= (size_field == 2'b11) ? STATUS_CMD_INV : STATUS_LEN_RANGE;
                     // Debug error cause: 0x3 = Unsupported command
-                    debug_error_cause <= 4'h3;
+                    debug_error_cause_internal <= 8'h03;
                 end else if (received_crc != expected_crc) begin
                     error_status_reg <= STATUS_CRC_ERR;
                     // Debug error cause: 0x1 = CRC mismatch
-                    debug_error_cause <= 4'h1;
+                    debug_error_cause_internal <= 8'h01;
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Parser CRC mismatch recv=0x%02X exp=0x%02X at time %0t", received_crc, expected_crc, $time);
                         $display("DEBUG: Frame_Parser CRC context cmd=0x%02X addr=0x%08X data_bytes=%0d expected_bytes=%0d", current_cmd, addr_reg, data_byte_count, expected_data_bytes);
@@ -252,7 +279,7 @@ module Frame_Parser #(
                 end else begin
                     error_status_reg <= STATUS_OK;
                     // Debug error cause: 0x0 = No error
-                    debug_error_cause <= 4'h0;
+                    debug_error_cause_internal <= 8'h00;
                 end
             end
             
@@ -260,7 +287,7 @@ module Frame_Parser #(
             if (timeout_occurred && (state != IDLE) && (state != ERROR)) begin
                 error_status_reg <= STATUS_TIMEOUT;
                 // Debug error cause: 0x2 = AXI timeout
-                debug_error_cause <= 4'h2;
+                debug_error_cause_internal <= 8'h02;
             end
             
             // Clear frame_consumed acknowledgment
@@ -427,6 +454,21 @@ module Frame_Parser #(
     assign frame_error = (state == VALIDATE) && (error_status_reg != STATUS_OK) || 
                         (state == ERROR) || timeout_occurred;
     assign parser_busy = (state != IDLE);
+    
+    // Debug signal assignments for hardware analysis
+    assign debug_cmd_in = rx_fifo_data;
+    assign debug_cmd_decoded = cmd_reg;
+    assign debug_status_out = error_status_reg;
+    assign debug_crc_in = received_crc;
+    assign debug_crc_calc = expected_crc;
+    assign debug_crc_error = (received_crc != expected_crc);
+    assign debug_crc_received = received_crc;
+    assign debug_crc_expected = expected_crc;
+    assign debug_error_status = error_status_reg;
+    assign debug_state = state;
+    assign debug_parser_state = state;
+    assign debug_error_cause = debug_error_cause_internal;
+    assign debug_frame_valid_flag = frame_valid;
     
     // Copy data array to output
     always_comb begin

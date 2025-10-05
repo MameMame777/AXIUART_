@@ -2,6 +2,10 @@
 
 // Frame Builder module for UART-AXI4 Bridge
 // Constructs response frames per protocol specification
+// 
+// Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md
+// Phase 1&2 signals: debug_sof_raw, debug_sof_sent, debug_sof_valid,
+//                    debug_crc_input, debug_crc_result, debug_frame_state
 module Frame_Builder (
     input  logic        clk,
     input  logic        rst,
@@ -22,7 +26,11 @@ module Frame_Builder (
     
     // Status
     output logic        builder_busy,
-    output logic        response_complete
+    output logic        response_complete,
+    // Debug signals
+    (* mark_debug = "true" *) output logic [7:0] debug_cmd_echo,
+    (* mark_debug = "true" *) output logic [7:0] debug_cmd_out,
+    (* mark_debug = "true" *) output logic [3:0] debug_state
 );
 
     // Protocol constants
@@ -32,6 +40,20 @@ module Frame_Builder (
     // Only SOF shows consistent XOR 0xF7 pattern
     localparam [7:0] SOF_CORRECTION_MASK = 8'hF7;
     localparam [7:0] SOF_DEVICE_TO_HOST_CORRECTED = SOF_DEVICE_TO_HOST ^ SOF_CORRECTION_MASK;
+    
+    // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
+    (* mark_debug = "true" *) logic [7:0] debug_sof_raw;        // SOF before correction LUT
+    (* mark_debug = "true" *) logic [7:0] debug_sof_sent;       // SOF after UART staging FIFO
+    (* mark_debug = "true" *) logic       debug_sof_valid;      // SOF timing alignment
+    (* mark_debug = "true" *) logic [7:0] debug_crc_input;      // CRC module input bus
+    (* mark_debug = "true" *) logic [7:0] debug_crc_result;     // End of CRC pipeline
+    (* mark_debug = "true" *) logic [3:0] debug_frame_state;    // Frame builder FSM state
+    (* mark_debug = "true" *) logic [7:0] debug_status_input;   // STATUS before any correction
+    (* mark_debug = "true" *) logic [7:0] debug_status_output;  // STATUS sent to UART
+    (* mark_debug = "true" *) logic [7:0] debug_cmd_echo_in;    // CMD_ECHO received from bridge
+    (* mark_debug = "true" *) logic [7:0] debug_cmd_echo_out;   // CMD_ECHO sent to UART
+    (* mark_debug = "true" *) logic       debug_response_type;  // Read/Write response type flag
+    (* mark_debug = "true" *) logic [5:0] debug_data_count;     // Response data count
     
     // STATUS correction pattern discovered: 0x06 -> 0x80 (XOR 0x86)
     localparam [7:0] STATUS_CORRECTION_MASK = 8'h86;
@@ -143,6 +165,13 @@ module Frame_Builder (
         crc_reset = 1'b0;
         crc_data_in = '0;
         
+        // Default debug signal assignments to prevent latches
+        debug_sof_raw = 8'h00;
+        debug_sof_sent = 8'h00;
+        debug_sof_valid = 1'b0;
+        debug_crc_input = 8'h00;
+        debug_crc_result = crc_out;  // Always show current CRC output
+        
         `ifdef ENABLE_DEBUG
             if (build_response_edge) begin
                 $display("DEBUG: Frame_Builder triggered - cmd_echo=0x%02X, status_code=0x%02X at time %0t", 
@@ -161,6 +190,11 @@ module Frame_Builder (
             
             SOF: begin
                 if (!tx_fifo_full) begin
+                    // Debug signal assignments - Phase 1
+                    debug_sof_raw = SOF_DEVICE_TO_HOST;         // Raw constant 0x5A
+                    debug_sof_sent = SOF_DEVICE_TO_HOST;        // What we actually send
+                    debug_sof_valid = 1'b1;                    // SOF timing marker
+                    
                     // Use original SOF - let hardware apply natural transformation
                     tx_fifo_data = SOF_DEVICE_TO_HOST;
                     tx_fifo_wr_en = 1'b1;
@@ -169,16 +203,27 @@ module Frame_Builder (
                                 SOF_DEVICE_TO_HOST, $time);
                     `endif
                     state_next = STATUS;
+                end else begin
+                    debug_sof_valid = 1'b0;  // Not sending SOF this cycle
                 end
             end
             
             STATUS: begin
                 if (!tx_fifo_full) begin
+                    // Debug signal assignments - STATUS processing
+                    debug_status_input = status_reg;      // Original STATUS value
+                    debug_status_output = status_reg;     // STATUS sent to UART (no correction currently)
+                    
                     // Hardware correction temporarily disabled for debugging
                     tx_fifo_data = status_reg;
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = status_reg;
+                    
+                    // Debug signal assignments - Phase 1
+                    debug_crc_input = status_reg;
+                    debug_crc_result = crc_out;
+                    
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Builder sending STATUS = 0x%02X (no correction) at time %0t", 
                                 status_reg, $time);
@@ -194,6 +239,13 @@ module Frame_Builder (
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = cmd_reg;
+                    
+                    // Debug signal assignments - CMD processing
+                    debug_crc_input = cmd_reg;
+                    debug_crc_result = crc_out;
+                    debug_cmd_echo_in = cmd_echo;
+                    debug_cmd_echo_out = cmd_reg;
+                    debug_response_type = is_read_response;
                     
                     // Decide next state based on response type and status
                     // Write response (MSB=0): SOF + STATUS + CMD + CRC (4 bytes total)
@@ -295,6 +347,25 @@ module Frame_Builder (
     // Output assignments
     assign builder_busy = (state != IDLE);
     assign response_complete = (state == DONE) && (state_next == INTER_FRAME_GAP);
+    
+    // Debug signal assignments - Frame state decode
+    assign debug_frame_state = state[3:0];  // FSM state for debugging
+    // State encoding: 0=IDLE, 1=SOF, 2=STATUS, 3=CMD, 4=ADDR_BYTE0, 5=ADDR_BYTE1, 
+    //                 6=ADDR_BYTE2, 7=ADDR_BYTE3, 8=DATA, 9=CRC, 10=DONE, 11=INTER_FRAME_GAP
+    
+    // New debug signal assignments for HW analysis
+    assign debug_cmd_echo = cmd_reg;
+    assign debug_cmd_out = cmd_reg;
+    assign debug_state = state[3:0];
+
+    // TX FIFO関連のデバッグ信号
+    (* mark_debug = "true" *) logic [7:0] debug_tx_fifo_data_out;
+    (* mark_debug = "true" *) logic debug_tx_fifo_wr_en_out;
+    (* mark_debug = "true" *) logic debug_cmd_state_active;
+    
+    assign debug_tx_fifo_data_out = tx_fifo_data;
+    assign debug_tx_fifo_wr_en_out = tx_fifo_wr_en;
+    assign debug_cmd_state_active = (state == CMD);
 
     // Assertions for verification
     `ifdef ENABLE_FRAME_BUILDER_ASSERTIONS
