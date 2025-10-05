@@ -2,6 +2,11 @@
 
 // Top-level UART-AXI4-Lite Bridge Module
 // Implements complete protocol per AXIUART_/docs/uart_axi4_protocol.md
+//
+// Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md
+// Phase 3&4 signals: debug_uart_tx_data, debug_uart_tx_valid, debug_uart_rx_data,
+//                    debug_uart_rx_valid, debug_axi_awaddr, debug_axi_wdata, 
+//                    debug_axi_bresp, debug_axi_araddr, debug_axi_rresp, debug_axi_state
 module Uart_Axi4_Bridge #(
     parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,           // UART baud rate
@@ -41,6 +46,18 @@ module Uart_Axi4_Bridge #(
     // FIFO width calculation (7 bits for 64-deep FIFO)
     localparam int RX_FIFO_WIDTH = $clog2(RX_FIFO_DEPTH) + 1;
     localparam int TX_FIFO_WIDTH = $clog2(TX_FIFO_DEPTH) + 1;
+    
+    // Debug signals for FPGA debugging - Phase 3 & 4 (ref: fpga_debug_work_plan.md)
+    (* mark_debug = "true" *) logic [7:0] debug_uart_tx_data;      // UART TX data cross-check
+    (* mark_debug = "true" *) logic       debug_uart_tx_valid;     // UART TX byte start marker
+    (* mark_debug = "true" *) logic [7:0] debug_uart_rx_data;      // UART RX data validation
+    (* mark_debug = "true" *) logic       debug_uart_rx_valid;     // UART RX parser timing
+    (* mark_debug = "true" *) logic [31:0] debug_axi_awaddr;       // AXI write address tracking
+    (* mark_debug = "true" *) logic [31:0] debug_axi_wdata;        // AXI write data ordering
+    (* mark_debug = "true" *) logic [1:0]  debug_axi_bresp;        // AXI write response mapping
+    (* mark_debug = "true" *) logic [31:0] debug_axi_araddr;       // AXI read address tracking
+    (* mark_debug = "true" *) logic [1:0]  debug_axi_rresp;        // AXI read response validation
+    (* mark_debug = "true" *) logic [3:0]  debug_axi_state;        // AXI transaction FSM state
     
     // UART RX signals
     logic [7:0] rx_data;
@@ -508,5 +525,17 @@ module Uart_Axi4_Bridge #(
     // Output assignments
     assign tx_transaction_count = tx_count_reg;
     assign rx_transaction_count = rx_count_reg;
+    
+    // Debug signal assignments - Phase 3 & 4 (UART and AXI visibility)
+    assign debug_uart_tx_data = tx_data;           // TX data from FIFO to UART
+    assign debug_uart_tx_valid = tx_start;         // TX byte start marker
+    assign debug_uart_rx_data = rx_data;           // RX data from UART
+    assign debug_uart_rx_valid = rx_valid;         // RX data valid timing
+    assign debug_axi_awaddr = axi.awaddr;          // AXI write address
+    assign debug_axi_wdata = axi.wdata;            // AXI write data
+    assign debug_axi_bresp = axi.bresp;            // AXI write response
+    assign debug_axi_araddr = axi.araddr;          // AXI read address  
+    assign debug_axi_rresp = axi.rresp;            // AXI read response
+    assign debug_axi_state = {1'b0, main_state};   // AXI transaction FSM state (padded to 4 bits)
 
 endmodule

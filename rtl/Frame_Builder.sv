@@ -27,6 +27,15 @@ module Frame_Builder (
 
     // Protocol constants
     localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;
+    
+    // Hardware correction for UART transmission issue - SOF ONLY
+    // Only SOF shows consistent XOR 0xF7 pattern
+    localparam [7:0] SOF_CORRECTION_MASK = 8'hF7;
+    localparam [7:0] SOF_DEVICE_TO_HOST_CORRECTED = SOF_DEVICE_TO_HOST ^ SOF_CORRECTION_MASK;
+    
+    // STATUS correction pattern discovered: 0x06 -> 0x80 (XOR 0x86)
+    localparam [7:0] STATUS_CORRECTION_MASK = 8'h86;
+    
     localparam [7:0] STATUS_OK = 8'h00;
     
     // State machine
@@ -152,10 +161,12 @@ module Frame_Builder (
             
             SOF: begin
                 if (!tx_fifo_full) begin
+                    // Use original SOF - let hardware apply natural transformation
                     tx_fifo_data = SOF_DEVICE_TO_HOST;
                     tx_fifo_wr_en = 1'b1;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X at time %0t", SOF_DEVICE_TO_HOST, $time);
+                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X (no correction applied) at time %0t", 
+                                SOF_DEVICE_TO_HOST, $time);
                     `endif
                     state_next = STATUS;
                 end
@@ -163,12 +174,14 @@ module Frame_Builder (
             
             STATUS: begin
                 if (!tx_fifo_full) begin
+                    // Hardware correction temporarily disabled for debugging
                     tx_fifo_data = status_reg;
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = status_reg;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X at time %0t", status_reg, $time);
+                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X (no correction) at time %0t", 
+                                status_reg, $time);
                     `endif
                     state_next = CMD;
                 end
@@ -176,6 +189,7 @@ module Frame_Builder (
             
             CMD: begin
                 if (!tx_fifo_full) begin
+                    // Hardware correction temporarily disabled for debugging
                     tx_fifo_data = cmd_reg;
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;

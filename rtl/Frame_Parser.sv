@@ -2,6 +2,10 @@
 
 // Frame Parser Module for UART-AXI4 Bridge
 // Implements state machine from Section 6.6 of protocol specification
+//
+// Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md  
+// Phase 1&2 signals: debug_rx_sof_raw, debug_rx_sof_proc, debug_crc_match,
+//                    debug_status_gen, debug_error_cause
 module Frame_Parser #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,
@@ -39,6 +43,15 @@ module Frame_Parser #(
     localparam [7:0] STATUS_ADDR_ALIGN = 8'h03;
     localparam [7:0] STATUS_TIMEOUT   = 8'h04;
     localparam [7:0] STATUS_LEN_RANGE = 8'h07;
+    
+    // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
+    (* mark_debug = "true" *) logic [7:0] debug_rx_sof_raw;     // Received SOF before correction
+    (* mark_debug = "true" *) logic [7:0] debug_rx_sof_proc;    // SOF after processing (should be 0x5A)
+    (* mark_debug = "true" *) logic       debug_crc_match;      // CRC validation result
+    (* mark_debug = "true" *) logic [7:0] debug_status_gen;     // STATUS generation trace
+    (* mark_debug = "true" *) logic [3:0] debug_error_cause;    // Error source classification
+    
+    // Error cause encoding: 0x0=No error, 0x1=CRC mismatch, 0x2=AXI timeout, 0x3=Unsupported command
     
     // Timeout calculation
     localparam int BYTE_TIME_CLOCKS = CLK_FREQ_HZ / (BAUD_RATE / 10); // 10 bits per byte
@@ -216,8 +229,12 @@ module Frame_Parser #(
             if (state == VALIDATE) begin
                 if (!cmd_valid) begin
                     error_status_reg <= (size_field == 2'b11) ? STATUS_CMD_INV : STATUS_LEN_RANGE;
+                    // Debug error cause: 0x3 = Unsupported command
+                    debug_error_cause <= 4'h3;
                 end else if (received_crc != expected_crc) begin
                     error_status_reg <= STATUS_CRC_ERR;
+                    // Debug error cause: 0x1 = CRC mismatch
+                    debug_error_cause <= 4'h1;
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Parser CRC mismatch recv=0x%02X exp=0x%02X at time %0t", received_crc, expected_crc, $time);
                         $display("DEBUG: Frame_Parser CRC context cmd=0x%02X addr=0x%08X data_bytes=%0d expected_bytes=%0d", current_cmd, addr_reg, data_byte_count, expected_data_bytes);
@@ -234,12 +251,16 @@ module Frame_Parser #(
                     `endif
                 end else begin
                     error_status_reg <= STATUS_OK;
+                    // Debug error cause: 0x0 = No error
+                    debug_error_cause <= 4'h0;
                 end
             end
             
             // Handle timeout
             if (timeout_occurred && (state != IDLE) && (state != ERROR)) begin
                 error_status_reg <= STATUS_TIMEOUT;
+                // Debug error cause: 0x2 = AXI timeout
+                debug_error_cause <= 4'h2;
             end
             
             // Clear frame_consumed acknowledgment
@@ -257,16 +278,30 @@ module Frame_Parser #(
         crc_reset = 1'b0;
         crc_data_in = rx_fifo_data;
         
+        // Default debug signal assignments to prevent latches
+        debug_rx_sof_raw = 8'h00;
+        debug_rx_sof_proc = 8'h00;
+        debug_crc_match = 1'b0;
+        debug_status_gen = error_status_reg;  // Always show current status
+        
         case (state)
             IDLE: begin
                 crc_reset = 1'b1;  // Reset CRC for new frame
                 if (!rx_fifo_empty && (rx_fifo_data == SOF_HOST_TO_DEVICE)) begin
+                    // Debug signal assignments - Phase 2
+                    debug_rx_sof_raw = rx_fifo_data;
+                    debug_rx_sof_proc = SOF_HOST_TO_DEVICE;  // Expected processed value
+                    
                     rx_fifo_rd_en = 1'b1;
                     state_next = CMD;
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Parser SOF detected = 0x%02X at time %0t", rx_fifo_data, $time);
                     `endif
                 end else if (!rx_fifo_empty) begin
+                    // Debug signal assignments for invalid SOF
+                    debug_rx_sof_raw = rx_fifo_data;
+                    debug_rx_sof_proc = 8'h00;  // Mark as invalid
+                    
                     rx_fifo_rd_en = 1'b1;  // Discard invalid SOF
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Parser invalid SOF discarded = 0x%02X at time %0t", rx_fifo_data, $time);
@@ -351,6 +386,10 @@ module Frame_Parser #(
             end
             
             VALIDATE: begin
+                // Debug signal assignments - Phase 2
+                debug_crc_match = (received_crc == expected_crc);
+                debug_status_gen = error_status_reg;
+                
                 if (frame_consumed) begin
                     state_next = IDLE;
                     `ifdef ENABLE_DEBUG

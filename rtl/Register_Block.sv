@@ -37,11 +37,23 @@ module Register_Block #(
     localparam bit [11:0] REG_RX_COUNT   = 12'h014;  // 0x014: RX counter (RO)
     localparam bit [11:0] REG_FIFO_STAT  = 12'h018;  // 0x018: FIFO status (RO)
     localparam bit [11:0] REG_VERSION    = 12'h01C;  // 0x01C: Version register (RO)
+    
+    // Test registers for protocol debugging (added 2025-10-05)
+    localparam bit [11:0] REG_TEST_0     = 12'h020;  // 0x020: Test register 0 (RW)
+    localparam bit [11:0] REG_TEST_1     = 12'h024;  // 0x024: Test register 1 (RW)
+    localparam bit [11:0] REG_TEST_2     = 12'h028;  // 0x028: Test register 2 (RW)
+    localparam bit [11:0] REG_TEST_3     = 12'h02C;  // 0x02C: Test register 3 (RW)
 
     // Register storage
     logic [31:0] control_reg;      // RW - Control register
     logic [31:0] config_reg;       // RW - Configuration register  
     logic [31:0] debug_reg;        // RW - Debug register
+    
+    // Test registers for protocol debugging (added 2025-10-05)
+    logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
+    logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
+    logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
+    logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
     
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
@@ -171,7 +183,8 @@ module Register_Block #(
         // Check if aligned offset matches any valid register
         case (aligned_offset)
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
-            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION: begin
+            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
+            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3: begin
                 within_register_range = 1'b1;
             end
             default: begin
@@ -198,7 +211,8 @@ module Register_Block #(
         // Check if aligned offset matches any valid register
         case (aligned_offset)
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
-            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION: begin
+            REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
+            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3: begin
                 // Valid register found
             end
             default: begin
@@ -245,6 +259,13 @@ module Register_Block #(
             control_reg <= 32'h0000_0001;  // bridge_enable = 1 (enabled by default)
             config_reg <= 32'h0000_0000;
             debug_reg <= 32'h0000_0000;
+            
+            // Test register initialization (added 2025-10-05)
+            test_reg_0 <= 32'hDEADBEEF;    // Test pattern for debugging
+            test_reg_1 <= 32'h12345678;    // Test pattern for debugging  
+            test_reg_2 <= 32'hABCDEF00;    // Test pattern for debugging
+            test_reg_3 <= 32'h00000000;    // Zero initial value
+            
             write_resp <= RESP_OKAY;
             write_addr_reg <= BASE_ADDR;
             read_addr_reg <= BASE_ADDR;
@@ -294,6 +315,27 @@ module Register_Block #(
                             masked_value = apply_wstrb_mask(debug_reg, axi.wdata, axi.wstrb);
                             debug_reg[3:0] <= masked_value[3:0];
                             debug_reg[31:4] <= 28'b0;
+                        end
+
+                        // Test registers - full 32-bit read/write (added 2025-10-05)
+                        REG_TEST_0: begin
+                            masked_value = apply_wstrb_mask(test_reg_0, axi.wdata, axi.wstrb);
+                            test_reg_0 <= masked_value;
+                        end
+
+                        REG_TEST_1: begin
+                            masked_value = apply_wstrb_mask(test_reg_1, axi.wdata, axi.wstrb);
+                            test_reg_1 <= masked_value;
+                        end
+
+                        REG_TEST_2: begin
+                            masked_value = apply_wstrb_mask(test_reg_2, axi.wdata, axi.wstrb);
+                            test_reg_2 <= masked_value;
+                        end
+
+                        REG_TEST_3: begin
+                            masked_value = apply_wstrb_mask(test_reg_3, axi.wdata, axi.wstrb);
+                            test_reg_3 <= masked_value;
                         end
 
                         default: begin
@@ -360,6 +402,23 @@ module Register_Block #(
 
                 REG_VERSION: begin
                     read_data = 32'h0001_0000;  // Version 1.0.0
+                end
+
+                // Test registers - return stored values (added 2025-10-05)
+                REG_TEST_0: begin
+                    read_data = test_reg_0;
+                end
+
+                REG_TEST_1: begin
+                    read_data = test_reg_1;
+                end
+
+                REG_TEST_2: begin
+                    read_data = test_reg_2;
+                end
+
+                REG_TEST_3: begin
+                    read_data = test_reg_3;
                 end
 
                 default: begin
