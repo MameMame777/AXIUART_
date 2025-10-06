@@ -49,6 +49,7 @@ sequences/test_register_sequences_pkg.sv
 tests/uart_axi4_advanced_coverage_test.sv
 tests/uart_axi4_optimized_coverage_test.sv
 tests/uart_axi4_test_register_test.sv
+tests/uart_axi4_register_verification_test.sv
 # tests/uart_fpga_issue_debug_test.sv  # Temporarily disabled due to compilation errors
 
 # Testbench top

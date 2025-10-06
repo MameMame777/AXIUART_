@@ -316,7 +316,10 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_protocol_active_sequence.sv"
     `include "sequences/uart_axi4_frame_builder_sequence.sv"
     `include "sequences/uart_axi4_register_block_sequence.sv"
+    `include "sequences/uart_axi4_read_protocol_sequence.sv"  // Read protocol verification
     `include "sequences/register_sequences.sv"
+    // NOTE: test_register_sequences.sv commented out due to identifier conflict
+    // `include "sequences/test_register_sequences.sv"  // Test register sequences  
     `include "sequences/coverage_sequences.sv"
     `include "sequences/flow_control_sequences.sv"       // RTS/CTS flow control sequences
     
@@ -331,7 +334,9 @@ package uart_axi4_test_pkg;
     `include "tests/uart_coverage_debug_test.sv"
     `include "tests/uart_axi4_optimized_coverage_test.sv"
     `include "tests/uart_axi4_register_block_test.sv"
+    `include "tests/uart_axi4_read_protocol_test.sv"         // Read protocol verification test
     `include "tests/uart_flow_control_tests.sv"         // RTS/CTS flow control tests
+    
     // `include "tests/axiuart_register_toggle_test.sv"  // Temporarily disabled - field definition issues  
     // `include "tests/simple_register_sweep_test.sv"    // Temporarily disabled - field definition issues
     // `include "tests/axiuart_coverage_tests.sv" // Temporarily disabled due to compilation issues
@@ -344,5 +349,8 @@ package uart_axi4_test_pkg;
     // `include "tests/uart_axi4_active_test.sv"           - replaced by basic_test
     // `include "tests/uart_frame_parser_debug_test.sv"    - debug-only, no validation
     // `include "tests/uart_axi4_frame_builder_test.sv"    - debug-only, no validation
+    
+    // Simple register test sequence
+    `include "sequences/uart_axi4_register_simple_sequence.sv"
 
 endpackage

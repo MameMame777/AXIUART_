@@ -9,7 +9,7 @@
 //                    debug_axi_bresp, debug_axi_araddr, debug_axi_rresp, debug_axi_state
 module Uart_Axi4_Bridge #(
     parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 115200,           // UART baud rate
+    parameter int BAUD_RATE = 9600,           // UART baud rate
     parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
@@ -67,7 +67,6 @@ module Uart_Axi4_Bridge #(
     logic [1:0]  debug_axi_rresp;        // AXI read response validation
     logic [3:0]  debug_axi_state;        // AXI transaction FSM state
     logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
-    logic [7:0]  debug_builder_cmd_echo; // CMD_ECHO from Bridge to Builder
     logic [7:0]  debug_axi_status_out;   // STATUS from AXI Master to Bridge
     logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
     logic [3:0]  debug_bridge_state;     // Bridge main FSM state

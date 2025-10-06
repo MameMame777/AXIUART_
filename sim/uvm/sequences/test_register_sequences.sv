@@ -5,7 +5,7 @@ import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
 
 // Test register address definitions (newly added in Register_Block.sv)
-localparam bit [31:0] REG_BASE_ADDR = 32'h0000_1000;
+// Using REG_BASE_ADDR from register_sequences.sv
 localparam bit [31:0] REG_TEST_0    = REG_BASE_ADDR + 32'h020; // 0x1020
 localparam bit [31:0] REG_TEST_1    = REG_BASE_ADDR + 32'h024; // 0x1024
 localparam bit [31:0] REG_TEST_2    = REG_BASE_ADDR + 32'h028; // 0x1028

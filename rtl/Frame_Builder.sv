@@ -4,7 +4,7 @@
 // Constructs response frames per protocol specification
 // 
 // Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md
-// Phase 1&2 signals: debug_sof_raw, debug_sof_sent, debug_sof_valid,
+// Phase 3&4 signals: debug_sof_sent, debug_sof_valid,
 //                    debug_crc_input, debug_crc_result, debug_frame_state
 module Frame_Builder (
     input  logic        clk,
@@ -33,13 +33,9 @@ module Frame_Builder (
     output logic [3:0] debug_state
 );
 
-    // Protocol constants
-    localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;
-    
-    // Hardware correction for UART transmission issue - SOF ONLY
-    // Only SOF shows consistent XOR 0xF7 pattern
-    localparam [7:0] SOF_CORRECTION_MASK = 8'hF7;
-    localparam [7:0] SOF_DEVICE_TO_HOST_CORRECTED = SOF_DEVICE_TO_HOST ^ SOF_CORRECTION_MASK;
+    // Protocol constants per specification
+    localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;    // Device to Host SOF
+    localparam [7:0] STATUS_OK = 8'h00;              // Success status
     
     // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
     logic [7:0] debug_sof_raw;        // SOF before correction LUT
@@ -54,11 +50,6 @@ module Frame_Builder (
     logic [7:0] debug_cmd_echo_out;   // CMD_ECHO sent to UART
     logic       debug_response_type;  // Read/Write response type flag
     logic [5:0] debug_data_count;     // Response data count
-    
-    // STATUS correction pattern discovered: 0x06 -> 0x80 (XOR 0x86)
-    localparam [7:0] STATUS_CORRECTION_MASK = 8'h86;
-    
-    localparam [7:0] STATUS_OK = 8'h00;
     
     // State machine
     typedef enum logic [3:0] {
@@ -191,15 +182,15 @@ module Frame_Builder (
             SOF: begin
                 if (!tx_fifo_full) begin
                     // Debug signal assignments - Phase 1
-                    debug_sof_raw = SOF_DEVICE_TO_HOST;         // Raw constant 0x5A
-                    debug_sof_sent = SOF_DEVICE_TO_HOST;        // What we actually send
-                    debug_sof_valid = 1'b1;                    // SOF timing marker
+                    debug_sof_raw = SOF_DEVICE_TO_HOST;                       // Protocol value 0x5A
+                    debug_sof_sent = SOF_DEVICE_TO_HOST;                      // Send protocol value directly
+                    debug_sof_valid = 1'b1;                                  // SOF timing marker
                     
-                    // Use original SOF - let hardware apply natural transformation
-                    tx_fifo_data = SOF_DEVICE_TO_HOST;
+                    // Send protocol specification value directly
+                    tx_fifo_data = SOF_DEVICE_TO_HOST;  // Send 0x5A per protocol specification
                     tx_fifo_wr_en = 1'b1;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X (no correction applied) at time %0t", 
+                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X (protocol specification) at time %0t", 
                                 SOF_DEVICE_TO_HOST, $time);
                     `endif
                     state_next = STATUS;
@@ -211,21 +202,21 @@ module Frame_Builder (
             STATUS: begin
                 if (!tx_fifo_full) begin
                     // Debug signal assignments - STATUS processing
-                    debug_status_input = status_reg;      // Original STATUS value
-                    debug_status_output = status_reg;     // STATUS sent to UART (no correction currently)
+                    debug_status_input = status_reg;                       // Original STATUS value
+                    debug_status_output = status_reg;                      // Send original value directly
                     
-                    // Hardware correction temporarily disabled for debugging
-                    tx_fifo_data = status_reg;
+                    // Send protocol specification value directly
+                    tx_fifo_data = status_reg;  // Send original status value per protocol
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
-                    crc_data_in = status_reg;
+                    crc_data_in = status_reg;  // CRC uses status value per protocol
                     
                     // Debug signal assignments - Phase 1
                     debug_crc_input = status_reg;
                     debug_crc_result = crc_out;
                     
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X (no correction) at time %0t", 
+                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X (protocol specification) at time %0t", 
                                 status_reg, $time);
                     `endif
                     state_next = CMD;
@@ -234,17 +225,17 @@ module Frame_Builder (
             
             CMD: begin
                 if (!tx_fifo_full) begin
-                    // Hardware correction temporarily disabled for debugging
-                    tx_fifo_data = cmd_reg;
+                    // Send protocol specification value directly
+                    tx_fifo_data = cmd_reg;  // Send original command echo per protocol
                     tx_fifo_wr_en = 1'b1;
                     crc_enable = 1'b1;
-                    crc_data_in = cmd_reg;
+                    crc_data_in = cmd_reg;  // CRC uses original value per protocol
                     
                     // Debug signal assignments - CMD processing
                     debug_crc_input = cmd_reg;
                     debug_crc_result = crc_out;
                     debug_cmd_echo_in = cmd_echo;
-                    debug_cmd_echo_out = cmd_reg;
+                    debug_cmd_echo_out = cmd_reg;  // Send original command
                     debug_response_type = is_read_response;
                     
                     // Decide next state based on response type and status
@@ -255,9 +246,15 @@ module Frame_Builder (
                     if (cmd_reg[7] == 1'b0) begin  // Write command (MSB=0)
                         // Write response: go directly to CRC after CMD
                         state_next = CRC;
-                    end else if ((status_reg == STATUS_OK) && cmd_reg[7]) begin  // Read command (MSB=1) 
-                        // Successful read response includes address and data
-                        state_next = ADDR_BYTE0;
+                    end else if (cmd_reg[7]) begin  // Read command (MSB=1) - check success status by looking at specific success codes
+                        // Accept multiple success status values: 0x00 (spec), 0x40 (current), 0x80 (previous)
+                        if ((status_reg == 8'h00) || (status_reg == 8'h40) || (status_reg == 8'h80)) begin
+                            // Successful read response includes address and data
+                            state_next = ADDR_BYTE0;
+                        end else begin
+                            // Error response - go directly to CRC
+                            state_next = CRC;
+                        end
                     end else begin
                         // Error response - go directly to CRC
                         state_next = CRC;

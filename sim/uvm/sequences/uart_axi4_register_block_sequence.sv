@@ -32,17 +32,16 @@ class uart_axi4_register_block_sequence extends uvm_sequence#(uart_frame_transac
         `uvm_info(get_type_name(), "=== Test 1: Single AXI Write Transaction ===", UVM_LOW)
         req = uart_frame_transaction::type_id::create("write_req");
         start_item(req);
-        assert(req.randomize() with {
-            is_write == 1'b1;
-            auto_increment == 1'b0;
-            addr == REG_CONTROL;    // CONTROL register
-            length == 0;            // Single beat
-            size == 2'b10;          // 32-bit transaction
-            data[0] == 8'hAB;       // Keep bridge enabled (bit0=1)
-            data[1] == 8'hBB;
-            data[2] == 8'hCC;
-            data[3] == 8'hDD;
-        });
+        // Use fixed values instead of randomization
+        req.is_write = 1'b1;
+        req.auto_increment = 1'b0;
+        req.addr = REG_CONTROL;    // CONTROL register
+        req.length = 0;            // Single beat
+        req.size = 2'b10;          // 32-bit transaction
+        req.data[0] = 8'hAB;       // Keep bridge enabled (bit0=1)
+        req.data[1] = 8'hBB;
+        req.data[2] = 8'hCC;
+        req.data[3] = 8'hDD;
         finish_item(req);
         
         // Wait and observe AXI handshakes
@@ -52,13 +51,12 @@ class uart_axi4_register_block_sequence extends uvm_sequence#(uart_frame_transac
         `uvm_info(get_type_name(), "=== Test 2: Single AXI Read Transaction ===", UVM_LOW)
         req = uart_frame_transaction::type_id::create("read_req");
         start_item(req);
-        assert(req.randomize() with {
-            is_write == 1'b0;
-            auto_increment == 1'b0;
-            addr == REG_CONTROL;    // CONTROL register
-            length == 0;            // Single beat
-            size == 2'b10;          // 32-bit transaction
-        });
+        // Use fixed values instead of randomization
+        req.is_write = 1'b0;
+        req.auto_increment = 1'b0;
+        req.addr = REG_CONTROL;    // CONTROL register
+        req.length = 0;            // Single beat
+        req.size = 2'b10;          // 32-bit transaction
         finish_item(req);
         
         // Wait and observe AXI handshakes
