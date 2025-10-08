@@ -55,7 +55,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
 
     // Register map boundaries for automatic reserved-address classification
     localparam logic [31:0] REG_BASE_ADDR = 32'h0000_1000;
-    localparam logic [31:0] REG_LAST_VALID_ADDR = 32'h0000_101F;
+    localparam logic [31:0] REG_LAST_VALID_ADDR = 32'h0000_102F;  // Updated to include REG_TEST registers
     
     // Statistics
     int uart_transactions_received = 0;

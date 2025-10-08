@@ -13,8 +13,8 @@ module Axi4_Lite_Master #(
     input  logic [7:0]  cmd,               // Command byte from parser
     input  logic [31:0] addr,              // Address from parser
     input  logic [7:0]  write_data [0:63], // Write data from parser
-    input  logic        start_transaction, // Start AXI transaction
-    output logic        transaction_done,  // Transaction complete
+    (* mark_debug = "true" *) input  logic        start_transaction, // Start AXI transaction
+    (* mark_debug = "true" *) output logic        transaction_done,  // Transaction complete
     output logic [7:0]  axi_status,        // Transaction status
     
     // Read data output
@@ -33,8 +33,8 @@ module Axi4_Lite_Master #(
     localparam [7:0] STATUS_BUSY      = 8'h06;
     
     // Command field registers
-    logic [7:0] cmd_reg;
-    logic       rw_bit;
+    (* mark_debug = "true" *) logic [7:0] cmd_reg;           // CRITICAL: Stored command for analysis
+    logic       rw_bit;            // Read/Write bit analysis
     logic       inc_bit;
     logic [1:0] size_field;
     logic [3:0] len_field;
@@ -43,6 +43,22 @@ module Axi4_Lite_Master #(
     assign inc_bit = cmd_reg[6];
     assign size_field = cmd_reg[5:4];
     assign len_field = cmd_reg[3:0];
+
+    // State machine - CRITICAL for debugging WRITE_ADDR stuck issue
+    typedef enum logic [3:0] {
+        IDLE            = 4'h0,
+        CHECK_ALIGNMENT = 4'h1,
+        WRITE_ADDR      = 4'h2,
+        WRITE_DATA      = 4'h3,
+        WRITE_RESP      = 4'h4,
+        READ_ADDR       = 4'h5,
+        READ_DATA       = 4'h6,
+        NEXT_BEAT       = 4'h7,
+        DONE            = 4'h8,
+        ERROR           = 4'h9
+    } axi_state_t;
+    
+    (* mark_debug = "true" *) axi_state_t state, state_next;
     
     // Address alignment checker
     logic [31:0] current_addr;
@@ -69,42 +85,29 @@ module Axi4_Lite_Master #(
         endcase
     end
     
-    // State machine
-    typedef enum logic [3:0] {
-        IDLE,
-        CHECK_ALIGNMENT,
-        WRITE_ADDR,
-        WRITE_DATA,
-        WRITE_RESP,
-        READ_ADDR,
-        READ_DATA,
-        NEXT_BEAT,
-        DONE,
-        ERROR
-    } axi_state_t;
-    
-    axi_state_t state, state_next;
-    
     // Internal registers
     logic [3:0] beat_counter;
     logic [5:0] data_byte_index;
     logic [7:0] status_reg;
-    logic [15:0] timeout_counter;
+    (* mark_debug = "true" *) logic [15:0] timeout_counter;   // CRITICAL: Timeout monitoring
     logic early_busy_sent;
 
     // Internal valid/ready tracking to avoid reading modport outputs
-    logic awvalid_int;
-    logic wvalid_int;
+    (* mark_debug = "true" *) logic awvalid_int;  // CRITICAL: Write address valid from master
+    (* mark_debug = "true" *) logic wvalid_int;   // CRITICAL: Write data valid from master
     logic arvalid_int;
     logic bready_int;
     logic rready_int;
 
-    // Handshake indicators
-    logic aw_handshake;
-    logic w_handshake;
+    // Handshake indicators - CRITICAL for WRITE_DATA stuck debugging
+    (* mark_debug = "true" *) logic aw_handshake;  // CRITICAL: Write address handshake detection
+    (* mark_debug = "true" *) logic w_handshake;   // CRITICAL: Write data handshake detection
     logic ar_handshake;
     logic b_handshake;
     logic r_handshake;
+
+    // Timeout detection for stuck state analysis
+    (* mark_debug = "true" *) logic timeout_occurred; // CRITICAL: Timeout detection
 
     // Generate internal valid flags
     assign awvalid_int = (state == WRITE_ADDR);
@@ -121,7 +124,6 @@ module Axi4_Lite_Master #(
     assign r_handshake  = rready_int  && axi.rvalid;
     
     // Timeout and busy logic
-    logic timeout_occurred;
     logic early_busy_threshold_reached;
     
     // Transaction done signal management
@@ -205,6 +207,11 @@ module Axi4_Lite_Master #(
             // Set transaction_done_reg when reaching completion states
             if ((state == DONE) || (state == ERROR)) begin
                 transaction_done_reg <= 1'b1;
+            end
+            
+            // Clear transaction_done_reg when returning to IDLE state
+            if (state == IDLE && state_next == IDLE && !start_transaction) begin
+                transaction_done_reg <= 1'b0;
             end
             
             if ((state == WRITE_RESP) && b_handshake) begin
@@ -390,6 +397,9 @@ module Axi4_Lite_Master #(
     // Transaction done signal - hold high until next transaction starts
     assign transaction_done = transaction_done_reg;
     assign axi_status = status_reg;
+
+    // Enable debug by default for troubleshooting
+    `define ENABLE_DEBUG
 
     `ifdef ENABLE_DEBUG
     function automatic string axi_master_state_to_string(axi_state_t s);

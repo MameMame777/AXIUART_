@@ -119,7 +119,7 @@ module Frame_Parser #(
     logic inc_bit;
     logic [1:0] size_field;
     logic [3:0] len_field;
-    logic [5:0] expected_data_bytes;
+    logic [5:0] expected_data_bytes;  // Now a register (updated in sequential logic)
     
     // Debug signals for hardware analysis - CMD parsing
     logic [7:0] debug_rx_cmd_raw;
@@ -144,14 +144,6 @@ module Frame_Parser #(
         debug_rx_size_field = size_field;
         debug_rx_len_field = len_field;
         debug_rx_expected_bytes = expected_data_bytes;
-        
-        // Calculate expected data bytes for write commands
-        case (size_field)
-            2'b00: expected_data_bytes = (len_field + 1) * 1;  // 8-bit
-            2'b01: expected_data_bytes = (len_field + 1) * 2;  // 16-bit
-            2'b10: expected_data_bytes = (len_field + 1) * 4;  // 32-bit
-            2'b11: expected_data_bytes = 0;                    // Invalid
-        endcase
     end
     
     // Command validation
@@ -210,6 +202,7 @@ module Frame_Parser #(
             data_byte_count <= '0;
             received_crc <= '0;
             error_status_reg <= STATUS_OK;
+            expected_data_bytes <= '0;  // Initialize expected_data_bytes to prevent X-state
             // Initialize data array to prevent X-state propagation
             for (int i = 0; i < 64; i++) begin
                 data_reg[i] <= '0;
@@ -221,7 +214,8 @@ module Frame_Parser #(
                 case (state)
                     CMD: begin
                         cmd_reg <= rx_fifo_data;
-                        current_cmd <= rx_fifo_data;  // Capture immediately
+                        current_cmd <= rx_fifo_data;  // Capture immediately for later use
+                        // expected_data_bytes calculation is handled separately above
                     end
                     ADDR_BYTE0: begin
                         addr_reg[7:0] <= rx_fifo_data;
@@ -250,6 +244,32 @@ module Frame_Parser #(
                 data_byte_count <= '0;
                 error_status_reg <= STATUS_OK;
                 current_cmd <= '0;
+                expected_data_bytes <= '0;  // Reset expected data bytes
+            end
+            
+            // Handle expected_data_bytes calculation separately to prevent X-state contamination
+            if (state == CMD && rx_fifo_rd_en && !rx_fifo_empty) begin
+                // Calculate expected data bytes based on command fields
+                if (rx_fifo_data[7] == 1'b1) begin  // READ command (RW bit = 1)
+                    expected_data_bytes <= 6'd0;  // No data bytes for read commands
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CMD expected_data_bytes=0 (READ) cmd=0x%02X at time %0t", rx_fifo_data, $time);
+                    `endif
+                end else begin  // WRITE command (RW bit = 0)
+                    case (rx_fifo_data[5:4])  // SIZE field
+                        2'b00: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 1;  // BYTE (8-bit)
+                        2'b01: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 2;  // HALF (16-bit)
+                        2'b10: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 4;  // WORD (32-bit)
+                        2'b11: expected_data_bytes <= 6'd0;                         // Invalid size
+                    endcase
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CMD expected_data_bytes=%d (write) cmd=0x%02X size=0b%02b len=%d at time %0t", 
+                                 (rx_fifo_data[5:4] == 2'b00) ? (rx_fifo_data[3:0] + 1) * 1 :
+                                 (rx_fifo_data[5:4] == 2'b01) ? (rx_fifo_data[3:0] + 1) * 2 :
+                                 (rx_fifo_data[5:4] == 2'b10) ? (rx_fifo_data[3:0] + 1) * 4 : 0,
+                                 rx_fifo_data, rx_fifo_data[5:4], rx_fifo_data[3:0], $time);
+                    `endif
+                end
             end
             
             // Set error status in validation state
@@ -313,13 +333,13 @@ module Frame_Parser #(
         
         case (state)
             IDLE: begin
-                crc_reset = 1'b1;  // Reset CRC for new frame
                 if (!rx_fifo_empty && (rx_fifo_data == SOF_HOST_TO_DEVICE)) begin
                     // Debug signal assignments - Phase 2
                     debug_rx_sof_raw = rx_fifo_data;
                     debug_rx_sof_proc = SOF_HOST_TO_DEVICE;  // Expected processed value
                     
                     rx_fifo_rd_en = 1'b1;
+                    crc_reset = 1'b1;  // Reset CRC when SOF is detected (fix timing)
                     state_next = CMD;
                     `ifdef ENABLE_DEBUG
                         $display("DEBUG: Frame_Parser SOF detected = 0x%02X at time %0t", rx_fifo_data, $time);
@@ -380,11 +400,17 @@ module Frame_Parser #(
                 if (!rx_fifo_empty) begin
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
-                    // Decide next state based on current command
-                    if (current_cmd[7] == 1'b0) begin  // Write command
-                        state_next = DATA_RX;
-                    end else begin  // Read command
-                        state_next = CRC_RX;
+                    // Proper state transition based on command type and expected data bytes
+                    if (expected_data_bytes == 0) begin
+                        state_next = CRC_RX;  // No data bytes, go directly to CRC
+                        `ifdef ENABLE_DEBUG
+                            $display("DEBUG: Frame_Parser ADDR_BYTE3->CRC_RX (no data bytes) at time %0t", $time);
+                        `endif
+                    end else begin
+                        state_next = DATA_RX;  // Has data bytes, go to DATA_RX
+                        `ifdef ENABLE_DEBUG
+                            $display("DEBUG: Frame_Parser ADDR_BYTE3->DATA_RX (expected_bytes=%d) at time %0t", expected_data_bytes, $time);
+                        `endif
                     end
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
@@ -395,8 +421,18 @@ module Frame_Parser #(
                 if (!rx_fifo_empty) begin
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
-                    if (data_byte_count >= expected_data_bytes - 1) begin
+                    // Safer comparison: check if we've received all expected data bytes
+                    if (data_byte_count + 1 >= expected_data_bytes) begin
                         state_next = CRC_RX;
+                        `ifdef ENABLE_DEBUG
+                            $display("DEBUG: Frame_Parser DATA_RX->CRC_RX (count=%d, expected=%d) at time %0t", 
+                                     data_byte_count + 1, expected_data_bytes, $time);
+                        `endif
+                    end else begin
+                        `ifdef ENABLE_DEBUG
+                            $display("DEBUG: Frame_Parser DATA_RX continuing (count=%d, expected=%d) at time %0t", 
+                                     data_byte_count + 1, expected_data_bytes, $time);
+                        `endif
                     end
                 end else if (timeout_occurred) begin
                     state_next = ERROR;

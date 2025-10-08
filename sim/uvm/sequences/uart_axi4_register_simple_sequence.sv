@@ -38,6 +38,8 @@ class uart_axi4_register_simple_sequence extends uvm_sequence#(uart_frame_transa
         req.data[1] = 8'h44;
         req.data[2] = 8'h44;
         req.data[3] = 8'h44;
+        req.build_cmd();           // CRITICAL: Build command field manually
+        req.calculate_crc();       // CRITICAL: Calculate CRC manually
         finish_item(req);
         
         #100000ns;  // Wait for write to complete
@@ -52,6 +54,8 @@ class uart_axi4_register_simple_sequence extends uvm_sequence#(uart_frame_transa
         req.length = 0;            // Single beat
         req.size = 2'b10;          // 32-bit transaction
         req.data = new[1];         // Minimal data array for read
+        req.build_cmd();           // CRITICAL: Build command field manually
+        req.calculate_crc();       // CRITICAL: Calculate CRC manually
         finish_item(req);
         
         #100000ns;  // Wait for read to complete
@@ -70,6 +74,8 @@ class uart_axi4_register_simple_sequence extends uvm_sequence#(uart_frame_transa
         req.data[1] = 8'h56;
         req.data[2] = 8'h34;
         req.data[3] = 8'h12;
+        req.build_cmd();           // CRITICAL: Build command field manually
+        req.calculate_crc();       // CRITICAL: Calculate CRC manually
         finish_item(req);
         
         #100000ns;  // Wait for write to complete
@@ -84,6 +90,8 @@ class uart_axi4_register_simple_sequence extends uvm_sequence#(uart_frame_transa
         req.length = 0;            // Single beat
         req.size = 2'b10;          // 32-bit transaction
         req.data = new[1];         // Minimal data array for read
+        req.build_cmd();           // CRITICAL: Build command field manually
+        req.calculate_crc();       // CRITICAL: Calculate CRC manually
         finish_item(req);
         
         #100000ns;  // Wait for read to complete

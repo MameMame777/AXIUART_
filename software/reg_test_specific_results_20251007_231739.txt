@@ -1,0 +1,7 @@
+REG_TEST Register Specific Write Test Results
+Timestamp: 20251007_231739
+==================================================
+REG_TEST_0 (0x00001020): FAILED
+REG_TEST_1 (0x00001024): FAILED
+REG_TEST_2 (0x00001028): FAILED
+REG_TEST_3 (0x0000102C): FAILED

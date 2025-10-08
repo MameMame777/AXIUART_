@@ -129,5 +129,3 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 # set_property LOC BUFGCTRL_X0Y0 [get_cells {clk_IBUF_BUFG_inst}]
 
 
-
-

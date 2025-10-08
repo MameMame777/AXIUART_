@@ -329,8 +329,8 @@ module Uart_Axi4_Bridge #(
         end else begin
             main_state <= main_state_next;
             
-            // Frame_Parserの出力が有効な時にキャプチャ
-            if (parser_frame_valid && (main_state == MAIN_IDLE)) begin
+            // Frame_Parserの出力が有効な時にキャプチャ (修正: MAIN_IDLEでの制限を緩和)
+            if (parser_frame_valid && ((main_state == MAIN_IDLE) || (main_state_next == MAIN_IDLE))) begin
                 captured_cmd <= parser_cmd;
                 captured_addr <= parser_addr;
                 `ifdef ENABLE_DEBUG
@@ -436,15 +436,15 @@ module Uart_Axi4_Bridge #(
                 end else begin
                     // Normal response
                     builder_status_code = axi_status;
-                    builder_is_read_response = parser_cmd[7];  // RW bit
+                    builder_is_read_response = captured_cmd[7];  // 修正: parser_cmd[7] → captured_cmd[7]
                     `ifdef ENABLE_DEBUG
                         if (!builder_start_issued) begin
                             $display("DEBUG: Bridge normal response - axi_status=0x%02X, is_read=%b at time %0t", 
-                                     axi_status, parser_cmd[7], $time);
+                                     axi_status, captured_cmd[7], $time);
                         end
                     `endif
                     
-                    if (parser_cmd[7]) begin  // Read response
+                    if (captured_cmd[7]) begin  // 修正: parser_cmd[7] → captured_cmd[7]
                         if (axi_status == 8'h00) begin  // Success
                             builder_response_data_count = axi_read_data_count;
                         end else begin  // Error
@@ -506,8 +506,8 @@ module Uart_Axi4_Bridge #(
     logic tx_transaction_complete;
     logic rx_transaction_complete;
     
-    assign tx_transaction_complete = builder_response_complete && !parser_cmd[7]; // Write transaction
-    assign rx_transaction_complete = builder_response_complete && parser_cmd[7];  // Read transaction
+    assign tx_transaction_complete = builder_response_complete && !captured_cmd[7]; // Write transaction (修正)
+    assign rx_transaction_complete = builder_response_complete && captured_cmd[7];  // Read transaction (修正)
     
     // Statistics counter logic
     always_ff @(posedge clk) begin

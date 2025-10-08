@@ -1,0 +1,2481 @@
+{
+  "scan_timestamp": 1759834794.6213243,
+  "ranges_scanned": {
+    "Standard_Registers": {
+      "range_name": "Standard_Registers",
+      "description": "Control, Status, Config, Debug, Counters, Version",
+      "addresses_scanned": [
+        4096,
+        4100,
+        4104,
+        4108,
+        4112,
+        4116,
+        4120,
+        4124
+      ],
+      "successful_reads": 8,
+      "failed_reads": 0,
+      "responses": {
+        "4096": {
+          "address": "0x00001000",
+          "command_sent": "A5 A0 00 10 00 00 51",
+          "response_received": "AD 80 68 40 22 20 30 F5",
+          "response_length": 8,
+          "timestamp": 1759834796.7432268,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x30202240",
+          "data_bytes": "40 22 20 30",
+          "crc_received": "0xF5",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x69"
+        },
+        "4100": {
+          "address": "0x00001004",
+          "command_sent": "A5 A0 04 10 00 00 09",
+          "response_received": "AD 80 68 41 22 20 30 F8",
+          "response_length": 8,
+          "timestamp": 1759834798.923316,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x30202241",
+          "data_bytes": "41 22 20 30",
+          "crc_received": "0xF8",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x7F"
+        },
+        "4104": {
+          "address": "0x00001008",
+          "command_sent": "A5 A0 08 10 00 00 E1",
+          "response_received": "AD 80 68 42 22 20 30 FE",
+          "response_length": 8,
+          "timestamp": 1759834801.0997615,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x30202242",
+          "data_bytes": "42 22 20 30",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x45"
+        },
+        "4108": {
+          "address": "0x0000100C",
+          "command_sent": "A5 A0 0C 10 00 00 B9",
+          "response_received": "AD 80 68 43 22 20 30 FF",
+          "response_length": 8,
+          "timestamp": 1759834803.2722669,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x30202243",
+          "data_bytes": "43 22 20 30",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x53"
+        },
+        "4112": {
+          "address": "0x00001010",
+          "command_sent": "A5 A0 10 10 00 00 36",
+          "response_received": "AD 80 68 44 22 20 D0 F3",
+          "response_length": 8,
+          "timestamp": 1759834805.445921,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202244",
+          "data_bytes": "44 22 20 D0",
+          "crc_received": "0xF3",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x9F"
+        },
+        "4116": {
+          "address": "0x00001014",
+          "command_sent": "A5 A0 14 10 00 00 6E",
+          "response_received": "AD 80 68 45 22 20 D0 FB",
+          "response_length": 8,
+          "timestamp": 1759834807.6212618,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202245",
+          "data_bytes": "45 22 20 D0",
+          "crc_received": "0xFB",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x89"
+        },
+        "4120": {
+          "address": "0x00001018",
+          "command_sent": "A5 A0 18 10 00 00 86",
+          "response_received": "AD 80 68 46 22 20 D0 F8",
+          "response_length": 8,
+          "timestamp": 1759834809.7965615,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202246",
+          "data_bytes": "46 22 20 D0",
+          "crc_received": "0xF8",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xB3"
+        },
+        "4124": {
+          "address": "0x0000101C",
+          "command_sent": "A5 A0 1C 10 00 00 DE",
+          "response_received": "AD 80 68 47 22 20 D0 FF",
+          "response_length": 8,
+          "timestamp": 1759834811.9740589,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202247",
+          "data_bytes": "47 22 20 D0",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xA5"
+        }
+      },
+      "pattern_summary": {
+        "unique_data_values": [
+          807412288,
+          807412289,
+          807412290,
+          807412291,
+          3491766852,
+          3491766853,
+          3491766854,
+          3491766855
+        ],
+        "fpga_test_patterns": [],
+        "known_patterns": [],
+        "error_responses": 0,
+        "address_correlations": []
+      },
+      "anomalies": []
+    },
+    "REG_TEST_Registers": {
+      "range_name": "REG_TEST_Registers",
+      "description": "Test registers for debugging",
+      "addresses_scanned": [
+        4128,
+        4132,
+        4136,
+        4140
+      ],
+      "successful_reads": 4,
+      "failed_reads": 0,
+      "responses": {
+        "4128": {
+          "address": "0x00001020",
+          "command_sent": "A5 A0 20 10 00 00 9F",
+          "response_received": "AD 80 68 48 22 20 F0 FE",
+          "response_length": 8,
+          "timestamp": 1759834814.1600194,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202248",
+          "data_bytes": "48 22 20 F0",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 72,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0x97"
+        },
+        "4132": {
+          "address": "0x00001024",
+          "command_sent": "A5 A0 24 10 00 00 C7",
+          "response_received": "AD 80 68 49 22 20 F0 FC",
+          "response_length": 8,
+          "timestamp": 1759834816.3361793,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202249",
+          "data_bytes": "49 22 20 F0",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 73,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0x81"
+        },
+        "4136": {
+          "address": "0x00001028",
+          "command_sent": "A5 A0 28 10 00 00 2F",
+          "response_received": "AD 80 68 4A 22 20 F0 F9",
+          "response_length": 8,
+          "timestamp": 1759834818.5109675,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF020224A",
+          "data_bytes": "4A 22 20 F0",
+          "crc_received": "0xF9",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 74,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0xBB"
+        },
+        "4140": {
+          "address": "0x0000102C",
+          "command_sent": "A5 A0 2C 10 00 00 77",
+          "response_received": "AD 80 68 4B 22 20 F0 F7",
+          "response_length": 8,
+          "timestamp": 1759834820.695311,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF020224B",
+          "data_bytes": "4B 22 20 F0",
+          "crc_received": "0xF7",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 75,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0xAD"
+        }
+      },
+      "pattern_summary": {
+        "unique_data_values": [
+          4028637768,
+          4028637769,
+          4028637770,
+          4028637771
+        ],
+        "fpga_test_patterns": [
+          {
+            "address": 4128,
+            "value": "0xF0202248",
+            "offset": 72
+          },
+          {
+            "address": 4132,
+            "value": "0xF0202249",
+            "offset": 73
+          },
+          {
+            "address": 4136,
+            "value": "0xF020224A",
+            "offset": 74
+          },
+          {
+            "address": 4140,
+            "value": "0xF020224B",
+            "offset": 75
+          }
+        ],
+        "known_patterns": [],
+        "error_responses": 0,
+        "address_correlations": []
+      },
+      "anomalies": []
+    },
+    "Extended_Range": {
+      "range_name": "Extended_Range",
+      "description": "Unknown/extended register range",
+      "addresses_scanned": [
+        4144,
+        4148,
+        4152,
+        4156,
+        4160,
+        4164,
+        4168,
+        4172,
+        4176,
+        4180,
+        4184,
+        4188,
+        4192,
+        4196,
+        4200,
+        4204,
+        4208,
+        4212,
+        4216,
+        4220,
+        4224,
+        4228,
+        4232,
+        4236,
+        4240,
+        4244,
+        4248,
+        4252,
+        4256,
+        4260,
+        4264,
+        4268,
+        4272,
+        4276,
+        4280,
+        4284,
+        4288,
+        4292,
+        4296,
+        4300,
+        4304,
+        4308,
+        4312,
+        4316,
+        4320,
+        4324,
+        4328,
+        4332,
+        4336,
+        4340,
+        4344,
+        4348
+      ],
+      "successful_reads": 52,
+      "failed_reads": 0,
+      "responses": {
+        "4144": {
+          "address": "0x00001030",
+          "command_sent": "A5 A0 30 10 00 00 F8",
+          "response_received": "AD 80 68 4C 22 20 10",
+          "response_length": 7,
+          "timestamp": 1759834822.869493,
+          "sof": "0xAD",
+          "status": "0x80",
+          "error_response": true,
+          "short_response": true
+        },
+        "4148": {
+          "address": "0x00001034",
+          "command_sent": "A5 A0 34 10 00 00 A0",
+          "response_received": "AD 80 68 4D 22 20 10 FA",
+          "response_length": 8,
+          "timestamp": 1759834825.0444248,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x1020224D",
+          "data_bytes": "4D 22 20 10",
+          "crc_received": "0xFA",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x77"
+        },
+        "4152": {
+          "address": "0x00001038",
+          "command_sent": "A5 A0 38 10 00 00 48",
+          "response_received": "AD 80 68 4E 22 20 10 FA",
+          "response_length": 8,
+          "timestamp": 1759834827.2171488,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x1020224E",
+          "data_bytes": "4E 22 20 10",
+          "crc_received": "0xFA",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x4D"
+        },
+        "4156": {
+          "address": "0x0000103C",
+          "command_sent": "A5 A0 3C 10 00 00 10",
+          "response_received": "AD 80 68 4F 22 20 10 F1",
+          "response_length": 8,
+          "timestamp": 1759834829.3921323,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x1020224F",
+          "data_bytes": "4F 22 20 10",
+          "crc_received": "0xF1",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x5B"
+        },
+        "4160": {
+          "address": "0x00001040",
+          "command_sent": "A5 A0 40 10 00 00 CA",
+          "response_received": "AD 80 68 50 22 20 50 FE",
+          "response_length": 8,
+          "timestamp": 1759834831.5761566,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x50202250",
+          "data_bytes": "50 22 20 50",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x29"
+        },
+        "4164": {
+          "address": "0x00001044",
+          "command_sent": "A5 A0 44 10 00 00 92",
+          "response_received": "AD 80 68 51 22 20 50 F9",
+          "response_length": 8,
+          "timestamp": 1759834833.747158,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x50202251",
+          "data_bytes": "51 22 20 50",
+          "crc_received": "0xF9",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": 13
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x3F"
+        },
+        "4168": {
+          "address": "0x00001048",
+          "command_sent": "A5 A0 48 10 00 00 7A",
+          "response_received": "AD 80 68 52 22 20 50 FF",
+          "response_length": 8,
+          "timestamp": 1759834835.9245315,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x50202252",
+          "data_bytes": "52 22 20 50",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": 10
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x05"
+        },
+        "4172": {
+          "address": "0x0000104C",
+          "command_sent": "A5 A0 4C 10 00 00 22",
+          "response_received": "AD 80 68 53 22 20 50 F2",
+          "response_length": 8,
+          "timestamp": 1759834838.0973449,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x50202253",
+          "data_bytes": "53 22 20 50",
+          "crc_received": "0xF2",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": 7
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x13"
+        },
+        "4176": {
+          "address": "0x00001050",
+          "command_sent": "A5 A0 50 10 00 00 AD",
+          "response_received": "AD 80 68 54 22 20 B0 FD",
+          "response_length": 8,
+          "timestamp": 1759834840.2679465,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202254",
+          "data_bytes": "54 22 20 B0",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": 4
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xDF"
+        },
+        "4180": {
+          "address": "0x00001054",
+          "command_sent": "A5 A0 54 10 00 00 F5",
+          "response_received": "AD 80 68 55 22 20 B0 FF",
+          "response_length": 8,
+          "timestamp": 1759834842.443402,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202255",
+          "data_bytes": "55 22 20 B0",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": 1
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xC9"
+        },
+        "4184": {
+          "address": "0x00001058",
+          "command_sent": "A5 A0 58 10 00 00 1D",
+          "response_received": "AD 80 68 56 22 20 B0 FC",
+          "response_length": 8,
+          "timestamp": 1759834844.6240156,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202256",
+          "data_bytes": "56 22 20 B0",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": -2
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xF3"
+        },
+        "4188": {
+          "address": "0x0000105C",
+          "command_sent": "A5 A0 5C 10 00 00 45",
+          "response_received": "AD 80 68 57 22 20 B0 F4",
+          "response_length": 8,
+          "timestamp": 1759834846.7972345,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202257",
+          "data_bytes": "57 22 20 B0",
+          "crc_received": "0xF4",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": -5
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xE5"
+        },
+        "4192": {
+          "address": "0x00001060",
+          "command_sent": "A5 A0 60 10 00 00 04",
+          "response_received": "AD 80 68 58 22 20 90 F0",
+          "response_length": 8,
+          "timestamp": 1759834848.9691298,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202258",
+          "data_bytes": "58 22 20 90",
+          "crc_received": "0xF0",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": -8
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xD7"
+        },
+        "4196": {
+          "address": "0x00001064",
+          "command_sent": "A5 A0 64 10 00 00 5C",
+          "response_received": "AD 80 68 59 22 20 90 FD",
+          "response_length": 8,
+          "timestamp": 1759834851.148514,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202259",
+          "data_bytes": "59 22 20 90",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": -11
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xC1"
+        },
+        "4200": {
+          "address": "0x00001068",
+          "command_sent": "A5 A0 68 10 00 00 B4",
+          "response_received": "AD 80 68 5A 22 20 90 FB",
+          "response_length": 8,
+          "timestamp": 1759834853.3189726,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x9020225A",
+          "data_bytes": "5A 22 20 90",
+          "crc_received": "0xFB",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": true,
+              "sequential_pattern": false,
+              "offset_difference": -14
+            }
+          },
+          "crc_valid": true,
+          "expected_crc": "0xFB"
+        },
+        "4204": {
+          "address": "0x0000106C",
+          "command_sent": "A5 A0 6C 10 00 00 EC",
+          "response_received": "AD 80 68 5B 22 20 90 FF",
+          "response_length": 8,
+          "timestamp": 1759834855.494517,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x9020225B",
+          "data_bytes": "5B 22 20 90",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xED"
+        },
+        "4208": {
+          "address": "0x00001070",
+          "command_sent": "A5 A0 70 10 00 00 63",
+          "response_received": "AD 80 68 5C 22 20 70 F6",
+          "response_length": 8,
+          "timestamp": 1759834857.670158,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x7020225C",
+          "data_bytes": "5C 22 20 70",
+          "crc_received": "0xF6",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x21"
+        },
+        "4212": {
+          "address": "0x00001074",
+          "command_sent": "A5 A0 74 10 00 00 3B",
+          "response_received": "AD 80 68 5D 22 20 70 FE",
+          "response_length": 8,
+          "timestamp": 1759834859.842214,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x7020225D",
+          "data_bytes": "5D 22 20 70",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x37"
+        },
+        "4216": {
+          "address": "0x00001078",
+          "command_sent": "A5 A0 78 10 00 00 D3",
+          "response_received": "AD 80 68 5E 22 20 70 FD",
+          "response_length": 8,
+          "timestamp": 1759834862.0225697,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x7020225E",
+          "data_bytes": "5E 22 20 70",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x0D"
+        },
+        "4220": {
+          "address": "0x0000107C",
+          "command_sent": "A5 A0 7C 10 00 00 8B",
+          "response_received": "AD 80 68 5F 22 20 70 FC",
+          "response_length": 8,
+          "timestamp": 1759834864.1988392,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x7020225F",
+          "data_bytes": "5F 22 20 70",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x1B"
+        },
+        "4224": {
+          "address": "0x00001080",
+          "command_sent": "A5 A0 80 10 00 00 60",
+          "response_received": "AD 80 68 60 22 20 10 F6",
+          "response_length": 8,
+          "timestamp": 1759834866.3854108,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202260",
+          "data_bytes": "60 22 20 10",
+          "crc_received": "0xF6",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x47"
+        },
+        "4228": {
+          "address": "0x00001084",
+          "command_sent": "A5 A0 84 10 00 00 38",
+          "response_received": "AD 80 68 61 22 20 10 FE",
+          "response_length": 8,
+          "timestamp": 1759834868.5557334,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202261",
+          "data_bytes": "61 22 20 10",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x51"
+        },
+        "4232": {
+          "address": "0x00001088",
+          "command_sent": "A5 A0 88 10 00 00 D0",
+          "response_received": "AD 80 68 62 22 20 10 FD",
+          "response_length": 8,
+          "timestamp": 1759834870.7287924,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202262",
+          "data_bytes": "62 22 20 10",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x6B"
+        },
+        "4236": {
+          "address": "0x0000108C",
+          "command_sent": "A5 A0 8C 10 00 00 88",
+          "response_received": "AD 80 68 63 22 20 10 FC",
+          "response_length": 8,
+          "timestamp": 1759834872.9039795,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202263",
+          "data_bytes": "63 22 20 10",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x7D"
+        },
+        "4240": {
+          "address": "0x00001090",
+          "command_sent": "A5 A0 90 10 00 00 07",
+          "response_received": "AD 80 68 64 22 20 F0 F0",
+          "response_length": 8,
+          "timestamp": 1759834875.0838745,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202264",
+          "data_bytes": "64 22 20 F0",
+          "crc_received": "0xF0",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 100,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0xB1"
+        },
+        "4244": {
+          "address": "0x00001094",
+          "command_sent": "A5 A0 94 10 00 00 5F",
+          "response_received": "AD 80 68 65 22 20 F0 FD",
+          "response_length": 8,
+          "timestamp": 1759834877.2564232,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202265",
+          "data_bytes": "65 22 20 F0",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 101,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0xA7"
+        },
+        "4248": {
+          "address": "0x00001098",
+          "command_sent": "A5 A0 98 10 00 00 B7",
+          "response_received": "AD 80 68 66 22 20 F0 FB",
+          "response_length": 8,
+          "timestamp": 1759834879.4350252,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202266",
+          "data_bytes": "66 22 20 F0",
+          "crc_received": "0xFB",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 102,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0x9D"
+        },
+        "4252": {
+          "address": "0x0000109C",
+          "command_sent": "A5 A0 9C 10 00 00 EF",
+          "response_received": "AD 80 68 67 22 20 F0 FF",
+          "response_length": 8,
+          "timestamp": 1759834881.6090412,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202267",
+          "data_bytes": "67 22 20 F0",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            },
+            "fpga_test_pattern": true,
+            "pattern_offset": 103,
+            "base_pattern": "0xF02022XX"
+          },
+          "crc_valid": false,
+          "expected_crc": "0x8B"
+        },
+        "4256": {
+          "address": "0x000010A0",
+          "command_sent": "A5 A0 A0 10 00 00 AE",
+          "response_received": "AD 80 68 68 22 20 D0 FD",
+          "response_length": 8,
+          "timestamp": 1759834883.7863085,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202268",
+          "data_bytes": "68 22 20 D0",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xB9"
+        },
+        "4260": {
+          "address": "0x000010A4",
+          "command_sent": "A5 A0 A4 10 00 00 F6",
+          "response_received": "AD 80 68 69 22 20 D0 FF",
+          "response_length": 8,
+          "timestamp": 1759834885.960519,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD0202269",
+          "data_bytes": "69 22 20 D0",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xAF"
+        },
+        "4264": {
+          "address": "0x000010A8",
+          "command_sent": "A5 A0 A8 10 00 00 1E",
+          "response_received": "AD 80 68 6A 22 20 D0 FC",
+          "response_length": 8,
+          "timestamp": 1759834888.140945,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD020226A",
+          "data_bytes": "6A 22 20 D0",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x95"
+        },
+        "4268": {
+          "address": "0x000010AC",
+          "command_sent": "A5 A0 AC 10 00 00 46",
+          "response_received": "AD 80 68 6B 22 20 D0 F4",
+          "response_length": 8,
+          "timestamp": 1759834890.3267007,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xD020226B",
+          "data_bytes": "6B 22 20 D0",
+          "crc_received": "0xF4",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x83"
+        },
+        "4272": {
+          "address": "0x000010B0",
+          "command_sent": "A5 A0 B0 10 00 00 C9",
+          "response_received": "AD 80 68 6C 22 20 30 FE",
+          "response_length": 8,
+          "timestamp": 1759834892.507453,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x3020226C",
+          "data_bytes": "6C 22 20 30",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x4F"
+        },
+        "4276": {
+          "address": "0x000010B4",
+          "command_sent": "A5 A0 B4 10 00 00 91",
+          "response_received": "AD 80 68 6D 22 20 30 F9",
+          "response_length": 8,
+          "timestamp": 1759834894.6922092,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x3020226D",
+          "data_bytes": "6D 22 20 30",
+          "crc_received": "0xF9",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x59"
+        },
+        "4280": {
+          "address": "0x000010B8",
+          "command_sent": "A5 A0 B8 10 00 00 79",
+          "response_received": "AD 80 68 6E 22 20 30 FF",
+          "response_length": 8,
+          "timestamp": 1759834896.868488,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x3020226E",
+          "data_bytes": "6E 22 20 30",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x63"
+        },
+        "4284": {
+          "address": "0x000010BC",
+          "command_sent": "A5 A0 BC 10 00 00 21",
+          "response_received": "AD 80 68 6F 22 20 30 F2",
+          "response_length": 8,
+          "timestamp": 1759834899.039743,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x3020226F",
+          "data_bytes": "6F 22 20 30",
+          "crc_received": "0xF2",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x75"
+        },
+        "4288": {
+          "address": "0x000010C0",
+          "command_sent": "A5 A0 C0 10 00 00 FB",
+          "response_received": "AD 80 68 70 22 20 70",
+          "response_length": 7,
+          "timestamp": 1759834901.211447,
+          "sof": "0xAD",
+          "status": "0x80",
+          "error_response": true,
+          "short_response": true
+        },
+        "4292": {
+          "address": "0x000010C4",
+          "command_sent": "A5 A0 C4 10 00 00 A3",
+          "response_received": "AD 80 68 71 22 20 70 FA",
+          "response_length": 8,
+          "timestamp": 1759834903.3884912,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x70202271",
+          "data_bytes": "71 22 20 70",
+          "crc_received": "0xFA",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x11"
+        },
+        "4296": {
+          "address": "0x000010C8",
+          "command_sent": "A5 A0 C8 10 00 00 4B",
+          "response_received": "AD 80 68 72 22 20 70 FA",
+          "response_length": 8,
+          "timestamp": 1759834905.5674527,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x70202272",
+          "data_bytes": "72 22 20 70",
+          "crc_received": "0xFA",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x2B"
+        },
+        "4300": {
+          "address": "0x000010CC",
+          "command_sent": "A5 A0 CC 10 00 00 13",
+          "response_received": "AD 80 68 73 22 20 70 F1",
+          "response_length": 8,
+          "timestamp": 1759834907.7449596,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x70202273",
+          "data_bytes": "73 22 20 70",
+          "crc_received": "0xF1",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x3D"
+        },
+        "4304": {
+          "address": "0x000010D0",
+          "command_sent": "A5 A0 D0 10 00 00 9C",
+          "response_received": "AD 80 68 74 22 20 90 FE",
+          "response_length": 8,
+          "timestamp": 1759834909.9214466,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202274",
+          "data_bytes": "74 22 20 90",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xF1"
+        },
+        "4308": {
+          "address": "0x000010D4",
+          "command_sent": "A5 A0 D4 10 00 00 C4",
+          "response_received": "AD 80 68 75 22 20 90 FC",
+          "response_length": 8,
+          "timestamp": 1759834912.0990167,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202275",
+          "data_bytes": "75 22 20 90",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xE7"
+        },
+        "4312": {
+          "address": "0x000010D8",
+          "command_sent": "A5 A0 D8 10 00 00 2C",
+          "response_received": "AD 80 68 76 22 20 90 F9",
+          "response_length": 8,
+          "timestamp": 1759834914.2807899,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202276",
+          "data_bytes": "76 22 20 90",
+          "crc_received": "0xF9",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xDD"
+        },
+        "4316": {
+          "address": "0x000010DC",
+          "command_sent": "A5 A0 DC 10 00 00 74",
+          "response_received": "AD 80 68 77 22 20 90 F7",
+          "response_length": 8,
+          "timestamp": 1759834916.457657,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x90202277",
+          "data_bytes": "77 22 20 90",
+          "crc_received": "0xF7",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xCB"
+        },
+        "4320": {
+          "address": "0x000010E0",
+          "command_sent": "A5 A0 E0 10 00 00 35",
+          "response_received": "AD 80 68 78 22 20 B0 F3",
+          "response_length": 8,
+          "timestamp": 1759834918.6328144,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202278",
+          "data_bytes": "78 22 20 B0",
+          "crc_received": "0xF3",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xF9"
+        },
+        "4324": {
+          "address": "0x000010E4",
+          "command_sent": "A5 A0 E4 10 00 00 6D",
+          "response_received": "AD 80 68 79 22 20 B0 FB",
+          "response_length": 8,
+          "timestamp": 1759834920.8140492,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB0202279",
+          "data_bytes": "79 22 20 B0",
+          "crc_received": "0xFB",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xEF"
+        },
+        "4328": {
+          "address": "0x000010E8",
+          "command_sent": "A5 A0 E8 10 00 00 85",
+          "response_received": "AD 80 68 7A 22 20 B0 F8",
+          "response_length": 8,
+          "timestamp": 1759834923.0001187,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB020227A",
+          "data_bytes": "7A 22 20 B0",
+          "crc_received": "0xF8",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xD5"
+        },
+        "4332": {
+          "address": "0x000010EC",
+          "command_sent": "A5 A0 EC 10 00 00 DD",
+          "response_received": "AD 80 68 7B 22 20 B0 FF",
+          "response_length": 8,
+          "timestamp": 1759834925.1773126,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB020227B",
+          "data_bytes": "7B 22 20 B0",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xC3"
+        },
+        "4336": {
+          "address": "0x000010F0",
+          "command_sent": "A5 A0 F0 10 00 00 52",
+          "response_received": "AD 80 68 7C 22 20 50 F5",
+          "response_length": 8,
+          "timestamp": 1759834927.3488173,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x5020227C",
+          "data_bytes": "7C 22 20 50",
+          "crc_received": "0xF5",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x0F"
+        },
+        "4340": {
+          "address": "0x000010F4",
+          "command_sent": "A5 A0 F4 10 00 00 0A",
+          "response_received": "AD 80 68 7D 22 20 B0 F8",
+          "response_length": 8,
+          "timestamp": 1759834929.5265577,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xB020227D",
+          "data_bytes": "7D 22 20 B0",
+          "crc_received": "0xF8",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xB7"
+        },
+        "4344": {
+          "address": "0x000010F8",
+          "command_sent": "A5 A0 F8 10 00 00 E2",
+          "response_received": "AD 80 68 7E 22 20 50 FE",
+          "response_length": 8,
+          "timestamp": 1759834931.7008035,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x5020227E",
+          "data_bytes": "7E 22 20 50",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x23"
+        },
+        "4348": {
+          "address": "0x000010FC",
+          "command_sent": "A5 A0 FC 10 00 00 BA",
+          "response_received": "AD 80 68 7F 22 20 50 FF",
+          "response_length": 8,
+          "timestamp": 1759834933.8870215,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x5020227F",
+          "data_bytes": "7F 22 20 50",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x35"
+        }
+      },
+      "pattern_summary": {
+        "unique_data_values": [
+          270541389,
+          270541390,
+          270541391,
+          1344283216,
+          1344283217,
+          1344283218,
+          1344283219,
+          2954895956,
+          2954895957,
+          2954895958,
+          2954895959,
+          2418025048,
+          2418025049,
+          2418025050,
+          2418025051,
+          1881154140,
+          1881154141,
+          1881154142,
+          1881154143,
+          270541408,
+          270541409,
+          270541410,
+          270541411,
+          4028637796,
+          4028637797,
+          4028637798,
+          4028637799,
+          3491766888,
+          3491766889,
+          3491766890,
+          3491766891,
+          807412332,
+          807412333,
+          807412334,
+          807412335,
+          1881154161,
+          1881154162,
+          1881154163,
+          2418025076,
+          2418025077,
+          2418025078,
+          2418025079,
+          2954895992,
+          2954895993,
+          2954895994,
+          2954895995,
+          1344283260,
+          2954895997,
+          1344283262,
+          1344283263
+        ],
+        "fpga_test_patterns": [
+          {
+            "address": 4240,
+            "value": "0xF0202264",
+            "offset": 100
+          },
+          {
+            "address": 4244,
+            "value": "0xF0202265",
+            "offset": 101
+          },
+          {
+            "address": 4248,
+            "value": "0xF0202266",
+            "offset": 102
+          },
+          {
+            "address": 4252,
+            "value": "0xF0202267",
+            "offset": 103
+          }
+        ],
+        "known_patterns": [],
+        "error_responses": 2,
+        "address_correlations": []
+      },
+      "anomalies": []
+    },
+    "High_Address_Test": {
+      "range_name": "High_Address_Test",
+      "description": "High address range test",
+      "addresses_scanned": [
+        8192,
+        8196,
+        8200,
+        8204,
+        8208,
+        8212,
+        8216,
+        8220
+      ],
+      "successful_reads": 8,
+      "failed_reads": 0,
+      "responses": {
+        "8192": {
+          "address": "0x00002000",
+          "command_sent": "A5 A0 00 20 00 00 B0",
+          "response_received": "AD 80 68 40 24 20 10 FB",
+          "response_length": 8,
+          "timestamp": 1759834936.0693257,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202440",
+          "data_bytes": "40 24 20 10",
+          "crc_received": "0xFB",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xF4"
+        },
+        "8196": {
+          "address": "0x00002004",
+          "command_sent": "A5 A0 04 20 00 00 E8",
+          "response_received": "AD 80 68 41 24 20 10 FF",
+          "response_length": 8,
+          "timestamp": 1759834938.242778,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202441",
+          "data_bytes": "41 24 20 10",
+          "crc_received": "0xFF",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xE2"
+        },
+        "8200": {
+          "address": "0x00002008",
+          "command_sent": "A5 A0 08 20 00 00 00",
+          "response_received": "AD 80 68 42 24 20 10 F0",
+          "response_length": 8,
+          "timestamp": 1759834940.4154222,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202442",
+          "data_bytes": "42 24 20 10",
+          "crc_received": "0xF0",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xD8"
+        },
+        "8204": {
+          "address": "0x0000200C",
+          "command_sent": "A5 A0 0C 20 00 00 58",
+          "response_received": "AD 80 68 43 24 20 10 FD",
+          "response_length": 8,
+          "timestamp": 1759834942.588157,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0x10202443",
+          "data_bytes": "43 24 20 10",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0xCE"
+        },
+        "8208": {
+          "address": "0x00002010",
+          "command_sent": "A5 A0 10 20 00 00 D7",
+          "response_received": "AD 80 68 44 24 20 F0 FD",
+          "response_length": 8,
+          "timestamp": 1759834944.7672741,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202444",
+          "data_bytes": "44 24 20 F0",
+          "crc_received": "0xFD",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x02"
+        },
+        "8212": {
+          "address": "0x00002014",
+          "command_sent": "A5 A0 14 20 00 00 8F",
+          "response_received": "AD 80 68 45 24 20 F0 FC",
+          "response_length": 8,
+          "timestamp": 1759834946.9457839,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202445",
+          "data_bytes": "45 24 20 F0",
+          "crc_received": "0xFC",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x14"
+        },
+        "8216": {
+          "address": "0x00002018",
+          "command_sent": "A5 A0 18 20 00 00 67",
+          "response_received": "AD 80 68 46 24 20 F0 F6",
+          "response_length": 8,
+          "timestamp": 1759834949.1199186,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202446",
+          "data_bytes": "46 24 20 F0",
+          "crc_received": "0xF6",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x2E"
+        },
+        "8220": {
+          "address": "0x0000201C",
+          "command_sent": "A5 A0 1C 20 00 00 3F",
+          "response_received": "AD 80 68 47 24 20 F0 FE",
+          "response_length": 8,
+          "timestamp": 1759834951.3050277,
+          "sof": "0xAD",
+          "sof_correct": true,
+          "status": "0x80",
+          "status_ok": true,
+          "cmd_echo": "0x68",
+          "cmd_echo_correct": true,
+          "data_value": "0xF0202447",
+          "data_bytes": "47 24 20 F0",
+          "crc_received": "0xFE",
+          "pattern_analysis": {
+            "known_pattern": "UNKNOWN",
+            "is_zero": false,
+            "is_all_ones": false,
+            "byte_pattern": "MIXED",
+            "correlation_with_address": {
+              "data_contains_address": false,
+              "data_offset_correlation": false,
+              "sequential_pattern": false
+            }
+          },
+          "crc_valid": false,
+          "expected_crc": "0x38"
+        }
+      },
+      "pattern_summary": {
+        "unique_data_values": [
+          270541888,
+          270541889,
+          270541890,
+          270541891,
+          4028638276,
+          4028638277,
+          4028638278,
+          4028638279
+        ],
+        "fpga_test_patterns": [],
+        "known_patterns": [],
+        "error_responses": 0,
+        "address_correlations": []
+      },
+      "anomalies": []
+    }
+  },
+  "overall_summary": {
+    "total_addresses_scanned": 72,
+    "total_successful_reads": 72,
+    "total_failed_reads": 0,
+    "all_unique_values": [
+      4028638278,
+      4028638279,
+      4028638277,
+      4028638276,
+      270541888,
+      270541890,
+      807412288,
+      807412289,
+      807412290,
+      807412291,
+      3491766852,
+      3491766853,
+      3491766854,
+      3491766855,
+      4028637768,
+      4028637769,
+      4028637770,
+      4028637771,
+      270541891,
+      270541389,
+      270541390,
+      270541391,
+      1344283216,
+      1344283217,
+      1344283218,
+      1344283219,
+      2954895956,
+      2954895957,
+      2954895958,
+      2954895959,
+      2418025048,
+      2418025049,
+      2418025050,
+      2418025051,
+      1881154140,
+      1881154141,
+      1881154142,
+      1881154143,
+      270541408,
+      270541409,
+      270541410,
+      270541411,
+      4028637796,
+      4028637797,
+      4028637798,
+      4028637799,
+      3491766888,
+      3491766889,
+      3491766890,
+      3491766891,
+      807412332,
+      807412333,
+      807412334,
+      807412335,
+      270541889,
+      1881154161,
+      1881154162,
+      1881154163,
+      2418025076,
+      2418025077,
+      2418025078,
+      2418025079,
+      2954895992,
+      2954895993,
+      2954895994,
+      2954895995,
+      1344283260,
+      2954895997,
+      1344283262,
+      1344283263
+    ],
+    "fpga_test_pattern_addresses": [
+      {
+        "address": 4128,
+        "value": "0xF0202248",
+        "offset": 72
+      },
+      {
+        "address": 4132,
+        "value": "0xF0202249",
+        "offset": 73
+      },
+      {
+        "address": 4136,
+        "value": "0xF020224A",
+        "offset": 74
+      },
+      {
+        "address": 4140,
+        "value": "0xF020224B",
+        "offset": 75
+      },
+      {
+        "address": 4240,
+        "value": "0xF0202264",
+        "offset": 100
+      },
+      {
+        "address": 4244,
+        "value": "0xF0202265",
+        "offset": 101
+      },
+      {
+        "address": 4248,
+        "value": "0xF0202266",
+        "offset": 102
+      },
+      {
+        "address": 4252,
+        "value": "0xF0202267",
+        "offset": 103
+      }
+    ],
+    "register_function_evidence": {},
+    "anomaly_count": 0,
+    "fpga_test_pattern_confirmed": true,
+    "register_implementation_status": "TEST_PATTERN_GENERATOR"
+  },
+  "recommendations": [
+    "CRITICAL: FPGA contains test pattern generator instead of register implementation",
+    "ACTION: Verify Register_Block.sv deployment to FPGA",
+    "ACTION: Check FPGA bitstream generation date vs RTL update date",
+    "ACTION: Coordinate with hardware team for RTL re-deployment",
+    "CONFIRMED: REG_TEST addresses return test pattern, not register values"
+  ]
+}

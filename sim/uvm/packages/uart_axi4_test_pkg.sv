@@ -352,5 +352,8 @@ package uart_axi4_test_pkg;
     
     // Simple register test sequence
     `include "sequences/uart_axi4_register_simple_sequence.sv"
+    
+    // REG_TEST_0-3 register verification sequence
+    `include "sequences/uart_axi4_reg_test_sequence.sv"
 
 endpackage

@@ -50,10 +50,10 @@ module Register_Block #(
     logic [31:0] debug_reg;        // RW - Debug register
     
     // Test registers for protocol debugging (added 2025-10-05)
-    logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
-    logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
-    logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
-    logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
+    (* mark_debug = "true" *) logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
+    (* mark_debug = "true" *) logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
+    (* mark_debug = "true" *) logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
+    (* mark_debug = "true" *) logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
     
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
@@ -61,17 +61,17 @@ module Register_Block #(
     
     // Internal signals
     logic [11:0] addr_offset;
-    logic        write_enable;
-    logic        read_enable;
     logic [31:0] read_data;
     logic [1:0]  read_resp;
     logic [1:0]  write_resp;
-    logic [31:0] write_addr_reg;
+    (* mark_debug = "true" *) logic [31:0] write_addr_reg;   // CRITICAL: Write address tracking
     logic [31:0] read_addr_reg;
     logic [31:0] active_addr;
-    logic        aw_handshake;
-    logic        w_handshake;
-    logic        ar_handshake;
+    
+    // AXI4-Lite control signals - defined before state machine
+    (* mark_debug = "true" *) wire aw_handshake = axi.awvalid && axi.awready;
+    (* mark_debug = "true" *) wire w_handshake = axi.wvalid && axi.wready;
+    wire ar_handshake = axi.arvalid && axi.arready;
     
     // Address decoding logic added after state machine declaration
     
@@ -84,7 +84,7 @@ module Register_Block #(
         READ_DATA
     } axi_state_t;
     
-    axi_state_t axi_state, axi_next_state;
+    (* mark_debug = "true" *) axi_state_t axi_state, axi_next_state;
     
     // State machine sequential logic
     always_ff @(posedge clk) begin
@@ -229,13 +229,22 @@ module Register_Block #(
         return (offset[1:0] == 2'b00);
     endfunction
 
-    // AXI4-Lite control signals
-    assign aw_handshake = axi.awvalid && axi.awready;
-    assign w_handshake = axi.wvalid && axi.wready;
-    assign ar_handshake = axi.arvalid && axi.arready;
-
-    assign write_enable = (axi_state == WRITE_DATA) && w_handshake;
-    assign read_enable = (axi_state == READ_DATA);
+    // Control signals derived from handshake
+    wire write_enable = (axi_state == WRITE_DATA) && w_handshake;
+    wire read_enable = (axi_state == READ_DATA);
+    
+    // Core AXI debug signals 
+    (* mark_debug = "true" *) wire axi_awvalid_debug = axi.awvalid;               // CRITICAL: Master awvalid reaches slave
+    (* mark_debug = "true" *) wire axi_wvalid_debug = axi.wvalid;                 // CRITICAL: Master wvalid reaches slave
+    
+    // AXI4-Lite data and address debug
+    (* mark_debug = "true" *) wire [31:0] axi_awaddr_debug = axi.awaddr;          // CRITICAL: Write address
+    (* mark_debug = "true" *) wire [31:0] axi_wdata_debug = axi.wdata;            // CRITICAL: Write data
+    wire [3:0] axi_wstrb_debug = axi.wstrb;
+    
+    // Special trigger signals for ILA
+    (* mark_debug = "true" *) wire reg_test_write_trigger = write_enable && 
+                               ((write_addr_reg[11:0] >= 12'h020) && (write_addr_reg[11:0] <= 12'h02C));  // CRITICAL: REG_TEST write trigger
     
     // AXI4-Lite ready signals - FIXED: No circular dependencies
     assign axi.awready = (axi_state == IDLE) || (axi_state == WRITE_ADDR);
@@ -243,6 +252,9 @@ module Register_Block #(
     assign axi.arready = (axi_state == IDLE);
     
     // Write response channel
+    (* mark_debug = "true" *) wire axi_bvalid_debug = axi.bvalid;
+    (* mark_debug = "true" *) wire axi_bready_debug = axi.bready;
+    (* mark_debug = "true" *) wire [1:0] axi_bresp_debug = axi.bresp;
     assign axi.bvalid = (axi_state == WRITE_RESP);
     assign axi.bresp = write_resp;
     
@@ -253,6 +265,12 @@ module Register_Block #(
     
     // Register write logic
     logic reset_stats_pulse;
+    
+    // Test register write detection signals
+    (* mark_debug = "true" *) logic test_reg_0_write_detect;
+    (* mark_debug = "true" *) logic test_reg_1_write_detect;
+    (* mark_debug = "true" *) logic test_reg_2_write_detect;
+    (* mark_debug = "true" *) logic test_reg_3_write_detect;
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -266,12 +284,24 @@ module Register_Block #(
             test_reg_2 <= 32'hABCDEF00;    // Test pattern for debugging
             test_reg_3 <= 32'h00000000;    // Zero initial value
             
+            // Test register write detection initialization
+            test_reg_0_write_detect <= 1'b0;
+            test_reg_1_write_detect <= 1'b0;
+            test_reg_2_write_detect <= 1'b0;
+            test_reg_3_write_detect <= 1'b0;
+            
             write_resp <= RESP_OKAY;
             write_addr_reg <= BASE_ADDR;
             read_addr_reg <= BASE_ADDR;
             reset_stats_pulse <= 1'b0;
         end else begin
             reset_stats_pulse <= 1'b0;
+            
+            // Clear test register write detection flags
+            test_reg_0_write_detect <= 1'b0;
+            test_reg_1_write_detect <= 1'b0;
+            test_reg_2_write_detect <= 1'b0;
+            test_reg_3_write_detect <= 1'b0;
 
             if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
@@ -283,10 +313,10 @@ module Register_Block #(
             end
 
             if (write_enable) begin
-                logic [11:0] write_offset;
-                logic [11:0] aligned_offset;
-                bit write_ok;
-                logic [31:0] masked_value;
+                (* mark_debug = "true" *) logic [11:0] write_offset;
+                (* mark_debug = "true" *) logic [11:0] aligned_offset;
+                (* mark_debug = "true" *) bit write_ok;
+                (* mark_debug = "true" *) logic [31:0] masked_value;
 
                 write_offset = write_addr_reg[11:0];
                 aligned_offset = {write_offset[11:2], 2'b00};
@@ -321,21 +351,25 @@ module Register_Block #(
                         REG_TEST_0: begin
                             masked_value = apply_wstrb_mask(test_reg_0, axi.wdata, axi.wstrb);
                             test_reg_0 <= masked_value;
+                            test_reg_0_write_detect <= 1'b1;
                         end
 
                         REG_TEST_1: begin
                             masked_value = apply_wstrb_mask(test_reg_1, axi.wdata, axi.wstrb);
                             test_reg_1 <= masked_value;
+                            test_reg_1_write_detect <= 1'b1;
                         end
 
                         REG_TEST_2: begin
                             masked_value = apply_wstrb_mask(test_reg_2, axi.wdata, axi.wstrb);
                             test_reg_2 <= masked_value;
+                            test_reg_2_write_detect <= 1'b1;
                         end
 
                         REG_TEST_3: begin
                             masked_value = apply_wstrb_mask(test_reg_3, axi.wdata, axi.wstrb);
                             test_reg_3 <= masked_value;
+                            test_reg_3_write_detect <= 1'b1;
                         end
 
                         default: begin
@@ -437,11 +471,56 @@ module Register_Block #(
     assign debug_mode = debug_reg[3:0];
 
     `ifdef ENABLE_DEBUG
+    // Debug register writes - display on next clock cycle
+    logic [31:0] debug_write_data_reg;
+    logic [11:0] debug_write_addr_reg;
+    logic debug_write_pending;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            debug_write_pending <= 1'b0;
+            debug_write_data_reg <= 32'h0;
+            debug_write_addr_reg <= 12'h0;
+        end else if (write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
+            debug_write_pending <= 1'b1;
+            debug_write_data_reg <= axi.wdata;
+            debug_write_addr_reg <= write_addr_reg[11:0];
+        end else begin
+            debug_write_pending <= 1'b0;
+        end
+    end
+    
+    // Display debug information after register update
+    always_ff @(posedge clk) begin
+        if (debug_write_pending) begin
+            case ({debug_write_addr_reg[11:2], 2'b00})
+                REG_TEST_0: 
+                    $display("DEBUG: test_reg_0 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_0, $time);
+                REG_TEST_1: 
+                    $display("DEBUG: test_reg_1 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_1, $time);
+                REG_TEST_2: 
+                    $display("DEBUG: test_reg_2 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_2, $time);
+                REG_TEST_3: 
+                    $display("DEBUG: test_reg_3 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_3, $time);
+            endcase
+        end
+    end
+
     always_ff @(posedge clk) begin
         if (!rst && write_enable &&
             is_write_access_valid(write_addr_reg[11:0], axi.wstrb) &&
             ({write_addr_reg[11:2], 2'b00} == REG_CONTROL)) begin
             $display("DEBUG: Register_Block CONTROL write data=0x%08X -> bridge_enable=%0b at time %0t", axi.wdata, axi.wdata[0], $time);
+        end
+        
+        // Debug test register writes - show old vs new values
+        if (!rst && write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
+            case ({write_addr_reg[11:2], 2'b00})
+                REG_TEST_0: $display("DEBUG: test_reg_0 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_0, $time);
+                REG_TEST_1: $display("DEBUG: test_reg_1 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_1, $time);
+                REG_TEST_2: $display("DEBUG: test_reg_2 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_2, $time);
+                REG_TEST_3: $display("DEBUG: test_reg_3 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_3, $time);
+            endcase
         end
     end
     `endif
