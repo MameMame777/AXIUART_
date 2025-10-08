@@ -13,8 +13,8 @@ module Axi4_Lite_Master #(
     input  logic [7:0]  cmd,               // Command byte from parser
     input  logic [31:0] addr,              // Address from parser
     input  logic [7:0]  write_data [0:63], // Write data from parser
-    (* mark_debug = "true" *) input  logic        start_transaction, // Start AXI transaction
-    (* mark_debug = "true" *) output logic        transaction_done,  // Transaction complete
+    input  logic        start_transaction, // Start AXI transaction
+    output logic        transaction_done,  // Transaction complete
     output logic [7:0]  axi_status,        // Transaction status
     
     // Read data output
@@ -33,7 +33,7 @@ module Axi4_Lite_Master #(
     localparam [7:0] STATUS_BUSY      = 8'h06;
     
     // Command field registers
-    (* mark_debug = "true" *) logic [7:0] cmd_reg;           // CRITICAL: Stored command for analysis
+    logic [7:0] cmd_reg;           // CRITICAL: Stored command for analysis
     logic       rw_bit;            // Read/Write bit analysis
     logic       inc_bit;
     logic [1:0] size_field;
@@ -58,7 +58,7 @@ module Axi4_Lite_Master #(
         ERROR           = 4'h9
     } axi_state_t;
     
-    (* mark_debug = "true" *) axi_state_t state, state_next;
+    axi_state_t state, state_next;
     
     // Address alignment checker
     logic [31:0] current_addr;
@@ -89,25 +89,25 @@ module Axi4_Lite_Master #(
     logic [3:0] beat_counter;
     logic [5:0] data_byte_index;
     logic [7:0] status_reg;
-    (* mark_debug = "true" *) logic [15:0] timeout_counter;   // CRITICAL: Timeout monitoring
+    logic [15:0] timeout_counter;   // CRITICAL: Timeout monitoring
     logic early_busy_sent;
 
     // Internal valid/ready tracking to avoid reading modport outputs
-    (* mark_debug = "true" *) logic awvalid_int;  // CRITICAL: Write address valid from master
-    (* mark_debug = "true" *) logic wvalid_int;   // CRITICAL: Write data valid from master
+    logic awvalid_int;  // CRITICAL: Write address valid from master
+    logic wvalid_int;   // CRITICAL: Write data valid from master
     logic arvalid_int;
     logic bready_int;
     logic rready_int;
 
     // Handshake indicators - CRITICAL for WRITE_DATA stuck debugging
-    (* mark_debug = "true" *) logic aw_handshake;  // CRITICAL: Write address handshake detection
-    (* mark_debug = "true" *) logic w_handshake;   // CRITICAL: Write data handshake detection
+    logic aw_handshake;  // CRITICAL: Write address handshake detection
+    logic w_handshake;   // CRITICAL: Write data handshake detection
     logic ar_handshake;
     logic b_handshake;
     logic r_handshake;
 
     // Timeout detection for stuck state analysis
-    (* mark_debug = "true" *) logic timeout_occurred; // CRITICAL: Timeout detection
+    logic timeout_occurred; // CRITICAL: Timeout detection
 
     // Generate internal valid flags
     assign awvalid_int = (state == WRITE_ADDR);

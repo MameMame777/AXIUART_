@@ -50,10 +50,10 @@ module Register_Block #(
     logic [31:0] debug_reg;        // RW - Debug register
     
     // Test registers for protocol debugging (added 2025-10-05)
-    (* mark_debug = "true" *) logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
-    (* mark_debug = "true" *) logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
-    (* mark_debug = "true" *) logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
-    (* mark_debug = "true" *) logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
+    logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
+    logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
+    logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
+    logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
     
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
@@ -64,13 +64,13 @@ module Register_Block #(
     logic [31:0] read_data;
     logic [1:0]  read_resp;
     logic [1:0]  write_resp;
-    (* mark_debug = "true" *) logic [31:0] write_addr_reg;   // CRITICAL: Write address tracking
+    logic [31:0] write_addr_reg;   // CRITICAL: Write address tracking
     logic [31:0] read_addr_reg;
     logic [31:0] active_addr;
     
     // AXI4-Lite control signals - defined before state machine
-    (* mark_debug = "true" *) wire aw_handshake = axi.awvalid && axi.awready;
-    (* mark_debug = "true" *) wire w_handshake = axi.wvalid && axi.wready;
+    wire aw_handshake = axi.awvalid && axi.awready;
+    wire w_handshake = axi.wvalid && axi.wready;
     wire ar_handshake = axi.arvalid && axi.arready;
     
     // Address decoding logic added after state machine declaration
@@ -84,7 +84,7 @@ module Register_Block #(
         READ_DATA
     } axi_state_t;
     
-    (* mark_debug = "true" *) axi_state_t axi_state, axi_next_state;
+    axi_state_t axi_state, axi_next_state;
     
     // State machine sequential logic
     always_ff @(posedge clk) begin
@@ -234,16 +234,16 @@ module Register_Block #(
     wire read_enable = (axi_state == READ_DATA);
     
     // Core AXI debug signals 
-    (* mark_debug = "true" *) wire axi_awvalid_debug = axi.awvalid;               // CRITICAL: Master awvalid reaches slave
-    (* mark_debug = "true" *) wire axi_wvalid_debug = axi.wvalid;                 // CRITICAL: Master wvalid reaches slave
+    wire axi_awvalid_debug = axi.awvalid;               // CRITICAL: Master awvalid reaches slave
+    wire axi_wvalid_debug = axi.wvalid;                 // CRITICAL: Master wvalid reaches slave
     
     // AXI4-Lite data and address debug
-    (* mark_debug = "true" *) wire [31:0] axi_awaddr_debug = axi.awaddr;          // CRITICAL: Write address
-    (* mark_debug = "true" *) wire [31:0] axi_wdata_debug = axi.wdata;            // CRITICAL: Write data
+    wire [31:0] axi_awaddr_debug = axi.awaddr;          // CRITICAL: Write address
+    wire [31:0] axi_wdata_debug = axi.wdata;            // CRITICAL: Write data
     wire [3:0] axi_wstrb_debug = axi.wstrb;
     
     // Special trigger signals for ILA
-    (* mark_debug = "true" *) wire reg_test_write_trigger = write_enable && 
+    wire reg_test_write_trigger = write_enable && 
                                ((write_addr_reg[11:0] >= 12'h020) && (write_addr_reg[11:0] <= 12'h02C));  // CRITICAL: REG_TEST write trigger
     
     // AXI4-Lite ready signals - FIXED: No circular dependencies
@@ -252,9 +252,9 @@ module Register_Block #(
     assign axi.arready = (axi_state == IDLE);
     
     // Write response channel
-    (* mark_debug = "true" *) wire axi_bvalid_debug = axi.bvalid;
-    (* mark_debug = "true" *) wire axi_bready_debug = axi.bready;
-    (* mark_debug = "true" *) wire [1:0] axi_bresp_debug = axi.bresp;
+    wire axi_bvalid_debug = axi.bvalid;
+    wire axi_bready_debug = axi.bready;
+    wire [1:0] axi_bresp_debug = axi.bresp;
     assign axi.bvalid = (axi_state == WRITE_RESP);
     assign axi.bresp = write_resp;
     
@@ -267,10 +267,10 @@ module Register_Block #(
     logic reset_stats_pulse;
     
     // Test register write detection signals
-    (* mark_debug = "true" *) logic test_reg_0_write_detect;
-    (* mark_debug = "true" *) logic test_reg_1_write_detect;
-    (* mark_debug = "true" *) logic test_reg_2_write_detect;
-    (* mark_debug = "true" *) logic test_reg_3_write_detect;
+    logic test_reg_0_write_detect;
+    logic test_reg_1_write_detect;
+    logic test_reg_2_write_detect;
+    logic test_reg_3_write_detect;
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -313,10 +313,10 @@ module Register_Block #(
             end
 
             if (write_enable) begin
-                (* mark_debug = "true" *) logic [11:0] write_offset;
-                (* mark_debug = "true" *) logic [11:0] aligned_offset;
-                (* mark_debug = "true" *) bit write_ok;
-                (* mark_debug = "true" *) logic [31:0] masked_value;
+                logic [11:0] write_offset;
+                logic [11:0] aligned_offset;
+                bit write_ok;
+                logic [31:0] masked_value;
 
                 write_offset = write_addr_reg[11:0];
                 aligned_offset = {write_offset[11:2], 2'b00};
