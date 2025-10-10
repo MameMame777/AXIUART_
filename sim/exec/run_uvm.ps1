@@ -27,11 +27,87 @@ param(
 
     [string]$ConfigFile = "..\\uvm\\dsim_config.f",
 
+    [switch]$DetailedReporting = $false,
+
+    [string]$ReportFilter = "ALL",
+
+    [switch]$ReportAnalysis = $false,
+
     [string[]]$ExtraArgs = @()
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+function Analyze-UVMReports {
+    param(
+        [string]$LogFile,
+        [string]$TestName
+    )
+    
+    Write-Status "=== UVM REPORT ANALYSIS ===" ([ConsoleColor]::Yellow)
+    
+    # Extract report counts by severity
+    $content = Get-Content $LogFile -Raw
+    if ($content -match '\*\* Report counts by severity\s+(.*?)\*\* Report counts by id') {
+        $severitySection = $Matches[1]
+        Write-Status "Report Counts by Severity:" ([ConsoleColor]::Green)
+        $severitySection -split "`n" | Where-Object { $_ -match '^\s*UVM_' } | ForEach-Object {
+            Write-Host "  $_" -ForegroundColor White
+        }
+    }
+    
+    # Extract and analyze report counts by ID
+    if ($content -match '\*\* Report counts by id\s+(.*?)\n\n') {
+        $idSection = $Matches[1]
+        Write-Status "`nReport Counts by ID:" ([ConsoleColor]::Green)
+        
+        $reportData = @()
+        $idSection -split "`n" | Where-Object { $_ -match '^\[.*\]\s+\d+' } | ForEach-Object {
+            if ($_ -match '^\[([^\]]+)\]\s+(\d+)') {
+                $reportData += [PSCustomObject]@{
+                    Component = $Matches[1]
+                    Count = [int]$Matches[2]
+                }
+                $color = if ([int]$Matches[2] -gt 20) { [ConsoleColor]::Yellow } 
+                        elseif ([int]$Matches[2] -gt 10) { [ConsoleColor]::Cyan } 
+                        else { [ConsoleColor]::White }
+                Write-Host "  [$($Matches[1])] $($Matches[2])" -ForegroundColor $color
+            }
+        }
+        
+        # Generate summary statistics
+        $totalReports = ($reportData | Measure-Object -Property Count -Sum).Sum
+        $topReporter = $reportData | Sort-Object Count -Descending | Select-Object -First 1
+        
+        Write-Status "`nReport Summary for Test: $TestName" ([ConsoleColor]::Green)
+        Write-Host "  Total Reports: $totalReports" -ForegroundColor White
+        Write-Host "  Highest Volume: [$($topReporter.Component)] $($topReporter.Count)" -ForegroundColor Yellow
+        Write-Host "  Active Components: $($reportData.Count)" -ForegroundColor White
+        
+        # Component analysis
+        $highVolume = $reportData | Where-Object { $_.Count -gt 20 }
+        if ($highVolume) {
+            Write-Status "`nHigh Volume Components (>20 reports):" ([ConsoleColor]::Yellow)
+            $highVolume | ForEach-Object {
+                Write-Host "  [$($_.Component)] $($_.Count) - Consider verbosity tuning" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    # Extract test-specific information
+    $testSpecificPattern = "\[${TestName}\]|\[DIAG\]|\[DEBUG_.*\]"
+    $testMessages = $content -split "`n" | Where-Object { $_ -match $testSpecificPattern }
+    if ($testMessages) {
+        Write-Status "`nTest-Specific Messages ($($testMessages.Count)):" ([ConsoleColor]::Green)
+        $testMessages | Select-Object -First 5 | ForEach-Object {
+            Write-Host "  $_" -ForegroundColor Cyan
+        }
+        if ($testMessages.Count -gt 5) {
+            Write-Host "  ... and $($testMessages.Count - 5) more messages" -ForegroundColor Gray
+        }
+    }
+}
 
 function Write-Status {
     param(
@@ -141,6 +217,18 @@ try {
     $dsimArgs += '-sv_seed', $Seed.ToString()
     $dsimArgs += '-l', $logFile
 
+    # Enhanced reporting configuration
+    if ($DetailedReporting) {
+        $dsimArgs += '+UVM_REPORT_DETAILED=1'
+        $dsimArgs += '+define+ENHANCED_REPORTING'
+        Write-Status "Enhanced UVM reporting enabled" ([ConsoleColor]::Green)
+    }
+    
+    if ($ReportFilter -ne 'ALL') {
+        $dsimArgs += "+UVM_REPORT_FILTER=$ReportFilter"
+        Write-Status "Report filter: $ReportFilter" ([ConsoleColor]::Cyan)
+    }
+
     if ($Mode -eq 'compile') {
         $dsimArgs += '-compile'
         Write-Status "Compile-only mode enabled" ([ConsoleColor]::Yellow)
@@ -220,6 +308,12 @@ try {
 
     if ($Waves -eq 'on' -and $Mode -eq 'run' -and (Test-Path $waveFile)) {
         Write-Status "Waveform available: $waveFile" ([ConsoleColor]::Green)
+    }
+
+    # Enhanced Report Analysis
+    if ($ReportAnalysis -and (Test-Path $logFile)) {
+        Write-Status "Analyzing UVM report details..." ([ConsoleColor]::Cyan)
+        Analyze-UVMReports -LogFile $logFile -TestName $TestName
     }
 }
 finally {

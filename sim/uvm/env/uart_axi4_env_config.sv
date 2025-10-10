@@ -12,6 +12,7 @@ class uart_axi4_env_config extends uvm_object;
     // Test control parameters
     bit enable_coverage = 1'b1;
     bit enable_scoreboard = 1'b1;
+    bit enable_correlation = 1'b1;         // Phase 3: Enable correlation engine
     bit enable_protocol_checking = 1'b1;
     bit enable_axi_monitor = 1'b1;
     
@@ -50,6 +51,7 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(byte_time_ns, UVM_ALL_ON)
         `uvm_field_int(enable_coverage, UVM_ALL_ON)
         `uvm_field_int(enable_scoreboard, UVM_ALL_ON)
+        `uvm_field_int(enable_correlation, UVM_ALL_ON)      // Phase 3: Correlation Engine
         `uvm_field_int(enable_protocol_checking, UVM_ALL_ON)
         `uvm_field_int(enable_axi_monitor, UVM_ALL_ON)
         `uvm_field_int(uart_agent_is_active, UVM_ALL_ON)

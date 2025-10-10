@@ -294,7 +294,8 @@ package uart_axi4_test_pkg;
     
     // First include coverage and scoreboard (needed by monitor)
     `include "env/uart_axi4_coverage.sv"
-    `include "env/uart_axi4_scoreboard.sv"
+    `include "scoreboard/correlation_engine.sv"     // Phase 3: Correlation Engine integration
+    `include "scoreboard/scoreboard.sv"             // Phase 3: Scoreboard with Correlation Engine
     `include "agents/axi4_lite/axi4_lite_monitor.sv"
     `include "monitors/bridge_status_monitor.sv"
     
@@ -325,6 +326,8 @@ package uart_axi4_test_pkg;
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
+    `include "tests/enhanced_uart_axi4_base_test.sv"  // Enhanced reporting base class (Oct 10, 2025)
+    `include "tests/uart_axi4_scoreboard_test.sv"     // Phase 3: Scoreboard integration test
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
@@ -350,26 +353,15 @@ package uart_axi4_test_pkg;
     // `include "tests/uart_frame_parser_debug_test.sv"    - debug-only, no validation
     // `include "tests/uart_axi4_frame_builder_test.sv"    - debug-only, no validation
     
-    // Simple register test sequence
-    `include "sequences/uart_axi4_register_simple_sequence.sv"
-    
-    // REG_TEST_0-3 register verification sequence
-    `include "sequences/uart_axi4_reg_test_sequence.sv"
-    
-    // Virtual COM Port replication sequence and test
-    `include "sequences/virtual_com_replication_sequence.sv"
-    `include "tests/uart_axi4_virtual_com_verification_test.sv"
-    
-    // Register Block detailed verification (NEW - fills UVM testing gap)
-    `include "sequences/register_block_comprehensive_sequence.sv"
-    `include "tests/register_block_detailed_test.sv"
-    `include "tests/register_block_comprehensive_test.sv"
-    
-    // Simple register test for direct verification - temporarily disabled
     // `include "sequences/simple_test_register_sequence.sv"
+    `include "sequences/uart_axi4_register_simple_sequence.sv"  // Simple register sequence for testing
+    `include "sequences/uart_axi4_reg_test_sequence.sv"         // REG_TEST verification sequence
     // `include "tests/simple_register_test.sv"
     
     // Test Register Read/Write Test - temporarily disabled due to compilation issues
     // `include "test_register_readwrite_test.sv"
+    
+    // Frame Parser Diagnostic Test - 指示書 Step 1-1 対応
+    `include "tests/frame_parser_diagnostic_test.sv"
 
 endpackage

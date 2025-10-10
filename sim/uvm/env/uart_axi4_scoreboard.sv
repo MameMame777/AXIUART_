@@ -45,6 +45,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     uvm_analysis_imp_axi #(axi4_lite_transaction, uart_axi4_scoreboard) axi_analysis_imp;
     uvm_analysis_imp_uart_expected #(uart_frame_transaction, uart_axi4_scoreboard) uart_expected_analysis_imp;
     
+    // Advanced correlation engine for Phase 3 verification
+    uart_axi4_correlation_engine correlation_engine;
+    
     // Configuration
     uart_axi4_env_config cfg;
     
@@ -94,6 +97,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         uart_analysis_imp = new("uart_analysis_imp", this);
         axi_analysis_imp = new("axi_analysis_imp", this);
         uart_expected_analysis_imp = new("uart_expected_analysis_imp", this);
+        
+        // Phase 3: Create correlation engine for advanced transaction matching
+        correlation_engine = uart_axi4_correlation_engine::type_id::create("correlation_engine", this);
         
         if (!uvm_config_db#(uart_axi4_env_config)::get(this, "", "cfg", cfg)) begin
             `uvm_fatal("SCOREBOARD", "Failed to get configuration object")
@@ -207,6 +213,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
 
         uart_expectations.push_back(expectation);
 
+        // Phase 3: Register UART transaction with correlation engine
+        correlation_engine.register_uart_transaction(uart_tr, expectation);
+
         `uvm_info("SCOREBOARD",
             $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X, beats=%0d, creation_time=%0t",
                       uart_tr.cmd, uart_tr.addr, expectation.beats_total, expectation.creation_time), UVM_DEBUG)
@@ -230,6 +239,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         $cast(axi_tr, tr.clone());
         axi_queue.push_back(axi_tr);
         axi4_lite_transactions_received++;
+        
+        // Phase 3: Register AXI transaction with correlation engine
+        correlation_engine.register_axi_transaction(axi_tr);
         
         `uvm_info("SCOREBOARD", $sformatf("Received AXI transaction: ADDR=0x%08X, WDATA=0x%08X, WSTRB=0x%X", 
                   axi_tr.addr, axi_tr.wdata, axi_tr.wstrb), UVM_DEBUG)

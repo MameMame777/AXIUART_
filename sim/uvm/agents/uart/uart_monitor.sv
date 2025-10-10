@@ -499,9 +499,13 @@ class uart_monitor extends uvm_monitor;
         tr.response_received = 1;
         
         // Extract echo back fields for verification
-        if (count >= 7) begin
-            tr.cmd = bytes[2];
-            tr.addr = {bytes[6], bytes[5], bytes[4], bytes[3]};
+        // Error frame: SOF(1) + STATUS(1) + CMD_ECHO(1) + CRC(1) = 4 bytes minimum
+        // Success frame: SOF(1) + STATUS(1) + CMD_ECHO(1) + ADDR(4) + DATA + CRC(1) = 8+ bytes
+        if (count >= 4) begin
+            tr.cmd = bytes[2];  // CMD_ECHO is always at position 2
+            if (count >= 7) begin
+                tr.addr = {bytes[6], bytes[5], bytes[4], bytes[3]};
+            end
         end
         
         // Extract response data (for reads with OK status)

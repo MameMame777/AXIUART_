@@ -9,7 +9,8 @@
 module Frame_Parser #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
     parameter int BAUD_RATE = 115200,
-    parameter int TIMEOUT_BYTE_TIMES = 10     // Timeout after 10 byte times of idle
+    parameter int TIMEOUT_BYTE_TIMES = 10,     // Timeout after 10 byte times of idle
+    parameter bit ENABLE_TIMEOUT = 1'b1        // Enable timeout checking (disable for debug)
 )(
     input  logic        clk,
     input  logic        rst,
@@ -93,25 +94,31 @@ module Frame_Parser #(
     logic [7:0]  received_crc;
     logic [7:0]  error_status_reg;
     
+    // CRC calculation control signals - 重要な修正
+    logic        crc_reset;
+    logic        crc_enable;
+    logic [7:0]  crc_data_in;
+    
     // Timeout counter
     logic [TIMEOUT_WIDTH-1:0] timeout_counter;
     logic timeout_occurred;
     logic timeout_monitor_active;
     
-    // CRC calculator instance
-    logic crc_enable;
-    logic crc_reset;
-    logic [7:0] crc_data_in;
-    logic [7:0] crc_out;
+    // CRC processing synchronization - Enhanced for proper FIFO timing
+    logic crc_data_read_flag;  // Flag to track CRC byte read completion
+    logic [7:0] rx_fifo_data_reg;  // Register to capture FIFO data after read
+    logic fifo_read_requested;  // Flag to track FIFO read request
+    logic fifo_data_ready;      // Flag to indicate FIFO data is ready for processing
     
+    // CRC8 Calculator instantiation - Polynomial: 0x07
     Crc8_Calculator crc_calc (
         .clk(clk),
-        .rst(rst),
+        .rst(crc_reset),
         .crc_enable(crc_enable),
         .data_in(crc_data_in),
         .crc_reset(crc_reset),
-        .crc_out(crc_out),
-        .crc_final(expected_crc)
+        .crc_out(expected_crc),
+        .crc_final()
     );
     
     // Command field parsing
@@ -146,13 +153,13 @@ module Frame_Parser #(
         debug_rx_expected_bytes = expected_data_bytes;
     end
     
-    // Command validation
+    // Command validation logic
     logic cmd_valid;
     always_comb begin
         cmd_valid = 1'b1;
         
-        // Check for reserved size field
-        if (current_cmd[5:4] == 2'b11) begin
+        // Check for reserved size field  
+        if (size_field == 2'b11) begin
             cmd_valid = 1'b0;
         end
         
@@ -164,16 +171,20 @@ module Frame_Parser #(
     
     // Timeout management
     always_comb begin
-        unique case (state)
-            CMD,
-            ADDR_BYTE0,
-            ADDR_BYTE1,
-            ADDR_BYTE2,
-            ADDR_BYTE3,
-            DATA_RX,
-            CRC_RX: timeout_monitor_active = 1'b1;
-            default: timeout_monitor_active = 1'b0;
-        endcase
+        if (ENABLE_TIMEOUT) begin
+            unique case (state)
+                CMD,
+                ADDR_BYTE0,
+                ADDR_BYTE1,
+                ADDR_BYTE2,
+                ADDR_BYTE3,
+                DATA_RX,
+                CRC_RX: timeout_monitor_active = 1'b1;
+                default: timeout_monitor_active = 1'b0;
+            endcase
+        end else begin
+            timeout_monitor_active = 1'b0;  // Disable timeout monitoring
+        end
     end
 
     always_ff @(posedge clk) begin
@@ -200,15 +211,43 @@ module Frame_Parser #(
             current_cmd <= '0;  // Initialize current_cmd to prevent X-state
             addr_reg <= '0;
             data_byte_count <= '0;
-            received_crc <= '0;
+            received_crc <= 8'h00;  // Initialize to known value instead of X-state
             error_status_reg <= STATUS_OK;
             expected_data_bytes <= '0;  // Initialize expected_data_bytes to prevent X-state
+            crc_data_read_flag <= 1'b0;  // Initialize CRC sync flag
+            rx_fifo_data_reg <= 8'h00;
+            fifo_read_requested <= 1'b0;
+            fifo_data_ready <= 1'b0;
             // Initialize data array to prevent X-state propagation
             for (int i = 0; i < 64; i++) begin
                 data_reg[i] <= '0;
             end
         end else begin
             state <= state_next;
+            
+            `ifdef ENABLE_DEBUG
+                if (state != state_next) begin
+                    $display("DEBUG: Frame_Parser STATE CHANGE: %0d -> %0d at time %0t", state, state_next, $time);
+                end
+            `endif
+            
+            // Reset CRC flag when not in CRC_RX state
+            if (state != CRC_RX) begin
+                crc_data_read_flag <= 1'b0;
+                fifo_read_requested <= 1'b0;
+                fifo_data_ready <= 1'b0;
+            end
+            
+            // FIFO read synchronization logic
+            if (rx_fifo_rd_en && !rx_fifo_empty) begin
+                fifo_read_requested <= 1'b1;
+                fifo_data_ready <= 1'b0;  // Data will be ready next cycle
+            end else if (fifo_read_requested) begin
+                // FIFO data is now ready for processing
+                rx_fifo_data_reg <= rx_fifo_data;
+                fifo_data_ready <= 1'b1;
+                fifo_read_requested <= 1'b0;
+            end
             
             if (rx_fifo_rd_en && !rx_fifo_empty) begin
                 case (state)
@@ -233,10 +272,34 @@ module Frame_Parser #(
                         data_reg[data_byte_count] <= rx_fifo_data;
                         data_byte_count <= data_byte_count + 1;
                     end
-                    CRC_RX: begin
-                        received_crc <= rx_fifo_data;
-                    end
+                    // CRC_RX processing moved outside this block
                 endcase
+            end
+            
+            // Separate CRC processing logic - executes every cycle in CRC_RX state
+            if (state == CRC_RX && fifo_data_ready) begin
+                received_crc <= rx_fifo_data_reg;
+                crc_data_read_flag <= 1'b1;
+                
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Frame_Parser CRC_RX processing - recv=0x%02X exp=0x%02X flag=%0b fifo_reg=0x%02X at time %0t", 
+                             rx_fifo_data_reg, expected_crc, crc_data_read_flag, rx_fifo_data_reg, $time);
+                `endif
+                
+                // Perform CRC validation immediately using the FIFO register value
+                if (rx_fifo_data_reg == expected_crc) begin
+                    error_status_reg <= STATUS_OK;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC VALID in always_ff - recv=0x%02X exp=0x%02X at time %0t", 
+                                 rx_fifo_data_reg, expected_crc, $time);
+                    `endif
+                end else begin
+                    error_status_reg <= STATUS_CRC_ERR;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC INVALID in always_ff - recv=0x%02X exp=0x%02X at time %0t", 
+                                 rx_fifo_data_reg, expected_crc, $time);
+                    `endif
+                end
             end
             
             // Reset data byte count at start of new frame
@@ -274,32 +337,34 @@ module Frame_Parser #(
             
             // Set error status in validation state
             if (state == VALIDATE) begin
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Frame_Parser VALIDATE state - cmd_valid=%b, crc_match=%b (recv=0x%02X exp=0x%02X) at time %0t", 
+                             cmd_valid, (received_crc == expected_crc), received_crc, expected_crc, $time);
+                    $display("DEBUG: Frame_Parser VALIDATE context - cmd=0x%02X[7:0]=%08b size=%2b len=%0d", 
+                             current_cmd, current_cmd, current_cmd[5:4], current_cmd[3:0]);
+                `endif
                 if (!cmd_valid) begin
                     error_status_reg <= (size_field == 2'b11) ? STATUS_CMD_INV : STATUS_LEN_RANGE;
                     // Debug error cause: 0x3 = Unsupported command
                     debug_error_cause_internal <= 8'h03;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CMD_INVALID - size_field=%2b, status=0x%02X at time %0t", 
+                                 size_field, (size_field == 2'b11) ? STATUS_CMD_INV : STATUS_LEN_RANGE, $time);
+                    `endif
                 end else if (received_crc != expected_crc) begin
                     error_status_reg <= STATUS_CRC_ERR;
                     // Debug error cause: 0x1 = CRC mismatch
                     debug_error_cause_internal <= 8'h01;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Parser CRC mismatch recv=0x%02X exp=0x%02X at time %0t", received_crc, expected_crc, $time);
-                        $display("DEBUG: Frame_Parser CRC context cmd=0x%02X addr=0x%08X data_bytes=%0d expected_bytes=%0d", current_cmd, addr_reg, data_byte_count, expected_data_bytes);
-                        for (int dbg_i = 0; dbg_i < data_byte_count; dbg_i++) begin
-                            if (dbg_i < 8) begin
-                                $display("DEBUG: Frame_Parser data[%0d]=0x%02X", dbg_i, data_reg[dbg_i]);
-                            end else begin
-                                if (dbg_i == 8) begin
-                                    $display("DEBUG: Frame_Parser ... remaining %0d byte(s) omitted", data_byte_count - 8);
-                                end
-                                break;
-                            end
-                        end
+                        $display("DEBUG: Frame_Parser CRC_ERROR recv=0x%02X exp=0x%02X at time %0t", received_crc, expected_crc, $time);
                     `endif
                 end else begin
                     error_status_reg <= STATUS_OK;
                     // Debug error cause: 0x0 = No error
                     debug_error_cause_internal <= 8'h00;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser VALIDATION_SUCCESS - status=OK at time %0t", $time);
+                    `endif
                 end
             end
             
@@ -361,6 +426,9 @@ module Frame_Parser #(
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
                     state_next = ADDR_BYTE0;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC data_in=0x%02X (CMD) at time %0t", rx_fifo_data, $time);
+                    `endif
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
                 end
@@ -371,6 +439,9 @@ module Frame_Parser #(
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
                     state_next = ADDR_BYTE1;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC data_in=0x%02X (ADDR_BYTE0) at time %0t", rx_fifo_data, $time);
+                    `endif
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
                 end
@@ -381,6 +452,9 @@ module Frame_Parser #(
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
                     state_next = ADDR_BYTE2;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC data_in=0x%02X (ADDR_BYTE1) at time %0t", rx_fifo_data, $time);
+                    `endif
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
                 end
@@ -391,6 +465,9 @@ module Frame_Parser #(
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
                     state_next = ADDR_BYTE3;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC data_in=0x%02X (ADDR_BYTE2) at time %0t", rx_fifo_data, $time);
+                    `endif
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
                 end
@@ -440,11 +517,43 @@ module Frame_Parser #(
             end
             
             CRC_RX: begin
-                if (!rx_fifo_empty) begin
-                    rx_fifo_rd_en = 1'b1;
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Frame_Parser CRC_RX state: rx_fifo_empty=%0b, fifo_requested=%0b, fifo_ready=%0b, crc_flag=%0b at time %0t", 
+                             rx_fifo_empty, fifo_read_requested, fifo_data_ready, crc_data_read_flag, $time);
+                `endif
+                
+                if (crc_data_read_flag) begin
+                    // CRC data has been processed, proceed to validation
                     state_next = VALIDATE;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC_RX->VALIDATE (CRC processed) crc_flag=%0b state_next=%0d at time %0t", 
+                                 crc_data_read_flag, state_next, $time);
+                    `endif
+                end else if (fifo_data_ready) begin
+                    // FIFO data is ready but not yet processed - stay in CRC_RX
+                    state_next = CRC_RX;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC_RX FIFO data ready, processing CRC at time %0t", $time);
+                    `endif
+                end else if (!rx_fifo_empty && !fifo_read_requested) begin
+                    // Start FIFO read process
+                    rx_fifo_rd_en = 1'b1;
+                    state_next = CRC_RX;
+                    
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC_RX asserting rx_fifo_rd_en at time %0t", $time);
+                    `endif
+                    
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC_RX timeout - transitioning to ERROR at time %0t", $time);
+                    `endif
+                end else begin
+                    state_next = CRC_RX;  // Stay in CRC_RX waiting for data
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Frame_Parser CRC_RX waiting for FIFO data at time %0t", $time);
+                    `endif
                 end
             end
             
@@ -452,6 +561,10 @@ module Frame_Parser #(
                 // Debug signal assignments - Phase 2
                 debug_crc_match = (received_crc == expected_crc);
                 debug_status_gen = error_status_reg;
+                
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Frame_Parser VALIDATE state - waiting for frame_consumed at time %0t", $time);
+                `endif
                 
                 if (frame_consumed) begin
                     state_next = IDLE;
@@ -487,7 +600,7 @@ module Frame_Parser #(
     assign data_count = data_byte_count;
     assign frame_valid = (state == VALIDATE) && (error_status_reg == STATUS_OK);
     assign error_status = error_status_reg;
-    assign frame_error = (state == VALIDATE) && (error_status_reg != STATUS_OK) || 
+    assign frame_error = ((state == VALIDATE) && (error_status_reg != STATUS_OK)) || 
                         (state == ERROR) || timeout_occurred;
     assign parser_busy = (state != IDLE);
     

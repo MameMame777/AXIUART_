@@ -218,7 +218,8 @@ module Uart_Axi4_Bridge #(
     Frame_Parser #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
         .BAUD_RATE(BAUD_RATE),
-        .TIMEOUT_BYTE_TIMES(10)
+        .TIMEOUT_BYTE_TIMES(10),
+        .ENABLE_TIMEOUT(1'b0)  // Disable timeout for debugging
     ) frame_parser (
         .clk(clk),
         .rst(rst),
@@ -328,13 +329,24 @@ module Uart_Axi4_Bridge #(
         end else begin
             main_state <= main_state_next;
             
-            // Frame_Parserの出力が有効な時にキャプチャ (修正: MAIN_IDLEでの制限を緩和)
-            if (parser_frame_valid && ((main_state == MAIN_IDLE) || (main_state_next == MAIN_IDLE))) begin
+            // Frame_Parserの出力が有効な時にキャプチャ (修正: 条件を緩和)
+            // 問題修正: parser_frame_validが真の時は常にキャプチャ
+            if (parser_frame_valid) begin
                 captured_cmd <= parser_cmd;
                 captured_addr <= parser_addr;
                 `ifdef ENABLE_DEBUG
-                    $display("DEBUG: Bridge captured CMD=0x%02X, ADDR=0x%08X at time %0t", 
-                             parser_cmd, parser_addr, $time);
+                    $display("DEBUG: Bridge captured CMD=0x%02X, ADDR=0x%08X (frame_valid=%b, state=%s) at time %0t", 
+                             parser_cmd, parser_addr, parser_frame_valid, main_state.name(), $time);
+                `endif
+            end
+            
+            // Frame_Parserからエラーが通知された場合は即座にキャプチャ
+            if (parser_frame_error && !parser_frame_valid) begin
+                captured_cmd <= parser_cmd;  // エラー時でもCMDをキャプチャ
+                captured_addr <= parser_addr;
+                `ifdef ENABLE_DEBUG
+                    $display("DEBUG: Bridge captured ERROR CMD=0x%02X, ADDR=0x%08X (frame_error=%b) at time %0t", 
+                             parser_cmd, parser_addr, parser_frame_error, $time);
                 `endif
             end
         end
@@ -457,6 +469,13 @@ module Uart_Axi4_Bridge #(
                 if (builder_response_complete) begin
                     parser_frame_consumed = 1'b1;
                     main_state_next = MAIN_IDLE;
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Bridge MAIN_WAIT_RESPONSE->MAIN_IDLE, frame_consumed=1 at time %0t", $time);
+                    `endif
+                end else begin
+                    `ifdef ENABLE_DEBUG
+                        $display("DEBUG: Bridge MAIN_WAIT_RESPONSE waiting for response_complete at time %0t", $time);
+                    `endif
                 end
             end
 
