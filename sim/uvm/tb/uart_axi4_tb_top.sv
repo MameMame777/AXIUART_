@@ -19,7 +19,6 @@ module uart_axi4_tb_top;
     logic system_ready;
     logic system_busy;
     logic [7:0] system_error;
-    logic bridge_enable_state;
     `endif
     
     // Interface instances
@@ -63,20 +62,17 @@ module uart_axi4_tb_top;
         ,
         .system_busy(system_busy),      
         .system_error(system_error),     
-        .system_ready(system_ready),
-        .bridge_enable_state(bridge_enable_state)
+        .system_ready(system_ready)
         `endif    
     );
 
     // Bridge status interface wiring
     assign status_if.rst_n = rst_n;
     `ifdef DEFINE_SIM
-    assign status_if.bridge_enable = bridge_enable_state;
     assign status_if.bridge_busy = system_busy;
     assign status_if.bridge_error = system_error;
     assign status_if.system_ready = system_ready;
     `else
-    assign status_if.bridge_enable = 1'b0;
     assign status_if.bridge_busy = 1'b0;
     assign status_if.bridge_error = 8'h00;
     assign status_if.system_ready = 1'b0;

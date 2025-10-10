@@ -1,0 +1,8 @@
+# AXIUART Verification MCP Server Requirements
+# Minimal requirements for Python MCP server implementation
+
+asyncio>=3.4.3
+logging
+pathlib
+json
+typing

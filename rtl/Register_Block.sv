@@ -14,7 +14,6 @@ module Register_Block #(
     axi4_lite_if.slave axi,
     
     // Register interface to UART bridge
-    output logic        bridge_enable,         // Enable UART bridge operation
     output logic        bridge_reset_stats,    // Pulse to reset statistics counters
     output logic [7:0]  baud_div_config,       // UART baud rate divider configuration
     output logic [7:0]  timeout_config,        // AXI timeout configuration
@@ -39,10 +38,15 @@ module Register_Block #(
     localparam bit [11:0] REG_VERSION    = 12'h01C;  // 0x01C: Version register (RO)
     
     // Test registers for protocol debugging (added 2025-10-05)
+    // Extended test set for pattern analysis (2025-10-09)
     localparam bit [11:0] REG_TEST_0     = 12'h020;  // 0x020: Test register 0 (RW)
     localparam bit [11:0] REG_TEST_1     = 12'h024;  // 0x024: Test register 1 (RW)
     localparam bit [11:0] REG_TEST_2     = 12'h028;  // 0x028: Test register 2 (RW)
     localparam bit [11:0] REG_TEST_3     = 12'h02C;  // 0x02C: Test register 3 (RW)
+    localparam bit [11:0] REG_TEST_4     = 12'h040;  // 0x040: Test register 4 (RW) - gap test
+    localparam bit [11:0] REG_TEST_5     = 12'h050;  // 0x050: Test register 5 (RW) - larger gap
+    localparam bit [11:0] REG_TEST_6     = 12'h080;  // 0x080: Test register 6 (RW) - even larger gap
+    localparam bit [11:0] REG_TEST_7     = 12'h100;  // 0x100: Test register 7 (RW) - different range
 
     // Register storage
     logic [31:0] control_reg;      // RW - Control register
@@ -50,10 +54,15 @@ module Register_Block #(
     logic [31:0] debug_reg;        // RW - Debug register
     
     // Test registers for protocol debugging (added 2025-10-05)
+    // Extended test set for pattern analysis (2025-10-09)
     logic [31:0] test_reg_0;       // RW - Test register 0 (pure read/write test)
     logic [31:0] test_reg_1;       // RW - Test register 1 (pattern test)
     logic [31:0] test_reg_2;       // RW - Test register 2 (increment test)
     logic [31:0] test_reg_3;       // RW - Test register 3 (mirror test)
+    logic [31:0] test_reg_4;       // RW - Test register 4 (gap test)
+    logic [31:0] test_reg_5;       // RW - Test register 5 (larger gap)
+    logic [31:0] test_reg_6;       // RW - Test register 6 (even larger gap)
+    logic [31:0] test_reg_7;       // RW - Test register 7 (different range)
     
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
@@ -184,7 +193,8 @@ module Register_Block #(
         case (aligned_offset)
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
             REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
-            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3: begin
+            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3,
+            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7: begin
                 within_register_range = 1'b1;
             end
             default: begin
@@ -212,7 +222,8 @@ module Register_Block #(
         case (aligned_offset)
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
             REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
-            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3: begin
+            REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3,
+            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7: begin
                 // Valid register found
             end
             default: begin
@@ -266,29 +277,41 @@ module Register_Block #(
     // Register write logic
     logic reset_stats_pulse;
     
-    // Test register write detection signals
+    // Test register write detection signals - Extended (2025-10-09)
     logic test_reg_0_write_detect;
     logic test_reg_1_write_detect;
     logic test_reg_2_write_detect;
     logic test_reg_3_write_detect;
+    logic test_reg_4_write_detect;
+    logic test_reg_5_write_detect;
+    logic test_reg_6_write_detect;
+    logic test_reg_7_write_detect;
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            control_reg <= 32'h0000_0001;  // bridge_enable = 1 (enabled by default)
+            control_reg <= 32'h0000_0000;  // Default control register value
             config_reg <= 32'h0000_0000;
             debug_reg <= 32'h0000_0000;
             
-            // Test register initialization (added 2025-10-05)
-            test_reg_0 <= 32'hDEADBEEF;    // Test pattern for debugging
-            test_reg_1 <= 32'h12345678;    // Test pattern for debugging  
-            test_reg_2 <= 32'hABCDEF00;    // Test pattern for debugging
+            // Test register initialization - SAFE INITIAL VALUES (not test patterns)
+            test_reg_0 <= 32'h00000000;    // Zero initial value
+            test_reg_1 <= 32'h00000000;    // Zero initial value  
+            test_reg_2 <= 32'h00000000;    // Zero initial value
             test_reg_3 <= 32'h00000000;    // Zero initial value
+            test_reg_4 <= 32'h00000000;    // Zero initial value
+            test_reg_5 <= 32'h00000000;    // Zero initial value
+            test_reg_6 <= 32'h00000000;    // Zero initial value
+            test_reg_7 <= 32'h00000000;    // Zero initial value
             
-            // Test register write detection initialization
+            // Test register write detection initialization - Extended
             test_reg_0_write_detect <= 1'b0;
             test_reg_1_write_detect <= 1'b0;
             test_reg_2_write_detect <= 1'b0;
             test_reg_3_write_detect <= 1'b0;
+            test_reg_4_write_detect <= 1'b0;
+            test_reg_5_write_detect <= 1'b0;
+            test_reg_6_write_detect <= 1'b0;
+            test_reg_7_write_detect <= 1'b0;
             
             write_resp <= RESP_OKAY;
             write_addr_reg <= BASE_ADDR;
@@ -302,6 +325,10 @@ module Register_Block #(
             test_reg_1_write_detect <= 1'b0;
             test_reg_2_write_detect <= 1'b0;
             test_reg_3_write_detect <= 1'b0;
+            test_reg_4_write_detect <= 1'b0;
+            test_reg_5_write_detect <= 1'b0;
+            test_reg_6_write_detect <= 1'b0;
+            test_reg_7_write_detect <= 1'b0;
 
             if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
@@ -372,6 +399,31 @@ module Register_Block #(
                             test_reg_3_write_detect <= 1'b1;
                         end
 
+                        // Extended test registers (added 2025-10-09)
+                        REG_TEST_4: begin
+                            masked_value = apply_wstrb_mask(test_reg_4, axi.wdata, axi.wstrb);
+                            test_reg_4 <= masked_value;
+                            test_reg_4_write_detect <= 1'b1;
+                        end
+
+                        REG_TEST_5: begin
+                            masked_value = apply_wstrb_mask(test_reg_5, axi.wdata, axi.wstrb);
+                            test_reg_5 <= masked_value;
+                            test_reg_5_write_detect <= 1'b1;
+                        end
+
+                        REG_TEST_6: begin
+                            masked_value = apply_wstrb_mask(test_reg_6, axi.wdata, axi.wstrb);
+                            test_reg_6 <= masked_value;
+                            test_reg_6_write_detect <= 1'b1;
+                        end
+
+                        REG_TEST_7: begin
+                            masked_value = apply_wstrb_mask(test_reg_7, axi.wdata, axi.wstrb);
+                            test_reg_7 <= masked_value;
+                            test_reg_7_write_detect <= 1'b1;
+                        end
+
                         default: begin
                             // Writes to RO registers succeed but have no effect
                         end
@@ -438,7 +490,7 @@ module Register_Block #(
                     read_data = 32'h0001_0000;  // Version 1.0.0
                 end
 
-                // Test registers - return stored values (added 2025-10-05)
+                // Test registers - return stored values (added 2025-10-05, extended 2025-10-09)
                 REG_TEST_0: begin
                     read_data = test_reg_0;
                 end
@@ -455,6 +507,22 @@ module Register_Block #(
                     read_data = test_reg_3;
                 end
 
+                REG_TEST_4: begin
+                    read_data = test_reg_4;
+                end
+
+                REG_TEST_5: begin
+                    read_data = test_reg_5;
+                end
+
+                REG_TEST_6: begin
+                    read_data = test_reg_6;
+                end
+
+                REG_TEST_7: begin
+                    read_data = test_reg_7;
+                end
+
                 default: begin
                     read_data = '0;
                 end
@@ -465,76 +533,26 @@ module Register_Block #(
     end
     
     // Output register mappings
-    assign bridge_enable = control_reg[0];
     assign baud_div_config = config_reg[7:0];
     assign timeout_config = config_reg[15:8];
     assign debug_mode = debug_reg[3:0];
 
     `ifdef ENABLE_DEBUG
-    // Debug register writes - display on next clock cycle
-    logic [31:0] debug_write_data_reg;
-    logic [11:0] debug_write_addr_reg;
-    logic debug_write_pending;
-    
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            debug_write_pending <= 1'b0;
-            debug_write_data_reg <= 32'h0;
-            debug_write_addr_reg <= 12'h0;
-        end else if (write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
-            debug_write_pending <= 1'b1;
-            debug_write_data_reg <= axi.wdata;
-            debug_write_addr_reg <= write_addr_reg[11:0];
-        end else begin
-            debug_write_pending <= 1'b0;
-        end
-    end
-    
-    // Display debug information after register update
-    always_ff @(posedge clk) begin
-        if (debug_write_pending) begin
-            case ({debug_write_addr_reg[11:2], 2'b00})
-                REG_TEST_0: 
-                    $display("DEBUG: test_reg_0 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_0, $time);
-                REG_TEST_1: 
-                    $display("DEBUG: test_reg_1 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_1, $time);
-                REG_TEST_2: 
-                    $display("DEBUG: test_reg_2 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_2, $time);
-                REG_TEST_3: 
-                    $display("DEBUG: test_reg_3 UPDATED: write_data=0x%08X -> new_value=0x%08X at time %0t", debug_write_data_reg, test_reg_3, $time);
-            endcase
-        end
-    end
-
-    always_ff @(posedge clk) begin
-        if (!rst && write_enable &&
-            is_write_access_valid(write_addr_reg[11:0], axi.wstrb) &&
-            ({write_addr_reg[11:2], 2'b00} == REG_CONTROL)) begin
-            $display("DEBUG: Register_Block CONTROL write data=0x%08X -> bridge_enable=%0b at time %0t", axi.wdata, axi.wdata[0], $time);
-        end
-        
-        // Debug test register writes - show old vs new values
-        if (!rst && write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
-            case ({write_addr_reg[11:2], 2'b00})
-                REG_TEST_0: $display("DEBUG: test_reg_0 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_0, $time);
-                REG_TEST_1: $display("DEBUG: test_reg_1 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_1, $time);
-                REG_TEST_2: $display("DEBUG: test_reg_2 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_2, $time);
-                REG_TEST_3: $display("DEBUG: test_reg_3 write: data=0x%08X, old_value=0x%08X at time %0t", axi.wdata, test_reg_3, $time);
-            endcase
-        end
-    end
-    `endif
-
-    `ifdef ENABLE_DEBUG
+    // Critical debugging only - AXI handshakes and state transitions
     always_ff @(posedge clk) begin
         if (!rst && aw_handshake) begin
-            $display("DEBUG: Register_Block AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
-        end
-        if (!rst && w_handshake) begin
-            $display("DEBUG: Register_Block W handshake data=0x%08X wstrb=0x%X at time %0t", axi.wdata, axi.wstrb, $time);
+            $display("DEBUG: AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
         end
         if (!rst && ar_handshake) begin
-            $display("DEBUG: Register_Block AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
+            $display("DEBUG: AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
+        end
+        // Only show critical register writes (control/status registers)
+        if (!rst && write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
+            case ({write_addr_reg[11:2], 2'b00})
+                REG_CONTROL: $display("DEBUG: CONTROL write=0x%08X", axi.wdata);
+                REG_CONFIG: $display("DEBUG: CONFIG write=0x%08X", axi.wdata);
+                default: begin end // Suppress test register spam
+            endcase
         end
     end
     `endif

@@ -1,0 +1,87 @@
+{
+  "name": "axiuart-verification-workspace",
+  "folders": [
+    {
+      "name": "AXIUART Project",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "mcp.servers": {
+      "axiuart-verification": {
+        "command": "python",
+        "args": ["tools/mcp_server/src/standalone_server.py"],
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/tools/uvm_checker"
+        }
+      }
+    },
+    "files.associations": {
+      "*.sv": "systemverilog",
+      "*.vh": "systemverilog",
+      "*.svh": "systemverilog"
+    },
+    "systemverilog.includeIndexing": [
+      "**/*.{sv,vh,svh}"
+    ],
+    "systemverilog.excludeIndexing": [
+      "build/**",
+      "dsim_work/**"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "mshr-h.veriloghdl",
+      "leafvmaple.systemverilog",
+      "mcp.mcp-client"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "AXIUART: Check Environment",
+        "type": "shell",
+        "command": "python",
+        "args": ["tools/uvm_checker/environment_checker.py"],
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "AXIUART: Run UVM Test",
+        "type": "shell",
+        "command": "python",
+        "args": ["tools/uvm_checker/test_runner.py"],
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "AXIUART: Analyze Logs",
+        "type": "shell",
+        "command": "python",
+        "args": ["tools/uvm_checker/log_analyzer.py"],
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "shared"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+}

@@ -73,7 +73,7 @@ module axi_basic_tb;
         .clk(clk),
         .rst(rst),
         .axi(axi_if.slave),
-        .bridge_enable(),
+        // bridge_enable removed
         .bridge_reset_stats(),
         .baud_div_config(),
         .timeout_config(),

@@ -1,10 +1,20 @@
-# UART–AXI4-Lite Bridge Protocol v0.1
+# UART–AXI4-Lite Bridge Protocol v0.1.1
 
 Purpose: Define a simple, robust byte-stream protocol over UART to access an AXI4‑Lite bus (register read/write) with minimal overhead and deterministic mapping.
 
-Revision: 2025-09-15
+Revision: 2025-10-09 (v0.1.1 - Corrected CRC8 test vectors)
+Previous: 2025-09-15 (v0.1 - Initial specification)
 
 Owner: Project UART–AXI4 Bridge
+
+---
+
+## Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| v0.1.1 | 2025-10-09 | **Critical CRC Specification Correction**<br>- Fixed CRC8 test vectors in Section 10.2 to match implementation algorithm<br>- Corrected CRC values in protocol examples 4.1-4.4<br>- Ensured consistency between CRC algorithm definition and test vectors |
+| v0.1 | 2025-09-15 | Initial specification release |
 
 ---
 
@@ -297,29 +307,29 @@ Notation: numbers are hex bytes separated by spaces. `<CRC8(...)>` denotes CRC8 
   - ADDR LE = `10 00 00 40`
   - DATA LE = `EF BE AD DE`
 - Host→Device frame:
-  - `A5 21 10 00 00 40 EF BE AD DE <CRC8(21..DE)>`
+  - `A5 21 10 00 00 40 EF BE AD DE 1E`
 - Device→Host response:
-  - `5A 00 21 <CRC8(00 21)>`
+  - `5A 00 21 E0`
 
 ### 4.2 Two 8-bit writes with auto-increment
 
 - Goal: Write two bytes `0x11, 0x22` to `ADDR=0x4000_0020` and `0x4000_0021`
 - CMD: RW=0, INC=1, SIZE=8b (00), LEN=2 → `0b0_1_00_0010` = `0x42`
-- Host→Device: `A5 42 20 00 00 40 11 22 <CRC8(42..22)>`
-- Response: `5A 00 42 <CRC8(00 42)>`
+- Host→Device: `A5 42 20 00 00 40 11 22 ED`
+- Response: `5A 00 42 C9`
 
 ### 4.3 Single 16-bit read
 
 - Goal: Read one 16-bit halfword at `ADDR=0x4000_0030` (`ADDR[0]==0` required)
 - CMD: RW=1, INC=0, SIZE=16b (01), LEN=1 → `0b1_0_01_0001` = `0x91`
-- Host→Device: `A5 91 30 00 00 40 <CRC8(91..40)>`
+- Host→Device: `A5 91 30 00 00 40 A9`
 - Device→Host (OK, data example `0xBEEF` LE `EF BE`):
-  - `5A 00 91 30 00 00 40 EF BE <CRC8(00 91..BE)>`
+  - `5A 00 91 30 00 00 40 EF BE 16`
 
 ### 4.4 Misaligned 32-bit write (error)
 
-- Host→Device: `A5 21 12 00 00 40 DE AD BE EF <CRC>` (`ADDR[1:0]!=0`)
-- Device→Host: `5A 03 21 <CRC8(03 21)>` with `STATUS=ADDR_ALIGN`
+- Host→Device: `A5 21 12 00 00 40 DE AD BE EF 67` (`ADDR[1:0]!=0`)
+- Device→Host: `5A 03 21 D8` with `STATUS=ADDR_ALIGN`
 
 ---
 
@@ -619,14 +629,14 @@ return crc
 
 | Input Data (hex) | Expected CRC8 | Description |
 |------------------|---------------|-------------|
-| `21 10 00 00 40 EF BE AD DE` | `0x8E` | Example 4.1: 32-bit write frame |
-| `42 20 00 00 40 11 22` | `0x23` | Example 4.2: 8-bit auto-inc frame |
-| `91 30 00 00 40` | `0x77` | Example 4.3: 16-bit read request |
-| `00 91 30 00 00 40 EF BE` | `0x45` | Example 4.3: 16-bit read response |
-| `21` | `0x21` | Single byte (CMD only) |
+| `21 10 00 00 40 EF BE AD DE` | `0x1E` | Example 4.1: 32-bit write frame |
+| `42 20 00 00 40 11 22` | `0xED` | Example 4.2: 8-bit auto-inc frame |
+| `91 30 00 00 40` | `0xA9` | Example 4.3: 16-bit read request |
+| `00 91 30 00 00 40 EF BE` | `0x16` | Example 4.3: 16-bit read response |
+| `21` | `0xE7` | Single byte (CMD only) |
 | `00 00 00 00` | `0x00` | All zeros |
-| `FF FF FF FF` | `0xFF` | All ones |
-| `01 02 03 04 05` | `0x37` | Sequential bytes |
+| `FF FF FF FF` | `0xDE` | All ones |
+| `01 02 03 04 05` | `0xBC` | Sequential bytes |
 
 **Usage in implementation validation:**
 

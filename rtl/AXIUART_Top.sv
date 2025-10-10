@@ -24,8 +24,7 @@ module AXIUART_Top #(
     // Simulation-only system status outputs
     , output logic        system_busy,
     output logic [7:0]  system_error,
-    output logic        system_ready,
-    output logic        bridge_enable_state
+    output logic        system_ready
     `endif
 );
 
@@ -39,7 +38,6 @@ module AXIUART_Top #(
     );
     
     // Bridge control and status signals
-    logic        bridge_enable;
     logic        bridge_reset_stats;
     logic [7:0]  baud_div_config;
     logic [7:0]  timeout_config;
@@ -79,7 +77,6 @@ module AXIUART_Top #(
         .rx_fifo_high_out(rx_fifo_high),    // RX FIFO high threshold
         .tx_ready_out(tx_ready),            // TX readiness status
     .axi(axi_internal),  // 内部レジスタブロックに直接接続
-    .bridge_enable(bridge_enable),
         
         // Status monitoring connections
         .bridge_busy(bridge_busy),
@@ -101,7 +98,6 @@ module AXIUART_Top #(
         .axi(axi_internal.slave),  // UARTブリッジからの内部アクセス
         
         // Control outputs
-        .bridge_enable(bridge_enable),
         .bridge_reset_stats(bridge_reset_stats),
         .baud_div_config(baud_div_config),
         .timeout_config(timeout_config),
@@ -125,9 +121,8 @@ module AXIUART_Top #(
             // Deassert RTS (not ready to receive) when:
             // - RX FIFO is full
             // - RX FIFO is approaching high threshold
-            // - Bridge is disabled
             // Otherwise assert RTS (ready to receive)
-            uart_rts_n <= rx_fifo_full || rx_fifo_high || !bridge_enable;
+            uart_rts_n <= rx_fifo_full || rx_fifo_high;
         end
     end
     
@@ -163,7 +158,6 @@ module AXIUART_Top #(
     assign system_busy = bridge_busy;
     assign system_error = bridge_error_code;
     assign system_ready = !system_busy && (bridge_error_code == 8'h00);
-    assign bridge_enable_state = bridge_enable;
     `endif
 
 endmodule

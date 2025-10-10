@@ -355,5 +355,21 @@ package uart_axi4_test_pkg;
     
     // REG_TEST_0-3 register verification sequence
     `include "sequences/uart_axi4_reg_test_sequence.sv"
+    
+    // Virtual COM Port replication sequence and test
+    `include "sequences/virtual_com_replication_sequence.sv"
+    `include "tests/uart_axi4_virtual_com_verification_test.sv"
+    
+    // Register Block detailed verification (NEW - fills UVM testing gap)
+    `include "sequences/register_block_comprehensive_sequence.sv"
+    `include "tests/register_block_detailed_test.sv"
+    `include "tests/register_block_comprehensive_test.sv"
+    
+    // Simple register test for direct verification - temporarily disabled
+    // `include "sequences/simple_test_register_sequence.sv"
+    // `include "tests/simple_register_test.sv"
+    
+    // Test Register Read/Write Test - temporarily disabled due to compilation issues
+    // `include "test_register_readwrite_test.sv"
 
 endpackage

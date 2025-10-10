@@ -30,7 +30,6 @@ module Uart_Axi4_Bridge #(
     
     // AXI4-Lite master interface
     axi4_lite_if.master axi,
-    input  logic        bridge_enable,
     
     // Status monitoring outputs
     output logic        bridge_busy,            // Bridge is actively processing
@@ -392,11 +391,7 @@ module Uart_Axi4_Bridge #(
         case (main_state)
             MAIN_IDLE: begin
                 if (parser_frame_valid) begin
-                    if (!bridge_enable && !control_write_cmd) begin
-                        main_state_next = MAIN_DISABLED_RESPONSE;
-                    end else begin
-                        main_state_next = MAIN_AXI_TRANSACTION;
-                    end
+                    main_state_next = MAIN_AXI_TRANSACTION;
                 end else if (parser_frame_error) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
                 end
@@ -554,7 +549,7 @@ module Uart_Axi4_Bridge #(
     // Flow control output assignments (internal signals)
     // rx_fifo_full comes directly from FIFO .full port
     assign rx_fifo_high = fifo_status_flags[4];  // High threshold (75% full)
-    assign tx_ready = !tx_busy && !tx_fifo_empty && bridge_enable;
+    assign tx_ready = !tx_busy && !tx_fifo_empty;  // Bridge always enabled
     
     // Flow control port output assignments
     assign rx_fifo_full_out = rx_fifo_full;

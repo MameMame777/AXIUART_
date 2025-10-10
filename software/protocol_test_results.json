@@ -1,0 +1,135 @@
+{
+  "test_summary": {
+    "total_tests": 13,
+    "passed": 8,
+    "failed": 5,
+    "pass_rate": 61.53846153846154,
+    "total_execution_time": 14.724196672439575
+  },
+  "bridge_statistics": {
+    "frames_processed": 22,
+    "frames_error": 0,
+    "writes_processed": 6,
+    "reads_processed": 16
+  },
+  "detailed_results": [
+    {
+      "name": "Frame Construction Consistency",
+      "passed": true,
+      "description": "Build and parse write frame",
+      "error_message": "",
+      "execution_time": 0.0,
+      "additional_data": {}
+    },
+    {
+      "name": "CRC Error Detection",
+      "passed": true,
+      "description": "Detect corrupted CRC in frame",
+      "error_message": "",
+      "execution_time": 0.0,
+      "additional_data": {}
+    },
+    {
+      "name": "32-bit Write/Read",
+      "passed": true,
+      "description": "Write and read back 32-bit value",
+      "error_message": "",
+      "execution_time": 0.5098757743835449,
+      "additional_data": {
+        "written": 3735928559,
+        "read": 3735928559
+      }
+    },
+    {
+      "name": "16-bit Write/Read",
+      "passed": true,
+      "description": "Write and read back 16-bit value",
+      "error_message": "",
+      "execution_time": 0.45268821716308594,
+      "additional_data": {
+        "written": 51966,
+        "read": 51966
+      }
+    },
+    {
+      "name": "8-bit Write/Read",
+      "passed": true,
+      "description": "Write and read back 8-bit value",
+      "error_message": "",
+      "execution_time": 0.4358057975769043,
+      "additional_data": {
+        "written": 170,
+        "read": 170
+      }
+    },
+    {
+      "name": "Address Alignment Error",
+      "passed": false,
+      "description": "Detect misaligned 32-bit access",
+      "error_message": "Expected alignment error, got: timeout",
+      "execution_time": 2.176579236984253,
+      "additional_data": {}
+    },
+    {
+      "name": "Invalid Command Size",
+      "passed": false,
+      "description": "Detect invalid SIZE field in command",
+      "error_message": "Expected command invalid, got: timeout",
+      "execution_time": 2.132021427154541,
+      "additional_data": {}
+    },
+    {
+      "name": "AXI Slave Error",
+      "passed": true,
+      "description": "Access to error-generating memory region",
+      "error_message": "",
+      "execution_time": 0.15653586387634277,
+      "additional_data": {}
+    },
+    {
+      "name": "4\u00d732-bit Burst Write",
+      "passed": false,
+      "description": "Burst write with auto-increment",
+      "error_message": "Burst write failed: timeout",
+      "execution_time": 2.364741802215576,
+      "additional_data": {}
+    },
+    {
+      "name": "4\u00d732-bit Burst Read",
+      "passed": false,
+      "description": "Burst read with auto-increment",
+      "error_message": "Data mismatch: expected [0, 286331153, 572662306, 858993459], got [0, 0, 0, 0]",
+      "execution_time": 0.478468656539917,
+      "additional_data": {}
+    },
+    {
+      "name": "Maximum Length Operation",
+      "passed": false,
+      "description": "16-beat write operation",
+      "error_message": "Max length write failed: timeout",
+      "execution_time": 2.3658971786499023,
+      "additional_data": {}
+    },
+    {
+      "name": "Fixed Address Mode",
+      "passed": true,
+      "description": "Multiple writes to same address",
+      "error_message": "",
+      "execution_time": 0.7924787998199463,
+      "additional_data": {}
+    },
+    {
+      "name": "Latency Measurement",
+      "passed": true,
+      "description": "Single 32-bit read latency",
+      "error_message": "",
+      "execution_time": 2.8591039180755615,
+      "additional_data": {
+        "avg_latency_ms": 285.91039180755615,
+        "min_latency_ms": 267.8506374359131,
+        "max_latency_ms": 297.3649501800537,
+        "samples": 10
+      }
+    }
+  ]
+}

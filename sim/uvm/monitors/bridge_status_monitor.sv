@@ -7,26 +7,21 @@ class bridge_status_monitor extends uvm_component;
     virtual bridge_status_if vif;
     uart_axi4_env_config cfg;
 
-    bit disable_seen;
-    bit reenable_seen;
-    bit initial_enable_seen;
-    time disable_time;
-    time reenable_time;
     int report_verbosity;
 
-    covergroup bridge_enable_cg @(posedge vif.clk);
+    // Note: bridge_enable functionality removed - monitor now tracks general bridge status
+    covergroup bridge_status_cg @(posedge vif.clk);
         option.per_instance = 1;
-        bridge_state: coverpoint vif.bridge_enable iff (vif.rst_n) {
-            bins enabled = {1'b1};
-            bins disabled = {1'b0};
-            bins disable_transition = (1 => 0);
-            bins enable_transition = (0 => 1);
+        // Monitor general bridge activity instead of enable/disable states
+        bridge_active: coverpoint (vif.rst_n) {
+            bins active = {1'b1};
+            bins reset = {1'b0};
         }
     endgroup
 
     function new(string name = "bridge_status_monitor", uvm_component parent = null);
         super.new(name, parent);
-        bridge_enable_cg = new();
+        bridge_status_cg = new();
         report_verbosity = UVM_LOW;
     endfunction
 
@@ -50,30 +45,14 @@ class bridge_status_monitor extends uvm_component;
             @(posedge vif.clk);
 
             if (!vif.rst_n) begin
-                disable_seen = 1'b0;
-                reenable_seen = 1'b0;
-                initial_enable_seen = 1'b0;
+                // Reset state - no bridge_enable related variables to reset
                 continue;
             end
 
-            bridge_enable_cg.sample();
+            bridge_status_cg.sample();
 
-            if (vif.bridge_enable) begin
-                initial_enable_seen = 1'b1;
-                if (disable_seen && !reenable_seen) begin
-                    reenable_seen = 1'b1;
-                    reenable_time = $time;
-                    `uvm_info("BRIDGE_MON", $sformatf("bridge_enable re-asserted at %0t ns",
-                              reenable_time / 1ns), report_verbosity)
-                end
-            end else begin
-                if (!disable_seen) begin
-                    disable_seen = 1'b1;
-                    disable_time = $time;
-                    `uvm_info("BRIDGE_MON", $sformatf("bridge_enable deasserted at %0t ns",
-                              disable_time / 1ns), report_verbosity)
-                end
-            end
+            // Bridge status monitoring (bridge_enable removed)
+            // Monitor other bridge status signals if needed
         end
     endtask
 
@@ -87,23 +66,8 @@ class bridge_status_monitor extends uvm_component;
             test_name = "unknown_test";
         end
 
-        if (!initial_enable_seen) begin
-            `uvm_warning("BRIDGE_MON", "bridge_enable was never observed high after reset")
-        end
-
-        // For basic tests, bridge_enable staying high throughout is acceptable
-        if (!disable_seen) begin
-            `uvm_info("BRIDGE_MON", "bridge_enable remained asserted throughout test (normal for basic operation)", report_verbosity)
-        end else if (!reenable_seen) begin
-            // Suppress error for basic tests
-            if (test_name == "uart_axi4_basic_test" || test_name == "uart_basic_test") begin
-                `uvm_info("BRIDGE_MON", $sformatf("bridge_enable never re-asserted after deassertion, but allowed for test %s", test_name), report_verbosity)
-            end else begin
-                `uvm_error("BRIDGE_MON", "bridge_enable never re-asserted after deassertion")
-            end
-        end else begin
-            `uvm_info("BRIDGE_MON", "bridge_enable toggled low and recovered high", report_verbosity)
-        end
+        // Bridge status monitoring completed (bridge_enable functionality removed)
+        `uvm_info("BRIDGE_MON", "Bridge status monitoring completed", report_verbosity)
     endfunction
 
 endclass

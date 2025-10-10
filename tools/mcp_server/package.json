@@ -1,0 +1,33 @@
+{
+  "name": "axiuart-verification-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for AXIUART SystemVerilog UVM Verification Automation",
+  "main": "src/server.py",
+  "type": "module",
+  "scripts": {
+    "start": "python src/server.py",
+    "dev": "python src/server.py --dev"
+  },
+  "dependencies": {
+    "mcp": "^1.0.0"
+  },
+  "devDependencies": {
+    "pytest": "^7.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "systemverilog", 
+    "uvm",
+    "verification",
+    "dsim",
+    "axiuart"
+  ],
+  "author": "AXIUART Verification Team",
+  "license": "MIT",
+  "mcp": {
+    "server": {
+      "name": "axiuart-verification",
+      "version": "1.0.0"
+    }
+  }
+}

@@ -19,7 +19,7 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
         
         // Set exact values - no randomization
         req.cmd = 8'h01;  // Write, 1 byte, no increment
-        req.addr = 32'h1000;  // Base address
+        req.addr = 32'h1000;  // Base address (REG_CONTROL)
         req.data = new[1];
         req.data[0] = 8'h42;  // Predictable data
         
