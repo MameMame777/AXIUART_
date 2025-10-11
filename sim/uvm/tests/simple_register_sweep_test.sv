@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 //=============================================================================
 // Simplified Register Sweep for Toggle Coverage Enhancement
@@ -12,7 +12,7 @@
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
 
-class simple_register_sweep_test extends uart_axi4_base_test;
+class simple_register_sweep_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(simple_register_sweep_test)
     
     function new(string name = "simple_register_sweep_test", uvm_component parent = null);
@@ -22,6 +22,7 @@ class simple_register_sweep_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Enhanced configuration for register coverage  
         cfg.enable_coverage = 1;
@@ -39,7 +40,7 @@ class simple_register_sweep_test extends uart_axi4_base_test;
         `uvm_info("SIMPLE_TOGGLE", "==========================================", UVM_LOW)
         `uvm_info("SIMPLE_TOGGLE", "    SIMPLE REGISTER SWEEP TEST", UVM_LOW)
         `uvm_info("SIMPLE_TOGGLE", "==========================================", UVM_LOW)
-        `uvm_info("SIMPLE_TOGGLE", "Target: Improve Toggle Coverage 14% → 50%+", UVM_LOW)
+        `uvm_info("SIMPLE_TOGGLE", "Target: Improve Toggle Coverage 14% 竊・50%+", UVM_LOW)
         
         // Wait for reset to complete
         wait (uart_axi4_tb_top.dut.rst == 1'b0);

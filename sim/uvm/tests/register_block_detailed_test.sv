@@ -1,4 +1,4 @@
-//==============================================================================
+﻿//==============================================================================
 // Register Block Detailed Verification Test
 // 
 // Purpose: Comprehensive testing of Register_Block.sv internal logic
@@ -19,7 +19,7 @@
 //==============================================================================
 
 // This test must be included in uart_axi4_test_pkg.sv
-class register_block_detailed_test extends uart_axi4_base_test;
+class register_block_detailed_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(register_block_detailed_test)
     
     function new(string name = "register_block_detailed_test", uvm_component parent = null);
@@ -82,9 +82,9 @@ class register_block_detailed_test extends uart_axi4_base_test;
         `uvm_info("REG_TEST", "Tested: Register value accuracy", UVM_LOW)
         
         if (uvm_report_server::get_server().get_severity_count(UVM_ERROR) == 0) begin
-            `uvm_info("REG_TEST", "✅ REGISTER BLOCK VERIFICATION PASSED", UVM_LOW)
+            `uvm_info("REG_TEST", "笨・REGISTER BLOCK VERIFICATION PASSED", UVM_LOW)
         end else begin
-            `uvm_error("REG_TEST", "❌ REGISTER BLOCK VERIFICATION FAILED")
+            `uvm_error("REG_TEST", "笶・REGISTER BLOCK VERIFICATION FAILED")
         end
     endfunction
     

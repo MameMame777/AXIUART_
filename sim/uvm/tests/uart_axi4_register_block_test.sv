@@ -9,7 +9,7 @@
 
 `timescale 1ns / 1ps
 
-class uart_axi4_register_block_test extends uart_axi4_base_test;
+class uart_axi4_register_block_test extends enhanced_uart_axi4_base_test;
 
     `uvm_component_utils(uart_axi4_register_block_test)
     
@@ -19,6 +19,7 @@ class uart_axi4_register_block_test extends uart_axi4_base_test;
 
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Enable waveform dumping for detailed analysis
         $dumpfile("register_block_diagnostic_test.mxd");
@@ -54,3 +55,4 @@ class uart_axi4_register_block_test extends uart_axi4_base_test;
     endfunction
 
 endclass
+

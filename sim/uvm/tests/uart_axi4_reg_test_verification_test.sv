@@ -1,11 +1,11 @@
-// =============================================================================
+﻿// =============================================================================
 // uart_axi4_reg_test_verification_test.sv
 // REG_TEST_0-3 Register Verification Test
 // 
 // Purpose: UVM test for REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3 registers
 // =============================================================================
 
-class uart_axi4_reg_test_verification_test extends uart_axi4_base_test;
+class uart_axi4_reg_test_verification_test extends enhanced_uart_axi4_base_test;
 
     `uvm_component_utils(uart_axi4_reg_test_verification_test)
 
@@ -15,6 +15,7 @@ class uart_axi4_reg_test_verification_test extends uart_axi4_base_test;
 
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Set test-specific configuration
         uvm_config_db#(int)::set(this, "*", "test_duration_ns", 50_000_000); // 50ms

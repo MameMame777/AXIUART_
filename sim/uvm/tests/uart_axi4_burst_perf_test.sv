@@ -1,7 +1,11 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+import uart_axi4_test_pkg::*;
 
 // Performance and Burst Testing for UART-AXI4 Bridge
-class uart_axi4_burst_perf_test extends uart_axi4_base_test;
+class uart_axi4_burst_perf_test extends enhanced_uart_axi4_base_test;
     
     `uvm_component_utils(uart_axi4_burst_perf_test)
     
@@ -11,6 +15,7 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Configure for performance testing
         uvm_config_db#(int)::set(this, "*", "recording_detail", UVM_MEDIUM);
@@ -115,3 +120,4 @@ class uart_axi4_burst_perf_test extends uart_axi4_base_test;
     endfunction
     
 endclass
+

@@ -1,4 +1,4 @@
-//==============================================================================
+﻿//==============================================================================
 // Register Block Comprehensive Test
 // 
 // Purpose: Execute the comprehensive register test sequence to verify
@@ -11,7 +11,7 @@
 
 `timescale 1ns / 1ps
 
-class register_block_comprehensive_test extends uart_axi4_base_test;
+class register_block_comprehensive_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(register_block_comprehensive_test)
     
     function new(string name = "register_block_comprehensive_test", uvm_component parent = null);
@@ -20,6 +20,7 @@ class register_block_comprehensive_test extends uart_axi4_base_test;
 
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         `uvm_info("TEST", "=== Register Block Comprehensive Test ===", UVM_LOW)
         `uvm_info("TEST", "Testing ALL register functions with write/read verification", UVM_LOW)
     endfunction

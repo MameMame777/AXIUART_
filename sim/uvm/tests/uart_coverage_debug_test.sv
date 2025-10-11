@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-class uart_coverage_debug_test extends uart_axi4_base_test;
+class uart_coverage_debug_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_coverage_debug_test)
     
     function new(string name = "uart_coverage_debug_test", uvm_component parent = null);
@@ -9,6 +9,7 @@ class uart_coverage_debug_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         // Enable debug logging for coverage
         set_report_verbosity_level(UVM_DEBUG);
     endfunction
@@ -143,3 +144,4 @@ class uart_coverage_debug_test extends uart_axi4_base_test;
     endtask
 
 endclass
+

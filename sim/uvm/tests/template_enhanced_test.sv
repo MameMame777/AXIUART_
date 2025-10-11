@@ -25,10 +25,10 @@ class template_enhanced_test extends enhanced_uart_axi4_base_test;
     // Test-specific report ID configuration
     virtual function void configure_test_specific_reporting();
         // Define test-specific report categories
-        uvm_report_server::set_id_verbosity("TEMPLATE_START", UVM_MEDIUM);
-        uvm_report_server::set_id_verbosity("TEMPLATE_PROGRESS", UVM_MEDIUM);
-        uvm_report_server::set_id_verbosity("TEMPLATE_RESULT", UVM_LOW);
-        uvm_report_server::set_id_verbosity("TEMPLATE_DEBUG", UVM_HIGH);
+        this.set_report_id_verbosity_hier("TEMPLATE_START", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("TEMPLATE_PROGRESS", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("TEMPLATE_RESULT", UVM_LOW);
+        this.set_report_id_verbosity_hier("TEMPLATE_DEBUG", UVM_HIGH);
         
         // Configure test-specific component verbosity
         // Adjust based on test requirements

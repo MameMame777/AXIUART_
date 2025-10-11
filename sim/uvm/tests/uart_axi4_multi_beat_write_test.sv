@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 // Directed test to exercise multi-beat auto-increment writes
-class uart_axi4_multi_beat_write_test extends uart_axi4_base_test;
+class uart_axi4_multi_beat_write_test extends enhanced_uart_axi4_base_test;
     
     `uvm_component_utils(uart_axi4_multi_beat_write_test)
     
@@ -40,3 +40,5 @@ class uart_axi4_multi_beat_write_test extends uart_axi4_base_test;
     endtask
     
 endclass
+
+

@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 // =============================================================================
 // uart_axi4_register_pattern_test.sv
@@ -8,7 +8,7 @@
 //          Verify register writes with all5, allA, allF patterns (NOT initial values)
 // =============================================================================
 
-class uart_axi4_register_pattern_test extends uart_axi4_base_test;
+class uart_axi4_register_pattern_test extends enhanced_uart_axi4_base_test;
 
     `uvm_component_utils(uart_axi4_register_pattern_test)
 

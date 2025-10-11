@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 //=============================================================================
 // Extended Basic Test for Toggle Coverage Enhancement
@@ -12,7 +12,7 @@
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
 
-class extended_basic_test extends uart_axi4_base_test;
+class extended_basic_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(extended_basic_test)
     
     function new(string name = "extended_basic_test", uvm_component parent = null);
@@ -22,6 +22,7 @@ class extended_basic_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Enhanced configuration for extended testing
         cfg.enable_coverage = 1;
@@ -40,7 +41,7 @@ class extended_basic_test extends uart_axi4_base_test;
         `uvm_info("EXTENDED_BASIC", "================================================", UVM_LOW)
         `uvm_info("EXTENDED_BASIC", "     EXTENDED BASIC TEST FOR TOGGLE COVERAGE", UVM_LOW)
         `uvm_info("EXTENDED_BASIC", "================================================", UVM_LOW)
-        `uvm_info("EXTENDED_BASIC", "Target: Improve Toggle Coverage 14% → 30%+", UVM_LOW)
+        `uvm_info("EXTENDED_BASIC", "Target: Improve Toggle Coverage 14% 竊・30%+", UVM_LOW)
 
         phase.raise_objection(this, "Extended basic test running");
 

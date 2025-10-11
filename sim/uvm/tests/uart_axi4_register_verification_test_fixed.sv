@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 //================================================================================
 // Test Register Write/Read Verification Test
@@ -10,7 +10,7 @@
 // return fixed pattern values instead of written data
 //================================================================================
 
-class uart_axi4_register_verification_test extends uart_axi4_base_test;
+class uart_axi4_register_verification_test extends enhanced_uart_axi4_base_test;
     
     `uvm_component_utils(uart_axi4_register_verification_test)
     
@@ -210,9 +210,9 @@ class uart_axi4_register_verification_sequence extends uvm_sequence #(uart_frame
         `uvm_info("SEQ", $sformatf("=== TEST SUMMARY: %0d/4 registers passed basic verification ===", pass_count), UVM_LOW)
         
         if (pass_count == 4) begin
-            `uvm_info("SEQ", "✓ ALL REGISTER TESTS PASSED - RTL register functionality is correct", UVM_LOW)
+            `uvm_info("SEQ", "笨・ALL REGISTER TESTS PASSED - RTL register functionality is correct", UVM_LOW)
         end else begin
-            `uvm_error("SEQ", $sformatf("✗ REGISTER TESTS FAILED - %0d registers failed verification", (4-pass_count)))
+            `uvm_error("SEQ", $sformatf("笨・REGISTER TESTS FAILED - %0d registers failed verification", (4-pass_count)))
         end
         
     endtask

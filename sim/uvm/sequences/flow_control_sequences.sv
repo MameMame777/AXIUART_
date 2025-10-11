@@ -22,11 +22,11 @@ class uart_rts_monitor_sequence extends uvm_sequence #(uart_frame_transaction);
             start_item(req);
             
             // Write to test register
-            if (!req.randomize() with {
+            assert(req.randomize() with {
                 cmd == WRITE_CMD;
                 addr == TEST_REG_ADDR;
                 data.size() == 4;
-            }) begin
+            }) else begin
                 `uvm_fatal("RTS_MONITOR_SEQ", "Failed to randomize transaction");
             end
             

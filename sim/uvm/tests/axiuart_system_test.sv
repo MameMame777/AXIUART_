@@ -2,7 +2,7 @@
 
 // AXIUART_Top System Level Test
 // Simple test to verify system-level functionality without complex sequences
-class axiuart_system_test extends uart_axi4_base_test;
+class axiuart_system_test extends enhanced_uart_axi4_base_test;
     
     `uvm_component_utils(axiuart_system_test)
     
@@ -12,6 +12,7 @@ class axiuart_system_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         `uvm_info("SYSTEM_TEST", "AXIUART_Top System test build phase", UVM_LOW)
     endfunction
     

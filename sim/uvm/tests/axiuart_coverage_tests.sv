@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 // Enhanced test suite for comprehensive coverage improvement
 // Integrates register sweep, functional coverage, and error injection
@@ -8,7 +8,7 @@
 // import axiuart_error_sequences_pkg::*;
 
 // Comprehensive coverage test with all new features
-class axiuart_comprehensive_coverage_test extends uart_axi4_base_test;
+class axiuart_comprehensive_coverage_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(axiuart_comprehensive_coverage_test)
     
     // Coverage and sequence control (references moved to runtime)
@@ -20,6 +20,7 @@ class axiuart_comprehensive_coverage_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Enable comprehensive coverage collection
         uvm_config_db#(bit)::set(this, "*", "coverage_enabled", 1);
@@ -199,7 +200,7 @@ class axiuart_comprehensive_coverage_test extends uart_axi4_base_test;
 endclass
 
 // Toggle coverage focused test
-class axiuart_toggle_coverage_test extends uart_axi4_base_test;
+class axiuart_toggle_coverage_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(axiuart_toggle_coverage_test)
     
     function new(string name="axiuart_toggle_coverage_test", uvm_component parent=null);
@@ -242,7 +243,7 @@ class axiuart_toggle_coverage_test extends uart_axi4_base_test;
 endclass
 
 // Error injection focused test
-class axiuart_error_focused_test extends uart_axi4_base_test;
+class axiuart_error_focused_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(axiuart_error_focused_test)
     
     function new(string name="axiuart_error_focused_test", uvm_component parent=null);

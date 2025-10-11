@@ -3,7 +3,7 @@
 // Flow Control Test for RTS/CTS Hardware Flow Control
 // Tests PMOD-compliant 4-wire UART implementation
 
-class uart_flow_control_test extends uart_axi4_base_test;
+class uart_flow_control_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_flow_control_test)
     
     function new(string name = "uart_flow_control_test", uvm_component parent = null);
@@ -12,6 +12,7 @@ class uart_flow_control_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Set test-specific configuration
         uvm_config_db#(uvm_object_wrapper)::set(this, "env.uart_agent.uart_seqr.main_phase", 
@@ -59,7 +60,7 @@ class uart_flow_control_test extends uart_axi4_base_test;
 endclass
 
 // Quick RTS test for basic functionality
-class uart_rts_basic_test extends uart_axi4_base_test;
+class uart_rts_basic_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_rts_basic_test)
     
     function new(string name = "uart_rts_basic_test", uvm_component parent = null);
@@ -86,7 +87,7 @@ class uart_rts_basic_test extends uart_axi4_base_test;
 endclass
 
 // CTS stress test
-class uart_cts_stress_test extends uart_axi4_base_test;
+class uart_cts_stress_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_cts_stress_test)
     
     function new(string name = "uart_cts_stress_test", uvm_component parent = null);
@@ -112,3 +113,4 @@ class uart_cts_stress_test extends uart_axi4_base_test;
         phase.drop_objection(this);
     endtask
 endclass
+

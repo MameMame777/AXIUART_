@@ -3,14 +3,30 @@
 // UVM Comprehensive Test for UART-AXI4 Bridge Verification
 // This test runs multiple sequences and validates all major functionality
 
-import uvm_pkg::*;
 `include "uvm_macros.svh"
+import uvm_pkg::*;
+import uart_axi4_test_pkg::*;
 
-class uart_axi4_comprehensive_test extends uart_axi4_base_test;
+class uart_axi4_comprehensive_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_axi4_comprehensive_test)
     
     function new(string name = "uart_axi4_comprehensive_test", uvm_component parent = null);
         super.new(name, parent);
+    endfunction
+    
+    // Build phase - configure test-specific reporting
+    virtual function void build_phase(uvm_phase phase);
+        super.build_phase(phase);
+        configure_test_specific_reporting();
+    endfunction
+    
+    // Test-specific reporting configuration
+    virtual function void configure_test_specific_reporting();
+        // Configure test-specific IDs for comprehensive testing
+        this.set_report_id_verbosity_hier("TEST_COMPREHENSIVE_START", UVM_HIGH);
+        this.set_report_id_verbosity_hier("TEST_COMPREHENSIVE_SEQ", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("TEST_COMPREHENSIVE_RESULT", UVM_HIGH);
+        this.set_report_id_verbosity_hier("STRESS_TEST_PROGRESS", UVM_MEDIUM);
     endfunction
     
     function void configure_test();
@@ -25,8 +41,8 @@ class uart_axi4_comprehensive_test extends uart_axi4_base_test;
     endfunction
     
     task run_phase(uvm_phase phase);
-        basic_func_sequence basic_seq;
-        error_injection_sequence error_seq;
+        uart_axi4_basic_sequence basic_seq;
+        uart_axi4_error_sequence error_seq;
         
         phase.raise_objection(this, "Comprehensive test run phase");
         

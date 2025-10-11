@@ -1,9 +1,9 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 // =======================================================================
 // UART-AXI4 Bridge Bit Pattern Register Verification Test
 // 
-// Purpose: Verify complete UART→AXI4→Register data flow with bit patterns
+// Purpose: Verify complete UART竊但XI4竊坦egister data flow with bit patterns
 //          that prove actual write/read functionality (all5, allA, allF)
 // 
 // This test verifies the COMPLETE data path:
@@ -16,7 +16,7 @@
 // 7. UART TX sends response
 // =======================================================================
 
-class uart_axi4_bridge_bit_pattern_test extends uart_axi4_base_test;
+class uart_axi4_bridge_bit_pattern_test extends enhanced_uart_axi4_base_test;
 
     `uvm_component_utils(uart_axi4_bridge_bit_pattern_test)
 
@@ -30,7 +30,7 @@ class uart_axi4_bridge_bit_pattern_test extends uart_axi4_base_test;
         phase.raise_objection(this);
         
         `uvm_info("TEST", "=== Starting UART-AXI Bridge Bit Pattern Register Test ===", UVM_LOW)
-        `uvm_info("TEST", "Testing complete data flow: UART→Frame Parser→AXI Master→Register", UVM_LOW)
+        `uvm_info("TEST", "Testing complete data flow: UART竊巽rame Parser竊但XI Master竊坦egister", UVM_LOW)
         `uvm_info("TEST", "Using bit validation patterns: all5, allA, allF", UVM_LOW)
         
         // Wait for system to stabilize

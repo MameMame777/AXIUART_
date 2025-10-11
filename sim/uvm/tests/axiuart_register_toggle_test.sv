@@ -1,9 +1,9 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 //=============================================================================
 // Register Sweep Toggle Coverage Test
 // Purpose: Execute dedicated register access sequence to improve toggle coverage
-// Target: Toggle Coverage 14% → 85%+
+// Target: Toggle Coverage 14% 竊・85%+
 //=============================================================================
 
 `ifndef AXIUART_REGISTER_TOGGLE_TEST_SV
@@ -15,7 +15,7 @@ import uart_axi4_test_pkg::*;
 // Include register sweep sequence directly here to avoid redefinition
 `include "../sequences/axiuart_register_sweep_sequence.sv"
 
-class axiuart_register_toggle_test extends uart_axi4_base_test;
+class axiuart_register_toggle_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(axiuart_register_toggle_test)
     
     function new(string name = "axiuart_register_toggle_test", uvm_component parent = null);
@@ -26,6 +26,7 @@ class axiuart_register_toggle_test extends uart_axi4_base_test;
     // Enhanced coverage configuration
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Force coverage collection enable
         cfg.enable_coverage = 1;
@@ -47,7 +48,7 @@ class axiuart_register_toggle_test extends uart_axi4_base_test;
         `uvm_info("TOGGLE_TEST", "=========================================", UVM_LOW)
         `uvm_info("TOGGLE_TEST", "    REGISTER TOGGLE COVERAGE TEST", UVM_LOW)
         `uvm_info("TOGGLE_TEST", "=========================================", UVM_LOW)
-        `uvm_info("TOGGLE_TEST", "Target: Toggle Coverage 14% → 85%+", UVM_LOW)
+        `uvm_info("TOGGLE_TEST", "Target: Toggle Coverage 14% 竊・85%+", UVM_LOW)
         
         // Execute register sweep sequence
         reg_sweep_seq = axiuart_register_sweep_sequence::type_id::create("reg_sweep_seq");

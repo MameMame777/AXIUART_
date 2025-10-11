@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 //==============================================================================
 // Virtual COM Port Verification Test
@@ -17,7 +17,7 @@
 // Version: 1.0
 //==============================================================================
 
-class uart_axi4_virtual_com_verification_test extends uart_axi4_base_test;
+class uart_axi4_virtual_com_verification_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_axi4_virtual_com_verification_test)
     
     function new(string name = "uart_axi4_virtual_com_verification_test", uvm_component parent = null);
@@ -77,9 +77,9 @@ class uart_axi4_virtual_com_verification_test extends uart_axi4_base_test;
         `uvm_info("VCOM_TEST", "Comparison: UVM results vs Virtual COM 100% success rate", UVM_LOW)
         
         if (uvm_report_server::get_server().get_severity_count(UVM_ERROR) == 0) begin
-            `uvm_info("VCOM_TEST", "✅ UVM replication SUCCESSFUL - matches virtual COM success", UVM_LOW)
+            `uvm_info("VCOM_TEST", "笨・UVM replication SUCCESSFUL - matches virtual COM success", UVM_LOW)
         end else begin
-            `uvm_error("VCOM_TEST", "❌ UVM replication FAILED - discrepancy from virtual COM results")
+            `uvm_error("VCOM_TEST", "笶・UVM replication FAILED - discrepancy from virtual COM results")
         end
     endfunction
     

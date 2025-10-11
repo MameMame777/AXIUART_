@@ -28,11 +28,15 @@ class enhanced_uart_axi4_base_test extends uart_axi4_base_test;
         
         // Standard verbosity hierarchy (October 10, 2025 specification)
         this.set_report_verbosity_level_hier(UVM_MEDIUM);
-        this.set_report_verbosity_level_hier(UVM_HIGH);
-        this.set_report_verbosity_level_hier(UVM_MEDIUM);
-        this.set_report_verbosity_level_hier(UVM_LOW);
-        this.set_report_verbosity_level_hier(UVM_LOW);
-        this.set_report_verbosity_level_hier(UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*test*", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*scoreboard*", UVM_HIGH);
+        this.set_report_id_verbosity_hier("*coverage*", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*driver*", UVM_LOW);
+        this.set_report_id_verbosity_hier("*monitor*", UVM_LOW);
+        this.set_report_id_verbosity_hier("*sequence*", UVM_MEDIUM);
+        
+        // Enable comprehensive report counting (unlimited counting)
+        server.set_max_quit_count(0);
         
         // Configure report actions for enhanced analysis
         this.set_report_id_action_hier("*", UVM_DISPLAY | UVM_LOG | UVM_COUNT);
@@ -48,15 +52,16 @@ class enhanced_uart_axi4_base_test extends uart_axi4_base_test;
     // Component-specific verbosity optimization
     virtual function void configure_component_verbosity();
         // Reduce noise from high-volume components
-        this.set_report_verbosity_level_hier(UVM_LOW);
+        this.set_report_id_verbosity_hier("*driver*", UVM_LOW);
+        this.set_report_id_verbosity_hier("*monitor*", UVM_LOW);
         
         // Enhance critical path visibility
-        this.set_report_verbosity_level_hier(UVM_MEDIUM);
-        this.set_report_verbosity_level_hier(UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*scoreboard*", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*sequence*", UVM_MEDIUM);
         
         // Coverage and analysis components
-        this.set_report_verbosity_level_hier(UVM_MEDIUM);
-        this.set_report_verbosity_level_hier(UVM_HIGH);
+        this.set_report_id_verbosity_hier("*coverage*", UVM_MEDIUM);
+        this.set_report_id_verbosity_hier("*analysis*", UVM_HIGH);
         
         `uvm_info("COMPONENT_CONFIG", "Component-specific verbosity configured", UVM_LOW)
     endfunction
@@ -104,6 +109,14 @@ class enhanced_uart_axi4_base_test extends uart_axi4_base_test;
         `uvm_info("ENHANCED_SUMMARY", $sformatf("Test: %s", get_name()), UVM_LOW)
         `uvm_info("ENHANCED_SUMMARY", "Enhanced reporting features enabled", UVM_LOW)
         `uvm_info("ENHANCED_SUMMARY", "Report analysis ready for PowerShell processing", UVM_LOW)
+        `uvm_info("ENHANCED_SUMMARY", "Compliance: October 10, 2025 UVM Reporting Standards", UVM_LOW)
     endfunction
     
+    // Virtual function for test-specific report ID configuration
+    // Override in derived test classes for custom reporting
+    virtual function void configure_test_specific_reporting();
+        // Default implementation - override in derived classes
+        `uvm_info("ENHANCED_BASE", "Using default test-specific reporting. Override in derived tests for custom IDs.", UVM_MEDIUM)
+    endfunction
+
 endclass : enhanced_uart_axi4_base_test

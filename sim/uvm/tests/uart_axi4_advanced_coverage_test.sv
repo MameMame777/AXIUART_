@@ -1,4 +1,4 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 // Advanced Coverage Test for UART-AXI4 Bridge
 // Comprehensive test designed to maximize toggle, functional, and expression coverage
@@ -8,7 +8,7 @@ import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
 `include "uvm_macros.svh"
 
-class uart_axi4_advanced_coverage_test extends uart_axi4_base_test;
+class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_axi4_advanced_coverage_test)
     
     // Coverage sequences
@@ -204,3 +204,4 @@ class uart_axi4_advanced_coverage_test extends uart_axi4_base_test;
     endtask
     
 endclass
+

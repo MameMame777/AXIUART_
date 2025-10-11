@@ -106,6 +106,53 @@
 3. **自動化重視**: 手動確認からツールベース検証への移行
 4. **実機準拠**: シミュレーション結果の実機動作との整合性確保
 
+### 1.3 偽陽性・見逃しリスクの完全排除方針
+
+**🚨 重要: 偽陽性リスクと見逃しリスクは一切受け入れない**
+
+Phase 4では以下の厳格なアプローチにより、検証の完全性を確保：
+
+#### **偽陽性リスク完全排除策**
+
+1. **多層検証の強制実装**:
+   - UVMレポート + 波形解析 + 実信号確認の三重チェック
+   - スコアボードの"PERFECT"判定には必ず根拠データ要求
+   - 自動判定には必ず人間による最終確認を併用
+
+2. **否定証明テストの完全実装**:
+   - 期待される失敗が確実に検出されることを事前証明
+   - 各テストケースに対応する失敗パターンを必ず実装
+   - "成功"判定前に対応する"失敗"検出能力を証明
+
+3. **検証環境自体の検証**:
+   - スコアボードの判定ロジックを独立して検証
+   - カバレッジ測定の正確性を外部ツールで確認
+   - テストベンチの動作を実機と比較検証
+
+#### **見逃しリスク完全排除策**
+
+1. **100%網羅の強制実装**:
+   - 全コードパス、全状態遷移の完全検証
+   - 境界値、エッジケース、異常系の系統的検証
+   - 未検証領域をゼロにするまでテスト継続
+
+2. **エラー注入の強制実装**:
+   - 全てのエラーモードを人工的に発生させて検出確認
+   - ハードウェア故障、ソフトウェア異常の全パターン検証
+   - 一つでも検出できないエラーがあれば検証環境を修正
+
+3. **相互検証の強制実装**:
+   - 複数の独立した検証手法で同一項目を検証
+   - 異なるツール、異なるアプローチでの結果一致を確認
+   - 不一致が発見されれば根本原因を完全解明まで追求
+
+#### **ゼロトレラント検証ポリシー**
+
+- **一つでも疑義があれば不合格**: グレーゾーンは認めない
+- **100%の確信なくしてPASS判定なし**: 推測や期待による判定禁止
+- **全ての異常は必ず再現・解析**: 偶発的事象も全て原因究明
+- **検証ツール自体も検証対象**: ツールの誤動作も考慮に入れる
+
 ---
 
 ## 2. 実機動作保証レベル検証フレームワーク
@@ -153,96 +200,655 @@
 
 ---
 
-## 2. Phase 4実行計画詳細
+## 2. Phase 4実行計画詳細 - ゼロトレラント検証実装
 
-### Phase 4.1: 詳細品質診断・現状分析 (2-3日)
+### 🚨 **絶対品質保証原則**
+
+**偽陽性・見逃しリスクの完全排除を最優先として、以下の原則を厳格に適用:**
+
+1. **Triple Verification Principle (三重検証原則)**:
+   - 全ての検証結果は3つの独立した手法で確認
+   - 一つでも不一致があれば原因完全究明まで作業停止
+   - 推測・期待による判定は完全禁止
+
+2. **Negative Proof Mandatory (否定証明強制)**:
+   - 全ての"成功"判定前に対応する"失敗"検出能力を証明
+   - エラー注入テストで検証環境の感度を事前確認
+   - 検出できないエラーが一つでもあれば検証環境修正
+
+3. **Zero Tolerance Policy (ゼロトレラント方針)**:
+   - グレーゾーン、不明確な結果は一切受け入れない
+   - 100%の確信なくしてPASS判定を出さない
+   - 疑義のある結果は根本原因完全解明まで追求
+
+### Phase 4.1: 完全品質診断・偽陽性排除 (3-4日に延長)
 
 #### 🎯 目標
-Phase 3完了後の環境を詳細分析し、Phase 4での改善点を具体的に特定
+現在の検証環境の偽陽性・見逃しリスクを完全特定し、排除計画を策定
 
-#### ✅ 実行タスク
+#### ✅ 実行タスク (ゼロトレラント版)
 
-**Step 4.1.1: カバレッジ詳細分析**
+**Step 4.1.1: 検証環境自体の検証**
 
 ```powershell
-# 現在のカバレッジレポート詳細分析
-cd e:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec
-.\run_uvm.ps1 -test uart_axi4_basic_test -EnableCoverage
+# Step 1: スコアボード判定ロジックの独立検証
+.\run_uvm.ps1 -test scoreboard_self_verification_test -Verbosity UVM_HIGH
 
-# カバレッジの詳細レポート生成
-dcreport.exe metrics.db -out_dir detailed_coverage_analysis
+# Step 2: 既知の失敗パターンで検証環境の感度確認
+.\run_uvm.ps1 -test known_failure_injection_test -Verbosity UVM_HIGH
+
+# Step 3: カバレッジ測定の正確性外部確認
+dcreport.exe metrics.db -validate -cross_check
 ```
 
-**検証項目**:
-- [ ] フレームカバレッジ詳細分析 (現在1.39%の原因特定)
-- [ ] 機能カバレッジの不足領域特定
-- [ ] エラーケースカバレッジの現状把握
-- [ ] テストシナリオの網羅性分析
+**必須確認項目**:
+- [ ] スコアボード"PERFECT"判定の根拠データ完全確認
+- [ ] 0マッチでPERFECT報告する論理的矛盾の完全解明
+- [ ] カバレッジ測定ツール自体の動作検証
+- [ ] UVMレポートと波形解析結果の完全一致確認
 
-**Step 4.1.2: Phase 3 Scoreboard詳細検証**
+**Step 4.1.2: 否定証明テスト実装**
 
 ```systemverilog
-// Scoreboard動作詳細検証テスト
-class scoreboard_detailed_verification_test extends uart_axi4_base_test;
+// 検証環境感度確認テスト
+class verification_environment_sensitivity_test extends uart_axi4_base_test;
     virtual task run_phase(uvm_phase phase);
-        // 既知パターンでの動作確認
-        test_known_good_patterns();
+        // Test 1: 既知のCRCエラーが確実に検出されるか
+        inject_known_crc_error();
+        assert_error_detected("CRC error not detected - verification environment insensitive");
         
-        // Correlation Engine詳細動作確認  
-        test_correlation_engine_details();
+        // Test 2: 既知のタイムアウトが確実に検出されるか  
+        inject_known_timeout();
+        assert_timeout_detected("Timeout not detected - verification environment insensitive");
         
-        // マッチング精度の定量評価
-        test_matching_accuracy();
+        // Test 3: 既知のプロトコル違反が確実に検出されるか
+        inject_known_protocol_violation();
+        assert_violation_detected("Protocol violation not detected - verification environment insensitive");
+        
+        // Test 4: 検証環境が見逃すパターンの特定
+        systematic_error_injection();
+        verify_no_false_negatives("False negative detected - verification environment inadequate");
     endtask
 endclass
 ```
 
-**Step 4.1.3: 波形解析自動化の準備**
+**Step 4.1.3: 三重検証システム構築**
 
-```bash
-# 最新波形ファイルの詳細解析
-ls -la e:\Nautilus\workspace\fpgawork\AXIUART_\archive\waveforms\
-# 重要信号の自動抽出スクリプト準備
+```systemverilog
+// 三重検証システム
+class triple_verification_framework extends uvm_component;
+    
+    virtual task verify_result(verification_result_t primary_result);
+        verification_result_t uvm_result, waveform_result, assertion_result;
+        
+        // 検証手法1: UVMスコアボード結果
+        uvm_result = get_uvm_verification_result();
+        
+        // 検証手法2: 波形解析結果  
+        waveform_result = analyze_waveform_independently();
+        
+        // 検証手法3: アサーション・プロパティ検証結果
+        assertion_result = get_assertion_verification_result();
+        
+        // 三重検証の一致確認
+        if (uvm_result != waveform_result || waveform_result != assertion_result) begin
+            `uvm_fatal("TRIPLE_VERIFY", $sformatf(
+                "Triple verification mismatch: UVM=%s, Waveform=%s, Assertion=%s", 
+                uvm_result.name(), waveform_result.name(), assertion_result.name()))
+        end
+        
+        // 一致した場合のみ最終判定
+        final_result = uvm_result;
+    endtask
+    
+endclass
 ```
 
-### Phase 4.2: カバレッジ向上・テスト強化 (3-4日)
+### Phase 4.2: 完全カバレッジ・見逃し排除 (4-5日に延長)
 
 #### 🎯 目標  
-カバレッジを17.13% → 80%以上に向上、テストシナリオの網羅性確保
+カバレッジ100%達成により見逃しリスクを完全排除
 
-#### ✅ 実行タスク
+#### ✅ 実行タスク (完全網羅版)
 
-**Step 4.2.1: 系統的テストシナリオ拡張**
+**Step 4.2.1: 全コードパス強制実行**
 
 ```systemverilog
-// 拡張カバレッジテストスイート
-class extended_coverage_test_suite extends uart_axi4_base_test;
-    // フレーム境界値テスト
-    virtual task test_frame_boundary_cases();
-        test_minimum_frame_size();
-        test_maximum_frame_size();  
-        test_frame_alignment_variants();
+// 完全網羅テストスイート
+class complete_coverage_test_suite extends uart_axi4_base_test;
+    
+    virtual task run_phase(uvm_phase phase);
+        // Phase 1: 全フレームバリエーション強制実行
+        force_all_frame_variations();
+        verify_100_percent_frame_coverage();
+        
+        // Phase 2: 全アドレス空間強制アクセス
+        force_all_address_space_access();
+        verify_100_percent_address_coverage();
+        
+        // Phase 3: 全エラーモード強制発生
+        force_all_error_modes();
+        verify_100_percent_error_coverage();
+        
+        // Phase 4: 全境界値強制テスト
+        force_all_boundary_conditions();
+        verify_100_percent_boundary_coverage();
     endtask
     
-    // コマンド種別網羅テスト
-    virtual task test_all_command_types();
-        test_read_commands();
-        test_write_commands(); 
-        test_special_commands();
+    virtual task force_all_frame_variations();
+        // RW bit: 0, 1 (2パターン)
+        // INC bit: 0, 1 (2パターン)  
+        // Size field: 0, 1, 2, 3 (4パターン)
+        // Length field: 0-255 (256パターン)
+        // 合計: 2×2×4×256 = 4096パターン全実行
+        for (int rw = 0; rw <= 1; rw++) begin
+            for (int inc = 0; inc <= 1; inc++) begin
+                for (int size = 0; size <= 3; size++) begin
+                    for (int length = 0; length <= 255; length++) begin
+                        test_frame_variation(rw, inc, size, length);
+                        verify_coverage_increment();
+                    end
+                end
+            end
+        end
     endtask
     
-    // アドレス空間網羅テスト
-    virtual task test_address_space_coverage();
-        test_register_addresses();
-        test_memory_mapped_addresses();
-        test_invalid_addresses();
-    endtask
 endclass
 ```
 
-**Step 4.2.2: エラーケース系統的実装**
+**Step 4.2.2: ゼロ未検証パス実現**
 
-**Step 4.2.3: バースト・ストレステスト追加**
+- 全状態遷移の強制実行
+- 全条件分岐の強制実行  
+- 全例外処理パスの強制実行
+- 全タイミングパターンの強制実行
+
+### Phase 4.3: 完全エラー注入・検出能力証明 (4-5日に延長)
+
+#### 🎯 目標
+全てのエラーモードに対する検出能力100%を証明
+
+#### ✅ 実行タスク (完全エラー注入版)
+
+**Step 4.3.1: 系統的エラー注入フレームワーク**
+
+```systemverilog
+// 完全エラー注入テストスイート
+class complete_error_injection_suite extends uart_axi4_base_test;
+    
+    virtual task run_phase(uvm_phase phase);
+        // 物理層エラー注入
+        inject_all_physical_errors();
+        
+        // プロトコル層エラー注入
+        inject_all_protocol_errors();
+        
+        // システム層エラー注入  
+        inject_all_system_errors();
+        
+        // 検出率100%確認
+        verify_100_percent_detection_rate();
+    endtask
+    
+    virtual task inject_all_physical_errors();
+        // ビットエラー: 全ビット位置
+        for (int bit_pos = 0; bit_pos < 8; bit_pos++) begin
+            inject_bit_error(bit_pos);
+            assert_error_detected($sformatf("Bit %0d error not detected", bit_pos));
+        end
+        
+        // フレーミングエラー: スタートビット、ストップビット
+        inject_start_bit_error();
+        assert_error_detected("Start bit error not detected");
+        
+        inject_stop_bit_error();  
+        assert_error_detected("Stop bit error not detected");
+        
+        // タイミングエラー: ボーレート偏差
+        for (real baud_deviation = -5.0; baud_deviation <= 5.0; baud_deviation += 0.1) begin
+            inject_baud_rate_error(baud_deviation);
+            if (abs(baud_deviation) > 2.0) begin
+                assert_error_detected($sformatf("Baud rate error %f%% not detected", baud_deviation));
+            end
+        end
+    endtask
+    
+endclass
+```
+
+### Phase 4.4: 実機レベル完全検証 (5-6日に延長)
+
+#### 🎯 目標
+実機動作との100%一致を確認
+
+### Phase 4.5: 最終完全性確認 (3-4日に延長)
+
+#### 🎯 目標
+全Phase 4成果の完全性を最終確認
+
+---
+
+## ⚙️ **Phase 4.X: CI/CD自動化・Daily実行システム (優先度低)**
+
+### 📋 **SystemVerilog機能活用方針**
+
+**フォーマル検証制約**: 検証リソース上不可能のため、以下の代替手法を採用
+
+#### **SystemVerilog代替機能活用**
+
+```systemverilog
+// Property-Based Verification (SVA活用)
+module uart_protocol_properties;
+    
+    // タイミング検証プロパティ
+    property uart_response_timing;
+        @(posedge clk) disable iff (reset)
+        $rose(uart_request) |-> ##[1:10] $rose(uart_response);
+    endproperty
+    
+    // データ整合性プロパティ
+    property data_integrity;
+        @(posedge clk) disable iff (reset)
+        uart_valid && !uart_ready |=> $stable(uart_data);
+    endproperty
+    
+    // プロトコル準拠プロパティ
+    property protocol_compliance;
+        @(posedge clk) disable iff (reset)
+        frame_start |-> ##[8:12] frame_end;
+    endproperty
+    
+    // アサーション実装（フォーマル検証の代替）
+    assert property (uart_response_timing) else 
+        `uvm_error("TIMING_VIOLATION", "UART response timing violated");
+    assert property (data_integrity) else 
+        `uvm_error("DATA_CORRUPTION", "Data integrity violated");
+    assert property (protocol_compliance) else 
+        `uvm_error("PROTOCOL_ERROR", "Protocol compliance violated");
+        
+    // カバレッジ強化（形式手法の代替）
+    cover property (uart_response_timing);
+    cover property (data_integrity);
+    cover property (protocol_compliance);
+    
+endmodule
+```
+
+#### **Constraint-Random検証強化**
+
+```systemverilog
+// 制約ランダム検証（形式手法の代替）
+class comprehensive_constraint_verification extends uart_axi4_base_test;
+    
+    // 境界値制約
+    constraint boundary_constraints {
+        addr inside {[32'h0000:32'h0003], [32'h1FFC:32'h1FFF]};
+        data inside {32'h00000000, 32'hFFFFFFFF, 32'h55555555, 32'hAAAAAAAA};
+    }
+    
+    // エラー条件制約
+    constraint error_injection_constraints {
+        error_type dist {NO_ERROR := 70, CRC_ERROR := 10, 
+                        TIMEOUT_ERROR := 10, FRAME_ERROR := 10};
+    }
+    
+    // 順序制約（形式手法の代替）
+    constraint sequence_constraints {
+        if (operation == WRITE) {
+            next_operation inside {READ, WRITE, IDLE};
+        } else if (operation == READ) {
+            next_operation inside {WRITE, READ, IDLE};
+        }
+    }
+    
+endclass
+```
+
+### 📋 **Daily実行システム設計**
+
+#### **包括的実行スクリプト (daily_verification_suite.ps1)**
+
+```powershell
+# Daily検証実行スイート
+param(
+    [string]$ReportEmail = "verification@company.com",
+    [switch]$SendEmail = $false,
+    [string]$LogLevel = "DETAILED"
+)
+
+class DailyVerificationSuite {
+    
+    [hashtable]$TestSuites = @{
+        "Critical" = @("basic_test", "register_test", "frame_parser_test")
+        "Regression" = @("scoreboard_test", "coverage_test", "error_injection_test")
+        "Performance" = @("stress_test", "burst_test", "timing_test")
+        "Quality" = @("triple_verification_test", "negative_proof_test")
+    }
+    
+    [string]$StartTime
+    [array]$Results = @()
+    [hashtable]$Summary = @{}
+    
+    function Start-DailyVerification() {
+        $this.StartTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Write-Host "🚀 Daily Verification Suite Started: $($this.StartTime)" -ForegroundColor Green
+        
+        # 環境セットアップ検証
+        $this.Verify-Environment()
+        
+        # Critical tests (必須実行)
+        $this.Run-TestSuite("Critical")
+        
+        # 重要テストが失敗した場合の早期終了判定
+        if ($this.Summary.CriticalFailures -gt 0) {
+            $this.Generate-FailureReport()
+            $this.Send-AlertEmail("CRITICAL FAILURE")
+            return
+        }
+        
+        # Regression tests
+        $this.Run-TestSuite("Regression")
+        
+        # Performance tests
+        $this.Run-TestSuite("Performance")
+        
+        # Quality assurance tests
+        $this.Run-TestSuite("Quality")
+        
+        # 最終レポート生成・送信
+        $this.Generate-ComprehensiveReport()
+        if ($SendEmail) {
+            $this.Send-DailyReport()
+        }
+    }
+    
+    function Run-TestSuite([string]$SuiteName) {
+        Write-Host "📊 Running $SuiteName Test Suite..." -ForegroundColor Yellow
+        
+        foreach ($Test in $this.TestSuites[$SuiteName]) {
+            $TestResult = $this.Execute-SingleTest($Test, $SuiteName)
+            $this.Results += $TestResult
+            
+            # リアルタイム結果表示
+            $Status = if ($TestResult.Passed) { "✓ PASS" } else { "✗ FAIL" }
+            Write-Host "  $Test : $Status ($($TestResult.Duration)s)" -ForegroundColor $(if ($TestResult.Passed) { "Green" } else { "Red" })
+        }
+    }
+    
+    function Execute-SingleTest([string]$TestName, [string]$Suite) {
+        $TestStart = Get-Date
+        $TestResult = @{
+            Name = $TestName
+            Suite = $Suite
+            Passed = $false
+            UVM_Errors = -1
+            Coverage = 0.0
+            Duration = 0.0
+            ErrorDetails = @()
+            Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        }
+        
+        try {
+            # UVMテスト実行
+            $Output = & .\run_uvm.ps1 -TestName $TestName -Verbosity UVM_MEDIUM -ReportAnalysis 2>&1
+            
+            # 結果解析
+            $TestResult.UVM_Errors = [int]($Output | Select-String "UVM_ERROR\s*:\s*(\d+)" | ForEach-Object { $_.Matches[0].Groups[1].Value })
+            $TestResult.Coverage = [double]($Output | Select-String "Total Coverage:\s*(\d+\.?\d*)%" | ForEach-Object { $_.Matches[0].Groups[1].Value })
+            $TestResult.Passed = ($TestResult.UVM_Errors -eq 0)
+            
+            # エラー詳細抽出
+            if (!$TestResult.Passed) {
+                $TestResult.ErrorDetails = $Output | Select-String "UVM_ERROR|UVM_FATAL" | ForEach-Object { $_.Line }
+            }
+            
+        } catch {
+            $TestResult.ErrorDetails += "EXECUTION_FAILURE: $($_.Exception.Message)"
+        }
+        
+        $TestResult.Duration = [math]::Round(((Get-Date) - $TestStart).TotalSeconds, 2)
+        return $TestResult
+    }
+    
+    function Generate-ComprehensiveReport() {
+        $EndTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        $TotalDuration = [math]::Round(((Get-Date) - [datetime]$this.StartTime).TotalMinutes, 2)
+        
+        # 統計計算
+        $this.Summary = @{
+            StartTime = $this.StartTime
+            EndTime = $EndTime
+            TotalDuration = "$TotalDuration minutes"
+            TotalTests = $this.Results.Count
+            PassedTests = ($this.Results | Where-Object { $_.Passed }).Count
+            FailedTests = ($this.Results | Where-Object { !$_.Passed }).Count
+            PassRate = [math]::Round((($this.Results | Where-Object { $_.Passed }).Count / $this.Results.Count) * 100, 2)
+            AvgCoverage = [math]::Round(($this.Results | Measure-Object -Property Coverage -Average).Average, 2)
+            CriticalFailures = ($this.Results | Where-Object { $_.Suite -eq "Critical" -and !$_.Passed }).Count
+        }
+        
+        # HTMLレポート生成
+        $ReportPath = "daily_verification_report_$(Get-Date -Format 'yyyyMMdd_HHmmss').html"
+        $this.Generate-HTMLReport($ReportPath)
+        
+        Write-Host "📊 Daily Verification Report Generated: $ReportPath" -ForegroundColor Green
+    }
+    
+    function Generate-HTMLReport([string]$FilePath) {
+        $HtmlContent = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Verification Report - $(Get-Date -Format 'yyyy-MM-dd')</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 10px; border-radius: 5px; }
+        .summary { background-color: #e8f5e8; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .critical-failure { background-color: #ffebee; }
+        .performance-metric { background-color: #fff3e0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 AXIUART Daily Verification Report</h1>
+        <p><strong>Generated:</strong> $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</p>
+        <p><strong>Environment:</strong> DSIM v20240422.0.0 • SystemVerilog UVM 1.2</p>
+    </div>
+    
+    <div class="summary">
+        <h2>📊 Execution Summary</h2>
+        <p><strong>Duration:</strong> $($this.Summary.TotalDuration)</p>
+        <p><strong>Total Tests:</strong> $($this.Summary.TotalTests)</p>
+        <p><strong>Pass Rate:</strong> <span class="$(if($this.Summary.PassRate -ge 95) {'pass'} else {'fail'})">$($this.Summary.PassRate)%</span></p>
+        <p><strong>Average Coverage:</strong> $($this.Summary.AvgCoverage)%</p>
+        <p><strong>Critical Failures:</strong> <span class="$(if($this.Summary.CriticalFailures -eq 0) {'pass'} else {'fail'})">$($this.Summary.CriticalFailures)</span></p>
+    </div>
+    
+    <h2>📋 Detailed Test Results</h2>
+    <table>
+        <tr>
+            <th>Test Name</th>
+            <th>Suite</th>
+            <th>Status</th>
+            <th>UVM Errors</th>
+            <th>Coverage</th>
+            <th>Duration</th>
+            <th>Timestamp</th>
+        </tr>
+"@
+        
+        foreach ($Result in $this.Results) {
+            $StatusClass = if ($Result.Passed) { "pass" } else { "fail" }
+            $RowClass = if ($Result.Suite -eq "Critical" -and !$Result.Passed) { "critical-failure" } else { "" }
+            
+            $HtmlContent += @"
+        <tr class="$RowClass">
+            <td>$($Result.Name)</td>
+            <td>$($Result.Suite)</td>
+            <td class="$StatusClass">$(if ($Result.Passed) { "PASS" } else { "FAIL" })</td>
+            <td>$($Result.UVM_Errors)</td>
+            <td>$($Result.Coverage)%</td>
+            <td>${($Result.Duration)}s</td>
+            <td>$($Result.Timestamp)</td>
+        </tr>
+"@
+        }
+        
+        $HtmlContent += @"
+    </table>
+    
+    <div class="performance-metric">
+        <h2>⚡ Performance Metrics</h2>
+        <p><strong>Total Execution Time:</strong> $($this.Summary.TotalDuration)</p>
+        <p><strong>Average Test Duration:</strong> $([math]::Round(($this.Results | Measure-Object -Property Duration -Average).Average, 2))s</p>
+        <p><strong>Longest Test:</strong> $(($this.Results | Sort-Object Duration -Descending | Select-Object -First 1).Name) ($((($this.Results | Sort-Object Duration -Descending | Select-Object -First 1).Duration))s)</p>
+    </div>
+    
+    <hr>
+    <p><small>Generated by AXIUART Daily Verification Suite • $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')</small></p>
+</body>
+</html>
+"@
+        
+        $HtmlContent | Out-File -FilePath $FilePath -Encoding UTF8
+    }
+    
+    function Send-DailyReport() {
+        if (!$ReportEmail) {
+            Write-Warning "No email address specified for report delivery"
+            return
+        }
+        
+        $Subject = "AXIUART Daily Verification Report - $(Get-Date -Format 'yyyy-MM-dd') - Pass Rate: $($this.Summary.PassRate)%"
+        $Body = $this.Generate-EmailBody()
+        
+        try {
+            # PowerShell Send-MailMessageの代替実装
+            $this.Send-SMTPEmail($ReportEmail, $Subject, $Body)
+            Write-Host "📧 Daily report sent to: $ReportEmail" -ForegroundColor Green
+        } catch {
+            Write-Warning "Failed to send email report: $($_.Exception.Message)"
+        }
+    }
+    
+    function Send-AlertEmail([string]$AlertType) {
+        if (!$ReportEmail) { return }
+        
+        $Subject = "🚨 AXIUART Verification ALERT - $AlertType - $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
+        $Body = @"
+CRITICAL ALERT: $AlertType detected in AXIUART verification
+
+Critical Test Failures: $($this.Summary.CriticalFailures)
+Failed Tests: $($this.Summary.FailedTests)
+Pass Rate: $($this.Summary.PassRate)%
+
+Immediate investigation required.
+
+Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+"@
+        
+        try {
+            $this.Send-SMTPEmail($ReportEmail, $Subject, $Body)
+            Write-Host "🚨 Alert email sent: $AlertType" -ForegroundColor Red
+        } catch {
+            Write-Warning "Failed to send alert email: $($_.Exception.Message)"
+        }
+    }
+    
+    function Send-SMTPEmail([string]$To, [string]$Subject, [string]$Body) {
+        # SMTP設定（環境に応じて調整）
+        $SMTPServer = "smtp.company.com"  # 実際のSMTPサーバーに変更
+        $SMTPPort = 587
+        $From = "axiuart-verification@company.com"
+        
+        # Send-MailMessageまたはSystem.Net.Mail使用
+        # 実装は環境のSMTP設定に依存
+        Send-MailMessage -SmtpServer $SMTPServer -Port $SMTPPort -From $From -To $To -Subject $Subject -Body $Body
+    }
+    
+    function Verify-Environment() {
+        Write-Host "🔍 Verifying verification environment..." -ForegroundColor Yellow
+        
+        # DSIM環境変数確認
+        if (!$env:DSIM_HOME) {
+            throw "DSIM_HOME environment variable not set"
+        }
+        
+        # 必要ファイル存在確認
+        $RequiredFiles = @(
+            "sim\exec\run_uvm.ps1",
+            "rtl\uart_axi4_bridge.sv",
+            "uvm\tests\uart_axi4_base_test.sv"
+        )
+        
+        foreach ($File in $RequiredFiles) {
+            if (!(Test-Path $File)) {
+                throw "Required file not found: $File"
+            }
+        }
+        
+        Write-Host "✓ Environment verification passed" -ForegroundColor Green
+    }
+}
+
+# メイン実行
+$DailyVerification = [DailyVerificationSuite]::new()
+$DailyVerification.Start-DailyVerification()
+```
+
+#### **Daily実行の自動化設定**
+
+```powershell
+# Windows Task Scheduler設定スクリプト
+function Setup-DailyVerificationTask() {
+    $TaskName = "AXIUART_Daily_Verification"
+    $ScriptPath = "E:\Nautilus\workspace\fpgawork\AXIUART_\daily_verification_suite.ps1"
+    $TriggerTime = "02:00"  # 深夜2時実行
+    
+    # タスクスケジューラ設定
+    $Action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-File `"$ScriptPath`" -SendEmail"
+    $Trigger = New-ScheduledTaskTrigger -Daily -At $TriggerTime
+    $Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+    
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings
+    
+    Write-Host "✓ Daily verification task scheduled for $TriggerTime" -ForegroundColor Green
+}
+```
+
+### 📋 **メール通知システム詳細設計**
+
+#### **通知レベル定義**
+
+1. **CRITICAL Alert** (即座通知):
+   - Critical test suite全失敗
+   - コンパイルエラー
+   - 環境エラー
+
+2. **WARNING Alert** (1時間以内通知):
+   - Pass rate < 90%
+   - Coverage低下 > 10%
+   - 性能劣化 > 20%
+
+3. **Daily Report** (毎日定時):
+   - 全テスト結果サマリー
+   - カバレッジトレンド
+   - 性能メトリクス
+
+#### **実装優先度**
+
+| 機能 | 優先度 | 実装タイムライン | 依存関係 |
+|------|--------|------------------|----------|
+| SystemVerilog代替実装 | 最高 | Phase 4.1-4.3 | なし |
+| Daily実行スクリプト | 中 | Phase 4.4-4.5 | 基本検証完了後 |
+| メール通知システム | 低 | Phase 5以降 | SMTP環境設定 |
+
+**注**: CI/CD機能は基本検証品質確立後の段階的実装として位置付け
 
 ### Phase 4.3: エラー注入テスト実装 (3-4日)
 

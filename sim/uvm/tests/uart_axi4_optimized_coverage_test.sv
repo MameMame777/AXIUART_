@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 // Optimized Coverage Test - Focuses on quick, efficient coverage improvement
-class uart_axi4_optimized_coverage_test extends uart_axi4_base_test;
+class uart_axi4_optimized_coverage_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_axi4_optimized_coverage_test)
     
     function new(string name = "uart_axi4_optimized_coverage_test", uvm_component parent = null);
@@ -38,3 +38,4 @@ class uart_axi4_optimized_coverage_test extends uart_axi4_base_test;
     endtask
     
 endclass
+

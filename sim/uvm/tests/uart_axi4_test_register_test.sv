@@ -1,10 +1,10 @@
-// Test Register Test Class
+﻿// Test Register Test Class
 // Tests for newly added test registers (0x00001020-0x0000102C)
 // Created: 2025-10-05
 
 import test_register_sequences_pkg::*;
 
-class uart_axi4_test_register_test extends uart_axi4_base_test;
+class uart_axi4_test_register_test extends enhanced_uart_axi4_base_test;
     `uvm_component_utils(uart_axi4_test_register_test)
     
     function new(string name = "uart_axi4_test_register_test", uvm_component parent = null);
@@ -13,6 +13,7 @@ class uart_axi4_test_register_test extends uart_axi4_base_test;
     
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Set test-specific configuration
         uvm_config_db#(uvm_bitstream_t)::set(this, "*", "recording_detail", UVM_FULL);

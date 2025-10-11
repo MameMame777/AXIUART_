@@ -1,9 +1,9 @@
-`timescale 1ns / 1ps
+﻿`timescale 1ns / 1ps
 
 // UVM Test for FPGA Hardware Issue Investigation
 // Simplified test to match the existing structure
 
-class uart_fpga_issue_debug_test extends uart_axi4_base_test;
+class uart_fpga_issue_debug_test extends enhanced_uart_axi4_base_test;
 
     // UVM factory registration macro
     `uvm_component_utils(uart_fpga_issue_debug_test)
@@ -16,6 +16,7 @@ class uart_fpga_issue_debug_test extends uart_axi4_base_test;
     // Build phase - configure test environment
     virtual function void build_phase(uvm_phase phase);
         super.build_phase(phase);
+        configure_test_specific_reporting();
         
         // Configure environment for debugging
         cfg.enable_coverage = 1;
