@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 
-# Advanced DSIM UVM runner aligned with comprehensive work instructions
+# Enhanced DSIM UVM runner with mandatory reporting standards
+# Compliance: UVM Reporting Strategy Implementation (October 10, 2025)
 [CmdletBinding()]
 param(
     [ValidateSet("run", "compile")]
@@ -27,11 +28,10 @@ param(
 
     [string]$ConfigFile = "..\\uvm\\dsim_config.f",
 
+    # MANDATORY: Enhanced reporting parameters (October 10, 2025 Standards)
+    [switch]$ReportAnalysis = $true,  # DEFAULT ENABLED per guidelines
     [switch]$DetailedReporting = $false,
-
     [string]$ReportFilter = "ALL",
-
-    [switch]$ReportAnalysis = $false,
 
     [string[]]$ExtraArgs = @()
 )
@@ -39,65 +39,143 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Utility functions - defined first
+function Write-Status {
+    param(
+        [string]$Message,
+        [ConsoleColor]$Color = [ConsoleColor]::White
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Write-Host "[$timestamp] $Message" -ForegroundColor $Color
+}
+
+# Enhanced reporting announcement
+if ($ReportAnalysis) {
+    Write-Status "Enhanced UVM report analysis enabled by default (October 10, 2025 Standards)" ([ConsoleColor]::Green)
+}
+
 function Analyze-UVMReports {
     param(
         [string]$LogFile,
         [string]$TestName
     )
     
-    Write-Status "=== UVM REPORT ANALYSIS ===" ([ConsoleColor]::Yellow)
+    Write-Status "=== UVM ENHANCED REPORT ANALYSIS (October 10, 2025 Standards) ===" ([ConsoleColor]::Yellow)
+    
+    if (-not (Test-Path $LogFile)) {
+        Write-Status "Warning: Log file '$LogFile' not found. Skipping analysis." ([ConsoleColor]::Red)
+        return
+    }
+    
+    # Read log content
+    $content = Get-Content $LogFile -Raw
     
     # Extract report counts by severity
-    $content = Get-Content $LogFile -Raw
     if ($content -match '\*\* Report counts by severity\s+(.*?)\*\* Report counts by id') {
         $severitySection = $Matches[1]
         Write-Status "Report Counts by Severity:" ([ConsoleColor]::Green)
         $severitySection -split "`n" | Where-Object { $_ -match '^\s*UVM_' } | ForEach-Object {
-            Write-Host "  $_" -ForegroundColor White
+            $line = $_.Trim()
+            if ($line -match 'UVM_ERROR') {
+                Write-Host "  $line" -ForegroundColor Red
+            } elseif ($line -match 'UVM_WARNING') {
+                Write-Host "  $line" -ForegroundColor Yellow
+            } else {
+                Write-Host "  $line" -ForegroundColor White
+            }
         }
     }
     
-    # Extract and analyze report counts by ID
+    # Enhanced report counts by ID analysis
     if ($content -match '\*\* Report counts by id\s+(.*?)\n\n') {
         $idSection = $Matches[1]
-        Write-Status "`nReport Counts by ID:" ([ConsoleColor]::Green)
+        Write-Status "`nReport Counts by ID (Component Analysis):" ([ConsoleColor]::Green)
         
         $reportData = @()
         $idSection -split "`n" | Where-Object { $_ -match '^\[.*\]\s+\d+' } | ForEach-Object {
-            if ($_ -match '^\[([^\]]+)\]\s+(\d+)') {
+            if ($_ -match '^\[([^\]]+)\]\s+(\d+)(.*)') {
+                $component = $Matches[1]
+                $count = [int]$Matches[2]
+                $comment = $Matches[3].Trim()
+                
                 $reportData += [PSCustomObject]@{
-                    Component = $Matches[1]
-                    Count = [int]$Matches[2]
+                    Component = $component
+                    Count = $count
+                    Comment = $comment
                 }
-                $color = if ([int]$Matches[2] -gt 20) { [ConsoleColor]::Yellow } 
-                        elseif ([int]$Matches[2] -gt 10) { [ConsoleColor]::Cyan } 
+                
+                # Color coding based on volume
+                $color = if ($count -gt 50) { [ConsoleColor]::Red } 
+                        elseif ($count -gt 20) { [ConsoleColor]::Yellow } 
+                        elseif ($count -gt 10) { [ConsoleColor]::Cyan } 
                         else { [ConsoleColor]::White }
-                Write-Host "  [$($Matches[1])] $($Matches[2])" -ForegroundColor $color
+                        
+                Write-Host "  [$component] $count $comment" -ForegroundColor $color
             }
         }
         
-        # Generate summary statistics
-        $totalReports = ($reportData | Measure-Object -Property Count -Sum).Sum
-        $topReporter = $reportData | Sort-Object Count -Descending | Select-Object -First 1
-        
-        Write-Status "`nReport Summary for Test: $TestName" ([ConsoleColor]::Green)
-        Write-Host "  Total Reports: $totalReports" -ForegroundColor White
-        Write-Host "  Highest Volume: [$($topReporter.Component)] $($topReporter.Count)" -ForegroundColor Yellow
-        Write-Host "  Active Components: $($reportData.Count)" -ForegroundColor White
-        
-        # Component analysis
-        $highVolume = $reportData | Where-Object { $_.Count -gt 20 }
-        if ($highVolume) {
-            Write-Status "`nHigh Volume Components (>20 reports):" ([ConsoleColor]::Yellow)
-            $highVolume | ForEach-Object {
-                Write-Host "  [$($_.Component)] $($_.Count) - Consider verbosity tuning" -ForegroundColor Yellow
+        # Enhanced summary statistics
+        if ($reportData) {
+            $totalReports = ($reportData | Measure-Object -Property Count -Sum).Sum
+            $topReporter = $reportData | Sort-Object Count -Descending | Select-Object -First 1
+            $avgReports = [math]::Round($totalReports / $reportData.Count, 1)
+            
+            Write-Status "`n=== ENHANCED REPORT SUMMARY for $TestName ===" ([ConsoleColor]::Green)
+            Write-Host "  Total Reports Generated: $totalReports" -ForegroundColor White
+            Write-Host "  Active Components: $($reportData.Count)" -ForegroundColor White
+            Write-Host "  Average Reports per Component: $avgReports" -ForegroundColor White
+            Write-Host "  Highest Volume Component: [$($topReporter.Component)] $($topReporter.Count)" -ForegroundColor Yellow
+            
+            # Performance classification
+            $classification = if ($totalReports -lt 50) { "Low Volume" }
+                            elseif ($totalReports -lt 200) { "Medium Volume" }
+                            else { "High Volume" }
+            Write-Host "  Test Classification: $classification" -ForegroundColor Magenta
+            
+            # Component analysis with recommendations
+            $highVolume = $reportData | Where-Object { $_.Count -gt 20 }
+            if ($highVolume) {
+                Write-Status "`nHigh Volume Components (>20 reports) - Optimization Recommended:" ([ConsoleColor]::Yellow)
+                $highVolume | Sort-Object Count -Descending | ForEach-Object {
+                    $recommendation = switch -Regex ($_.Component) {
+                        "MONITOR" { "Consider reducing monitor verbosity to UVM_LOW" }
+                        "DRIVER" { "Driver reports normal, monitor for patterns" }
+                        "SCOREBOARD" { "High activity expected for verification" }
+                        "COVERAGE" { "Coverage collection active - normal behavior" }
+                        default { "Review component verbosity settings" }
+                    }
+                    Write-Host "  [$($_.Component)] $($_.Count) - $recommendation" -ForegroundColor Yellow
+                }
+            }
+            
+            # Test-specific patterns
+            $testSpecific = $reportData | Where-Object { $_.Component -match $TestName -or $_.Component -match "DIAG|DEBUG" }
+            if ($testSpecific) {
+                Write-Status "`nTest-Specific Report Categories:" ([ConsoleColor]::Cyan)
+                $testSpecific | ForEach-Object {
+                    Write-Host "  [$($_.Component)] $($_.Count)" -ForegroundColor Cyan
+                }
             }
         }
     }
     
-    # Extract test-specific information
-    $testSpecificPattern = "\[${TestName}\]|\[DIAG\]|\[DEBUG_.*\]"
-    $testMessages = $content -split "`n" | Where-Object { $_ -match $testSpecificPattern }
+    # Error and warning analysis
+    $errors = ($content -split "`n" | Where-Object { $_ -match "UVM_ERROR" }).Count
+    $warnings = ($content -split "`n" | Where-Object { $_ -match "UVM_WARNING" }).Count
+    
+    if ($errors -gt 0 -or $warnings -gt 0) {
+        Write-Status "`n=== QUALITY METRICS ===" ([ConsoleColor]::Red)
+        Write-Host "  UVM_ERROR Count: $errors" -ForegroundColor $(if ($errors -gt 0) { [ConsoleColor]::Red } else { [ConsoleColor]::Green })
+        Write-Host "  UVM_WARNING Count: $warnings" -ForegroundColor $(if ($warnings -gt 0) { [ConsoleColor]::Yellow } else { [ConsoleColor]::Green })
+        
+        if ($errors -eq 0 -and $warnings -eq 0) {
+            Write-Host "  ✓ TEST PASSED - No errors or warnings detected" -ForegroundColor Green
+        } else {
+            Write-Host "  ⚠ Review required - Errors/warnings detected" -ForegroundColor Red
+        }
+    }
+    
+    # Display test-specific messages if found
     if ($testMessages) {
         Write-Status "`nTest-Specific Messages ($($testMessages.Count)):" ([ConsoleColor]::Green)
         $testMessages | Select-Object -First 5 | ForEach-Object {
@@ -107,15 +185,8 @@ function Analyze-UVMReports {
             Write-Host "  ... and $($testMessages.Count - 5) more messages" -ForegroundColor Gray
         }
     }
-}
-
-function Write-Status {
-    param(
-        [string]$Message,
-        [ConsoleColor]$Color = [ConsoleColor]::White
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Write-Host "[$timestamp] $Message" -ForegroundColor $Color
+    
+    Write-Status "=== END ENHANCED REPORT ANALYSIS ===" ([ConsoleColor]::Yellow)
 }
 
 function Resolve-RelativePath {
@@ -310,10 +381,20 @@ try {
         Write-Status "Waveform available: $waveFile" ([ConsoleColor]::Green)
     }
 
-    # Enhanced Report Analysis
+    # MANDATORY: Enhanced Report Analysis (Default Enabled per October 10, 2025 Standards)
     if ($ReportAnalysis -and (Test-Path $logFile)) {
-        Write-Status "Analyzing UVM report details..." ([ConsoleColor]::Cyan)
+        Write-Status "Executing mandatory UVM report analysis..." ([ConsoleColor]::Cyan)
         Analyze-UVMReports -LogFile $logFile -TestName $TestName
+    } elseif (-not (Test-Path $logFile)) {
+        Write-Status "Warning: Log file not found for analysis. Check simulation execution." ([ConsoleColor]::Red)
+    }
+    
+    # Final compliance check
+    Write-Status "=== ENHANCED UVM EXECUTION COMPLETE ===" ([ConsoleColor]::Green)
+    if ($ReportAnalysis) {
+        Write-Status "✓ Enhanced reporting analysis completed per October 10, 2025 standards" ([ConsoleColor]::Green)
+    } else {
+        Write-Status "⚠ Enhanced reporting analysis was disabled (not recommended)" ([ConsoleColor]::Yellow)
     }
 }
 finally {

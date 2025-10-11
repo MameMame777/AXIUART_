@@ -1,0 +1,58 @@
+2025-10-11 13:43:44 [INFO] Starting automated regression test suite execution
+2025-10-11 13:43:45 [ERROR] Critical error during regression execution: 発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:298 文字:53
++         .header { background: linear-gradient(135deg, #667eea 0%, #76 ...
++                                                     ~
+パラメーター一覧に引数が存在しません。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:299 文字:137
++ ... 20px 0; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
++                                                                          ~
+式の終わりの ')' が存在しません。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:314 文字:81
++ ... ong>螳溯｡梧律譎・</strong> $(Get-Date -Format 'yyyy蟷ｴMM譛・d譌･ HH:mm:ss')</p>
++                                                                      ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:369 文字:14
++             "PASS" { "[PASS]" }
++              ~~~~~~~~~~~~~~~~~~
+式またはステートメントのトークン 'PASS" { "[PASS]" }
+            "FAIL" { "[FAIL]" }
+            "TIMEOUT" { "[TIMEOUT]" }
+            default { "[UNKNOWN]" }
+        }
+
+        $HtmlContent += @"' を使用できません。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:377 文字:44
++             <h4>$StatusIcon $($Result.Name)</h4>
++                                            ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:378 文字:61
++             <p><strong>繧ｹ繝・・繧ｿ繧ｹ:</strong> $($Result.Status)</p>
++                                                             ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:379 文字:60
++             <p><strong>繧ｵ繝槭Μ繝ｼ:</strong> $($Result.Summary)</p>
++                                                            ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:381 文字:65
++             <p><strong>UVM繧ｨ繝ｩ繝ｼ:</strong> $($Result.UVM_Errors)</p>
++                                                                 ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:382 文字:64
++             <p><strong>UVM隴ｦ蜻・</strong> $($Result.UVM_Warnings)</p>
++                                                                ~
+演算子 '<' は、今後の使用のために予約されています。
+
+発生場所 E:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec\run_verification_environment_test.ps1:386 文字:30
++             $HtmlContent += "<p><strong>菫｡鬆ｼ蠎ｦ繝ｬ繝吶Ν:</strong> $($Resu ...
++                              ~
+演算子 '<' は、今後の使用のために予約されています。
+
+報告されていない解析エラーもあります。報告されたエラーを修正して再試行してください。
