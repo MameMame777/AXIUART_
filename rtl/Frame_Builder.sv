@@ -162,6 +162,11 @@ module Frame_Builder (
         debug_sof_valid = 1'b0;
         debug_crc_input = 8'h00;
         debug_crc_result = crc_out;  // Always show current CRC output
+        debug_cmd_echo_in = 8'h00;
+        debug_status_input = 8'h00;
+        debug_cmd_echo_out = 8'h00;
+        debug_status_output = 8'h00;
+        debug_response_type = 1'b0;
         
         crc_data_in = '0;
         

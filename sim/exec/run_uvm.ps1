@@ -15,7 +15,7 @@ param(
     [int]$Seed = 1,
 
     [ValidateSet("on", "off")]
-    [string]$Waves = "on",
+    [string]$Waves = "off",
 
     [ValidateSet("on", "off")]
     [string]$Coverage = "on",
@@ -118,16 +118,18 @@ function Analyze-UVMReports {
         }
         
         # Enhanced summary statistics
-        if ($reportData) {
+        if ($reportData -and $reportData.Length -gt 0) {
             $totalReports = ($reportData | Measure-Object -Property Count -Sum).Sum
             $topReporter = $reportData | Sort-Object Count -Descending | Select-Object -First 1
-            $avgReports = [math]::Round($totalReports / $reportData.Count, 1)
+            $componentCount = @($reportData).Length
+            $avgReports = [math]::Round($totalReports / $componentCount, 1)
             
             Write-Status "`n=== ENHANCED REPORT SUMMARY for $TestName ===" ([ConsoleColor]::Green)
             Write-Host "  Total Reports Generated: $totalReports" -ForegroundColor White
-            Write-Host "  Active Components: $($reportData.Count)" -ForegroundColor White
+            Write-Host "  Active Components: $componentCount" -ForegroundColor White
             Write-Host "  Average Reports per Component: $avgReports" -ForegroundColor White
-            Write-Host "  Highest Volume Component: [$($topReporter.Component)] $($topReporter.Count)" -ForegroundColor Yellow
+            $topReporterCount = if ($topReporter) { $topReporter.Count } else { 0 }
+            Write-Host "  Highest Volume Component: [$($topReporter.Component)] $topReporterCount" -ForegroundColor Yellow
             
             # Performance classification
             $classification = if ($totalReports -lt 50) { "Low Volume" }
@@ -137,7 +139,8 @@ function Analyze-UVMReports {
             
             # Component analysis with recommendations
             $highVolume = $reportData | Where-Object { $_.Count -gt 20 }
-            if ($highVolume) {
+            $highVolumeCount = @($highVolume).Length
+            if ($highVolumeCount -gt 0) {
                 Write-Status "`nHigh Volume Components (>20 reports) - Optimization Recommended:" ([ConsoleColor]::Yellow)
                 $highVolume | Sort-Object Count -Descending | ForEach-Object {
                     $recommendation = switch -Regex ($_.Component) {
@@ -147,24 +150,30 @@ function Analyze-UVMReports {
                         "COVERAGE" { "Coverage collection active - normal behavior" }
                         default { "Review component verbosity settings" }
                     }
-                    Write-Host "  [$($_.Component)] $($_.Count) - $recommendation" -ForegroundColor Yellow
+                    $itemCount = $_.Count
+                    Write-Host "  [$($_.Component)] $itemCount - $recommendation" -ForegroundColor Yellow
                 }
             }
             
             # Test-specific patterns
             $testSpecific = $reportData | Where-Object { $_.Component -match $TestName -or $_.Component -match "DIAG|DEBUG" }
-            if ($testSpecific) {
+            $testSpecificCount = @($testSpecific).Length
+            if ($testSpecificCount -gt 0) {
                 Write-Status "`nTest-Specific Report Categories:" ([ConsoleColor]::Cyan)
                 $testSpecific | ForEach-Object {
-                    Write-Host "  [$($_.Component)] $($_.Count)" -ForegroundColor Cyan
+                    $specificCount = $_.Count
+                    Write-Host "  [$($_.Component)] $specificCount" -ForegroundColor Cyan
                 }
             }
         }
     }
     
     # Error and warning analysis
-    $errors = ($content -split "`n" | Where-Object { $_ -match "UVM_ERROR" }).Count
-    $warnings = ($content -split "`n" | Where-Object { $_ -match "UVM_WARNING" }).Count
+    $errorLines = $content -split "`n" | Where-Object { $_ -match "UVM_ERROR" }
+    $warningLines = $content -split "`n" | Where-Object { $_ -match "UVM_WARNING" }
+    $testMessages = $content -split "`n" | Where-Object { $_ -match "SIMPLE_WRITE_TEST|DEBUG_WRITE_SEQ" }
+    $errors = @($errorLines).Length
+    $warnings = @($warningLines).Length
     
     if ($errors -gt 0 -or $warnings -gt 0) {
         Write-Status "`n=== QUALITY METRICS ===" ([ConsoleColor]::Red)
@@ -179,13 +188,14 @@ function Analyze-UVMReports {
     }
     
     # Display test-specific messages if found
-    if ($testMessages) {
-        Write-Status "`nTest-Specific Messages ($($testMessages.Count)):" ([ConsoleColor]::Green)
+    if ($testMessages -and @($testMessages).Length -gt 0) {
+        $messageCount = @($testMessages).Length
+        Write-Status "`nTest-Specific Messages ($messageCount):" ([ConsoleColor]::Green)
         $testMessages | Select-Object -First 5 | ForEach-Object {
             Write-Host "  $_" -ForegroundColor Cyan
         }
-        if ($testMessages.Count -gt 5) {
-            Write-Host "  ... and $($testMessages.Count - 5) more messages" -ForegroundColor Gray
+        if ($messageCount -gt 5) {
+            Write-Host "  ... and $($messageCount - 5) more messages" -ForegroundColor Gray
         }
     }
     
@@ -233,7 +243,8 @@ function Test-DsimEnvironment {
         Write-Status "DSIM_LICENSE found: $licenseVar" ([ConsoleColor]::Cyan)
     }
 
-    if ($errors.Count -gt 0) {
+    $errorCount = @($errors).Length
+    if ($errorCount -gt 0) {
         $errors | ForEach-Object { Write-Status $_ ([ConsoleColor]::Red) }
         throw "DSIM environment validation failed."
     }
@@ -278,12 +289,13 @@ try {
         }
     }
 
-    # Clear old waveform files before new simulation
-    if ($ClearWaveforms -eq 'on' -and (Test-Path $waveRoot)) {
+    # Clear old waveform files before new simulation (only if waveforms enabled)
+    if ($ClearWaveforms -eq 'on' -and $Waves -eq 'on' -and (Test-Path $waveRoot)) {
         try {
             $oldWaveforms = @(Get-ChildItem -Path $waveRoot -Filter "*.mxd" -ErrorAction SilentlyContinue)
-            if ($oldWaveforms -and $oldWaveforms.Count -gt 0) {
-                Write-Status "Clearing $($oldWaveforms.Count) old waveform files from $waveRoot" ([ConsoleColor]::Yellow)
+            $waveformCount = @($oldWaveforms).Length
+            if ($oldWaveforms -and $waveformCount -gt 0) {
+                Write-Status "Clearing $waveformCount old waveform files from $waveRoot" ([ConsoleColor]::Yellow)
                 $oldWaveforms | ForEach-Object {
                     if ($_ -and $_.Name) {
                         try {
@@ -342,7 +354,7 @@ try {
         $dsimArgs += '+access+rwb', '-waves', $waveFile, '+define+WAVES'
         Write-Status "Waveform capture enabled: $waveFile" ([ConsoleColor]::Green)
     } else {
-        Write-Status "Waveform capture disabled" ([ConsoleColor]::Yellow)
+        Write-Status "Waveform capture disabled (use -Waves on to enable for debugging)" ([ConsoleColor]::Cyan)
     }
 
     if ($Coverage -eq 'on' -and $Mode -eq 'run') {
@@ -359,7 +371,8 @@ try {
         Write-Status "Coverage disabled" ([ConsoleColor]::Yellow)
     }
 
-    if ($ExtraArgs.Count -gt 0) {
+    $extraArgCount = @($ExtraArgs).Length
+    if ($extraArgCount -gt 0) {
         Write-Status "Extra arguments: $($ExtraArgs -join ' ')" ([ConsoleColor]::Yellow)
         $dsimArgs += $ExtraArgs
     }
@@ -412,6 +425,8 @@ try {
 
     if ($Waves -eq 'on' -and $Mode -eq 'run' -and (Test-Path $waveFile)) {
         Write-Status "Waveform available: $waveFile" ([ConsoleColor]::Green)
+    } elseif ($Waves -eq 'off') {
+        Write-Status "Waveform generation disabled (use -Waves on if debugging needed)" ([ConsoleColor]::Cyan)
     }
 
     # MANDATORY: Enhanced Report Analysis (Default Enabled per October 10, 2025 Standards)

@@ -76,7 +76,7 @@ class uart_axi4_base_test extends uvm_test;
         cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
         cfg.baud_rate = 115_200;       // Standard baud rate
         cfg.byte_time_ns = (1_000_000_000 / cfg.baud_rate) * 10; // 8N1 = 10 bits
-        cfg.frame_timeout_ns = 500_000; // 500us frame timeout (reduced from 2ms for faster simulation)
+        cfg.frame_timeout_ns = 1000000;     // 1ms timeout for UART frames (supports 115200 baud)
         
         // Timing configuration  
         cfg.min_idle_cycles = 5;
