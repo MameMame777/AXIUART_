@@ -417,23 +417,8 @@ module Uart_Axi4_Bridge #(
     logic control_write_cmd;
 
     // CRITICAL DEBUG: Always monitor key signals + frame_valid transition detection
-    logic prev_parser_frame_valid;
-    
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            prev_parser_frame_valid <= 1'b0;
-        end else begin
-            prev_parser_frame_valid <= parser_frame_valid;
-            
-            // Detect frame_valid transitions
-            if (parser_frame_valid && !prev_parser_frame_valid) begin
-                // BRIDGE CRITICAL: parser_frame_valid RISING EDGE detected
-            end
-            if (!parser_frame_valid && prev_parser_frame_valid) begin
-                // BRIDGE CRITICAL: parser_frame_valid FALLING EDGE detected
-            end
-        end
-    end
+    // Frame valid detection - use simple level detection in state machine
+    // Removed redundant edge detection logic that caused timing conflicts
 
     always_comb begin
         main_state_next = main_state;

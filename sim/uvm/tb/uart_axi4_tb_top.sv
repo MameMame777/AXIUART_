@@ -100,12 +100,16 @@ module uart_axi4_tb_top;
         forever #10ns clk = ~clk; // 50MHz clock
     end
     
-    // Reset generation
+    // Reset generation - EXTENDED RESET for stability
     initial begin
         rst_n = 1'b0;
-        repeat (5) @(posedge clk);
+        repeat (100) @(posedge clk);  // 100 clock cycles = 2us reset
         rst_n = 1'b1;
-        `uvm_info("TB_TOP", "Reset released", UVM_MEDIUM)
+        `uvm_info("TB_TOP", "Reset released after extended period", UVM_MEDIUM)
+        
+        // Additional stability wait after reset release
+        repeat (50) @(posedge clk);   // Additional 1us stability period
+        `uvm_info("TB_TOP", "System stability period completed", UVM_MEDIUM)
     end
     
     // UVM testbench initialization

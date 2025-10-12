@@ -40,6 +40,13 @@ interfaces/bridge_status_if.sv
 ../../rtl/Frame_Parser_Assertions.sv
 ../../rtl/Frame_Parser_Assertions_Bind.sv
 
+# Emergency UART-AXI diagnostic assertions
+../emergency_uart_axi_assertions.sv
+../emergency_uart_axi_assertions_bind.sv
+
+# Emergency Frame_Parser diagnostics
+../emergency_frame_parser_diagnostics.sv
+
 # Assertions modules (temporarily disabled to resolve compilation issues)
 # rtl/uart_axi4_assertions.sv
 # packages/axiuart_assertions.sv
@@ -48,18 +55,9 @@ interfaces/bridge_status_if.sv
 # UVM package files (main package first, then extensions)  
 packages/uart_axi4_test_pkg.sv
 packages/axiuart_cov_pkg.sv
-# Additional packages (temporarily disabled to fix compilation order)
-# sequences/axiuart_error_sequences_pkg.sv
-# sequences/test_register_sequences_pkg.sv
 
-# Individual test files removed - all tests are included within uart_axi4_test_pkg.sv
-# This prevents duplicate class definition errors
-# tests/uart_axi4_advanced_coverage_test.sv
-# tests/uart_axi4_optimized_coverage_test.sv
-# tests/uart_axi4_test_register_test.sv
-# tests/uart_axi4_register_verification_test.sv
-# tests/uart_axi4_reg_test_verification_test.sv
-# tests/uart_fpga_issue_debug_test.sv
+# Critical test files - required for UVM test registry
+tests/uart_basic_test.sv
 
 # Testbench top
 tb/uart_axi4_tb_top.sv

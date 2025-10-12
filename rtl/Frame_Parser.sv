@@ -462,17 +462,33 @@ module Frame_Parser #(
     // Frame valid持続制御のための追加ロジック
     logic frame_valid_hold;
     
-    // frame_valid信号を持続的に保持
+    // frame_valid信号を持続的に保持 - 最終修正版
     always_ff @(posedge clk) begin
         if (rst) begin
             frame_valid_hold <= 1'b0;
         end else begin
-            // frame_valid信号を持続的に保持
-            if ((state == VALIDATE) && (error_status_reg == STATUS_OK)) begin
-                frame_valid_hold <= 1'b1;
-            end else if (frame_consumed) begin
-                frame_valid_hold <= 1'b0;
-            end
+            // CRITICAL FIX: error_status評価とframe_valid設定を分離
+            case (state)
+                VALIDATE: begin
+                    // VALIDATE状態でのframe_valid評価（error_statusとCRCを直接評価）
+                    if (cmd_valid && (received_crc == expected_crc)) begin
+                        frame_valid_hold <= 1'b1;  // 条件満足時のみ有効フレーム
+                    end else begin
+                        frame_valid_hold <= 1'b0;  // CRCエラーまたはコマンドエラー時は無効
+                    end
+                end
+                IDLE: begin
+                    // IDLE状態では必ずframe_validをクリア
+                    frame_valid_hold <= 1'b0;
+                end
+                default: begin
+                    // その他の状態ではframe_validを保持
+                    if (frame_consumed) begin
+                        frame_valid_hold <= 1'b0;  // フレーム消費時は即座にクリア
+                    end
+                    // それ以外は現在値保持
+                end
+            endcase
         end
     end
     
