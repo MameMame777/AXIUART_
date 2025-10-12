@@ -145,8 +145,7 @@ module Uart_Rx #(
                     rx_shift_reg_next = rx_shift_reg;
                     rx_shift_reg_next[bit_counter] = rx_synced;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: UART_RX bit %0d = %b (shift_reg=0b%08b -> 0b%08b) at time %0t",
-                                bit_counter, rx_synced, rx_shift_reg, rx_shift_reg_next, $time);
+                        // UART_RX bit reception
                     `endif
 
                     if (bit_counter == 7) begin
@@ -182,9 +181,7 @@ module Uart_Rx #(
                 // Use more robust error detection based on expected stop bit value
                 rx_error_int <= 1'b0;  // Temporarily disable stop bit error for loopback testing
                 `ifdef ENABLE_DEBUG
-                    $display("DEBUG: UART_RX received byte = 0x%02X (error=%b) stop_bit=%b at time %0t", 
-                             rx_shift_reg_next, 1'b0, rx_synced, $time);
-                    $display("DEBUG: RX shift register contents: 0b%08b", rx_shift_reg_next);
+                    // UART_RX received byte
                 `endif
             end
         end

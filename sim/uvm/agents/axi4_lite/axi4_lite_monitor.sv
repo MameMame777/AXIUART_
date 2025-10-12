@@ -24,11 +24,14 @@ class axi4_lite_monitor extends uvm_monitor;
     
     function new(string name = "axi4_lite_monitor", uvm_component parent = null);
         super.new(name, parent);
+        `uvm_info("AXI4_LITE_MONITOR", $sformatf("AXI Monitor constructor called: %s", name), UVM_LOW)
         item_collected_port = new("item_collected_port", this);
         analysis_port = item_collected_port;  // Alias
+        `uvm_info("AXI4_LITE_MONITOR", "AXI Monitor constructor completed", UVM_LOW)
     endfunction
     
     virtual function void build_phase(uvm_phase phase);
+        `uvm_info("AXI4_LITE_MONITOR", "=== BUILD_PHASE STARTED ===", UVM_LOW)
         super.build_phase(phase);
         
         // Get configuration
@@ -36,37 +39,90 @@ class axi4_lite_monitor extends uvm_monitor;
             `uvm_fatal("AXI4_LITE_MONITOR", "Failed to get configuration object")
         end
         
-        // Get virtual interface
         if (!uvm_config_db#(virtual axi4_lite_if)::get(this, "", "vif", vif)) begin
-            `uvm_fatal("AXI4_LITE_MONITOR", "Failed to get virtual interface")
+            `uvm_fatal("AXI4_LITE_MONITOR", "Virtual interface not set!")
+        end else begin
+            `uvm_info("AXI4_LITE_MONITOR", "Virtual interface successfully acquired.", UVM_LOW)
         end
         
         // Get coverage collector
         if (!uvm_config_db#(uart_axi4_coverage)::get(this, "", "coverage", coverage)) begin
             `uvm_info("AXI4_LITE_MONITOR", "Coverage collector not found - coverage disabled", UVM_LOW)
         end
+        `uvm_info("AXI4_LITE_MONITOR", "=== BUILD_PHASE COMPLETED ===", UVM_LOW)
+    endfunction
+    
+    virtual function void end_of_elaboration_phase(uvm_phase phase);
+        `uvm_info("AXI4_LITE_MONITOR", "=== END_OF_ELABORATION_PHASE ===", UVM_LOW)
+        super.end_of_elaboration_phase(phase);
+    endfunction
+    
+    virtual function void start_of_simulation_phase(uvm_phase phase);
+        `uvm_info("AXI4_LITE_MONITOR", "=== START_OF_SIMULATION_PHASE ===", UVM_LOW)
+        super.start_of_simulation_phase(phase);
     endfunction
     
     virtual task run_phase(uvm_phase phase);
+        `uvm_info("AXI4_LITE_MONITOR", "*** INFO: RUN_PHASE ENTRY DETECTED ***", UVM_LOW)
+        `uvm_info("AXI4_LITE_MONITOR", "=== RUN_PHASE STARTED ===", UVM_LOW)
+        `uvm_info("AXI4_LITE_MONITOR", "AXI monitor starting - monitoring enabled", UVM_LOW)
+        `uvm_info("AXI4_LITE_MONITOR", $sformatf("VIF assigned: %s", (vif != null) ? "YES" : "NO"), UVM_LOW)
+        
+        `uvm_info("AXI4_LITE_MONITOR", "=== STARTING MONITORING TASKS ===", UVM_LOW)
+        
         fork
-            collect_write_transactions();
-            collect_read_transactions();
+            super.run_phase(phase);
+        join_none
+        
+        fork
+            begin
+                `uvm_info("AXI4_LITE_MONITOR", "Starting collect_write_transactions task", UVM_LOW)
+                collect_write_transactions();
+            end
+            begin
+                `uvm_info("AXI4_LITE_MONITOR", "Starting collect_read_transactions task", UVM_LOW)
+                collect_read_transactions();
+            end
         join
+        
+        `uvm_info("AXI4_LITE_MONITOR", "=== RUN_PHASE COMPLETED ===", UVM_LOW)
     endtask
     
     // Monitor write transactions
     virtual task collect_write_transactions();
         axi4_lite_transaction tr;
+        int clock_count = 0;
+        
+        `uvm_info("AXI4_LITE_MONITOR", "*** INFO: WRITE COLLECTION TASK STARTED ***", UVM_LOW)
+        `uvm_info("AXI4_LITE_MONITOR", "=== COLLECT_WRITE_TRANSACTIONS TASK STARTED ===", UVM_LOW)
         
         forever begin
-            if (!monitor_enabled) begin
-                @(posedge vif.aclk);
-                continue;
-            end
-            
             // Wait for write address valid
             @(posedge vif.aclk);
+            clock_count++;
+            
+            `uvm_info("AXI4_LITE_MONITOR", $sformatf("*** WRITE TASK CLOCK %0d ***", clock_count), UVM_HIGH)
+            
+            // First 10 clocks - aggressive logging
+            if (clock_count <= 10) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write monitor Clock %0d - ALL AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
+                          clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_LOW)
+            end
+            
+            // Regular periodic logging every 100 clocks and when any signal is active
+            if ((clock_count % 100 == 0) || vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Clock %0d - AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
+                          clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_HIGH)
+            end
+            
+            // Additional debug for complete signal state
+            if (vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("AXI activity detected: wdata=0x%08x, wstrb=0x%x, resp=0x%x", 
+                          vif.wdata, vif.wstrb, vif.bresp), UVM_HIGH)
+            end
+            
             if (vif.awvalid && vif.awready) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write transaction detected: awaddr=0x%08x", vif.awaddr), UVM_MEDIUM)
                 tr = axi4_lite_transaction::type_id::create("axi_write_tr");
                 tr.trans_type = AXI_WRITE;
                 tr.is_write = 1;
@@ -129,6 +185,9 @@ class axi4_lite_monitor extends uvm_monitor;
     // Monitor read transactions
     virtual task collect_read_transactions();
         axi4_lite_transaction tr;
+        int read_clock_count = 0;
+        
+        `uvm_info("AXI4_LITE_MONITOR", "*** READ COLLECTION TASK STARTED ***", UVM_LOW)
         
         forever begin
             if (!monitor_enabled) begin
@@ -138,7 +197,14 @@ class axi4_lite_monitor extends uvm_monitor;
             
             // Wait for read address valid
             @(posedge vif.aclk);
+            read_clock_count++;
+            
+            if (read_clock_count <= 5) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("*** READ TASK CLOCK %0d ***", read_clock_count), UVM_HIGH)
+            end
+            
             if (vif.arvalid && vif.arready) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Read transaction detected: araddr=0x%08x", vif.araddr), UVM_MEDIUM)
                 tr = axi4_lite_transaction::type_id::create("axi_read_tr");
                 tr.trans_type = AXI_READ;
                 tr.is_write = 0;

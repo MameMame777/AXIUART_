@@ -90,6 +90,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         logic [7:0] crc_data_fixed[5];
         int byte_count;
         
+        `uvm_info("UART_DRIVER", $sformatf("Starting frame transmission: SOF=0x%02X, CMD=0x%02X, ADDR=0x%08X", 
+                  SOF_HOST_TO_DEVICE, tr.cmd, tr.addr), UVM_LOW);
+        
         // Build complete frame
         if (tr.cmd[7]) begin // Read command
             byte_count = 7; // SOF + CMD + ADDR(4) + CRC
@@ -166,7 +169,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     virtual task drive_uart_byte(logic [7:0] data);
         int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
         
-    `uvm_info("UART_DRIVER", $sformatf("Driving UART byte: 0x%02X", data), UVM_DEBUG);
+    `uvm_info("UART_DRIVER", $sformatf("*** Driving UART byte: 0x%02X ***", data), UVM_LOW);
         
         // Start bit
         vif.uart_rx = 1'b0;

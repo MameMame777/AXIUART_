@@ -24,8 +24,11 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         // Create exactly one write transaction
         `uvm_create(req)
         
+        // CRITICAL FIX: Set SOF value (missing and causing Frame_Parser to never detect frames)
+        req.sof = SOF_HOST_TO_DEVICE;  // 0xA5 - required for Frame_Parser to detect start of frame
+        
         // Set exact values - no randomization
-        req.cmd = 8'h01;  // Write, 1 byte, no increment
+        req.cmd = 8'h00;  // Write, 1 byte (LEN=1), no increment
         req.addr = 32'h1000;  // Base address
         req.data = new[1];
         req.data[0] = 8'h42;  // Predictable data

@@ -163,12 +163,6 @@ module Frame_Builder (
         debug_crc_input = 8'h00;
         debug_crc_result = crc_out;  // Always show current CRC output
         
-        `ifdef ENABLE_DEBUG
-            if (build_response_edge) begin
-                $display("DEBUG: Frame_Builder triggered - cmd_echo=0x%02X, status_code=0x%02X at time %0t", 
-                         cmd_echo, status_code, $time);
-            end
-        `endif
         crc_data_in = '0;
         
         case (state)
@@ -190,8 +184,7 @@ module Frame_Builder (
                     tx_fifo_data = SOF_DEVICE_TO_HOST;  // Send 0x5A per protocol specification
                     tx_fifo_wr_en = 1'b1;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending SOF = 0x%02X (protocol specification) at time %0t", 
-                                SOF_DEVICE_TO_HOST, $time);
+                        // Frame_Builder sending SOF (protocol specification)
                     `endif
                     state_next = STATUS;
                 end else begin
@@ -216,8 +209,7 @@ module Frame_Builder (
                     debug_crc_result = crc_out;
                     
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Frame_Builder sending STATUS = 0x%02X (protocol specification) at time %0t", 
-                                status_reg, $time);
+                        // Frame_Builder sending STATUS (protocol specification)
                     `endif
                     state_next = CMD;
                 end

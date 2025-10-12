@@ -295,7 +295,7 @@ package uart_axi4_test_pkg;
     // First include coverage and scoreboard (needed by monitor)
     `include "env/uart_axi4_coverage.sv"
     `include "scoreboard/correlation_engine.sv"     // Phase 3: Correlation Engine integration
-    `include "scoreboard/scoreboard.sv"             // Phase 3: Scoreboard with Correlation Engine
+    `include "env/uart_axi4_scoreboard.sv"          // Phase 3: Scoreboard with Correlation Engine
     `include "agents/axi4_lite/axi4_lite_monitor.sv"
     `include "monitors/bridge_status_monitor.sv"
     

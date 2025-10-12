@@ -46,7 +46,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     uvm_analysis_imp_uart_expected #(uart_frame_transaction, uart_axi4_scoreboard) uart_expected_analysis_imp;
     
     // Advanced correlation engine for Phase 3 verification
-    uart_axi4_correlation_engine correlation_engine;
+    correlation_engine correlation_engine;
     
     // Configuration
     uart_axi4_env_config cfg;
@@ -99,7 +99,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         uart_expected_analysis_imp = new("uart_expected_analysis_imp", this);
         
         // Phase 3: Create correlation engine for advanced transaction matching
-        correlation_engine = uart_axi4_correlation_engine::type_id::create("correlation_engine", this);
+        correlation_engine = correlation_engine::type_id::create("correlation_engine", this);
         
         if (!uvm_config_db#(uart_axi4_env_config)::get(this, "", "cfg", cfg)) begin
             `uvm_fatal("SCOREBOARD", "Failed to get configuration object")
@@ -214,7 +214,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         uart_expectations.push_back(expectation);
 
         // Phase 3: Register UART transaction with correlation engine
-        correlation_engine.register_uart_transaction(uart_tr, expectation);
+        correlation_engine.add_uart_frame(uart_tr);
 
         `uvm_info("SCOREBOARD",
             $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X, beats=%0d, creation_time=%0t",
@@ -241,7 +241,7 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         axi4_lite_transactions_received++;
         
         // Phase 3: Register AXI transaction with correlation engine
-        correlation_engine.register_axi_transaction(axi_tr);
+        correlation_engine.add_axi_transaction(axi_tr);
         
         `uvm_info("SCOREBOARD", $sformatf("Received AXI transaction: ADDR=0x%08X, WDATA=0x%08X, WSTRB=0x%X", 
                   axi_tr.addr, axi_tr.wdata, axi_tr.wstrb), UVM_DEBUG)
@@ -780,13 +780,15 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         `uvm_info("SCOREBOARD", $sformatf("Pending UART commands: %0d (remaining beats=%0d)", pending_uart_commands, pending_uart_beats), UVM_LOW)
         `uvm_info("SCOREBOARD", $sformatf("Unmatched AXI transactions: %0d", axi_queue.size()), UVM_LOW)
         
-        // Improved error classification and reporting
+        // Phase 4.1a: Enhanced error classification with false positive prevention
         if (mismatch_count > 10) begin  
             `uvm_fatal("SCOREBOARD", $sformatf("CRITICAL: Test terminated due to excessive transaction mismatches (%0d > 10 threshold)", mismatch_count))
         end else if (mismatch_count > 0) begin
             `uvm_info("SCOREBOARD", $sformatf("ACCEPTABLE: Test passed with %0d minor timing variations within tolerance", mismatch_count), UVM_LOW)
-        end else begin
+        end else if (match_count > 0) begin
             `uvm_info("SCOREBOARD", "PERFECT: All transactions matched exactly", UVM_LOW)
+        end else begin
+            `uvm_error("SCOREBOARD", "ZERO ACTIVITY: No transactions processed - verification invalid")
         end
         
         // Additional analysis for remaining mismatches

@@ -7,7 +7,7 @@
 # UVM Library and include paths
 +define+UVM_NO_DEPRECATED
 +define+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR
-+define+ENABLE_DEBUG
+# +define+ENABLE_DEBUG  # Commented out to reduce simulation time
 +define+DEFINE_SIM
 
 # Include paths for file resolution
@@ -35,6 +35,10 @@ interfaces/bridge_status_if.sv
 ../../rtl/Register_Block.sv
 ../../rtl/Uart_Axi4_Bridge.sv
 ../../rtl/AXIUART_Top.sv
+
+# Frame Parser Assertions (bind statement approach)
+../../rtl/Frame_Parser_Assertions.sv
+../../rtl/Frame_Parser_Assertions_Bind.sv
 
 # Assertions modules (temporarily disabled to resolve compilation issues)
 # rtl/uart_axi4_assertions.sv

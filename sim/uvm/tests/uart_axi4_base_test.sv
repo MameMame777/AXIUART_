@@ -43,6 +43,9 @@ class uart_axi4_base_test extends uvm_test;
             end else begin
                 `uvm_warning("BASE_TEST", "AXI virtual interface not provided; AXI monitoring disabled")
             end
+        end else begin
+            `uvm_info("BASE_TEST", "=== AXI VIRTUAL INTERFACE SUCCESSFULLY RETRIEVED ===", UVM_HIGH)
+            `uvm_info("BASE_TEST", $sformatf("AXI VIF null check: %s", (axi_vif == null) ? "NULL" : "NOT NULL"), UVM_HIGH)
         end
         
         // Set interfaces in configuration
@@ -73,7 +76,7 @@ class uart_axi4_base_test extends uvm_test;
         cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
         cfg.baud_rate = 115_200;       // Standard baud rate
         cfg.byte_time_ns = (1_000_000_000 / cfg.baud_rate) * 10; // 8N1 = 10 bits
-        cfg.frame_timeout_ns = 10_000_000; // 10ms frame timeout (increased from 1ms)
+        cfg.frame_timeout_ns = 500_000; // 500us frame timeout (reduced from 2ms for faster simulation)
         
         // Timing configuration  
         cfg.min_idle_cycles = 5;

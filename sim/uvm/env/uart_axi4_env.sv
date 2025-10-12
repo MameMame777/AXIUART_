@@ -13,7 +13,7 @@ class uart_axi4_env extends uvm_env;
     axi4_lite_monitor axi_monitor;
     
     // Analysis components
-    scoreboard phase3_scoreboard;              // Phase 3: Scoreboard with Correlation Engine
+    uart_axi4_scoreboard phase3_scoreboard;              // Phase 3: Scoreboard with Correlation Engine
     uart_axi4_coverage coverage;
     bridge_status_monitor bridge_status_mon;
     
@@ -36,9 +36,12 @@ class uart_axi4_env extends uvm_env;
             if (cfg.axi_vif == null) begin
                 `uvm_fatal("ENV", "AXI monitor enabled but cfg.axi_vif is null")
             end
+            `uvm_info("ENV", "=== CREATING AXI MONITOR ===", UVM_HIGH)
             axi_monitor = axi4_lite_monitor::type_id::create("axi_monitor", this);
+            `uvm_info("ENV", "=== AXI MONITOR CREATED SUCCESSFULLY ===", UVM_HIGH)
             uvm_config_db#(uart_axi4_env_config)::set(this, "axi_monitor", "cfg", cfg);
             uvm_config_db#(virtual axi4_lite_if)::set(this, "axi_monitor", "vif", cfg.axi_vif);
+            `uvm_info("ENV", "=== AXI MONITOR CONFIG SET ===", UVM_HIGH)
         end
         
         // Set agent configurations
@@ -46,7 +49,7 @@ class uart_axi4_env extends uvm_env;
         
         // Create analysis components
         if (cfg.enable_scoreboard || cfg.enable_correlation) begin
-            phase3_scoreboard = scoreboard::type_id::create("phase3_scoreboard", this);
+            phase3_scoreboard = uart_axi4_scoreboard::type_id::create("phase3_scoreboard", this);
             `uvm_info("ENV", "Phase 3 Scoreboard with Correlation Engine created", UVM_MEDIUM)
         end
         
@@ -67,10 +70,10 @@ class uart_axi4_env extends uvm_env;
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);
         
-        // Connect UART agent to scoreboard
+        // Phase 4.1b: Connect UART/AXI monitors to scoreboard (CORRECT IMPLEMENTATION)
         if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null && uart_agt.monitor != null) begin
-            // Note: Phase 3 scoreboard connection will be implemented when interface is defined
-            `uvm_info("ENV", "Phase 3 Scoreboard ready for UART connections", UVM_MEDIUM)
+            uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
+            `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
         end
 
         // Connect UART agent to coverage
@@ -81,8 +84,8 @@ class uart_axi4_env extends uvm_env;
 
         if (cfg.enable_axi_monitor && axi_monitor != null) begin
             if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null) begin
-                // Note: Phase 3 scoreboard AXI connection will be implemented when interface is defined
-                `uvm_info("ENV", "Phase 3 Scoreboard ready for AXI connections", UVM_MEDIUM)
+                axi_monitor.analysis_port.connect(phase3_scoreboard.axi_analysis_imp);
+                `uvm_info("ENV", "Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
             end
         end
         
@@ -97,24 +100,24 @@ class uart_axi4_env extends uvm_env;
     // UVM環境レベルの最終レポート
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
-        
-        `uvm_info("ENV", "=== ENVIRONMENT FINAL REPORT ===", UVM_LOW)
-        
-        if (phase3_scoreboard != null) begin
-            `uvm_info("ENV", "Phase 3 Scoreboard statistics available", UVM_LOW)
+        // Phase 4.1b: Connect UART/AXI agent to scoreboard (CORRECT IMPLEMENTATION)
+        if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null && uart_agt.monitor != null) begin
+            uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
+            `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
         end
-        
-        // Phase 3: Report correlation engine results
-        if (phase3_scoreboard != null && cfg.enable_correlation) begin
-            `uvm_info("ENV", "=== Phase 3 Scoreboard (Correlation Engine) Results ===", UVM_LOW)
-            phase3_scoreboard.correlate_and_report();
-            `uvm_info("ENV", "Phase 3 correlation analysis completed", UVM_LOW)
+
+        // Connect UART agent to coverage
+        if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
+            uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
+            `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
         end
-        
-        if (coverage != null) begin
-            `uvm_info("ENV", "Coverage collection completed", UVM_LOW)
+
+        if (cfg.enable_axi_monitor && axi_monitor != null) begin
+            if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null) begin
+                axi_monitor.analysis_port.connect(phase3_scoreboard.axi_analysis_imp);
+                `uvm_info("ENV", "Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
+            end
         end
-        
         `uvm_info("ENV", "Environment cleanup completed", UVM_LOW)
     endfunction
 

@@ -425,26 +425,22 @@ module Axi4_Lite_Master #(
             state_debug_prev <= IDLE;
         end else begin
             if (state != state_debug_prev) begin
-                $display("DEBUG: AXI Master state %s -> %s at time %0t", 
-                         axi_master_state_to_string(state_debug_prev),
-                         axi_master_state_to_string(state), $time);
+                // AXI Master state transition
             end
             if (aw_handshake) begin
-                $display("DEBUG: AXI Master AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
+                // AXI Master AW handshake
             end
             if (w_handshake) begin
-                $display("DEBUG: AXI Master W handshake data=0x%08X wstrb=0x%X at time %0t", axi.wdata, axi.wstrb, $time);
-                $display("DEBUG: AXI Master context cmd=0x%02X size_field=0x%0X addr_ok=%0b align_status=0x%0X current_addr=0x%08X data_index=%0d", 
-                         cmd_reg, size_field, addr_ok, align_status, current_addr, data_byte_index);
+                // AXI Master W handshake
             end
             if (b_handshake) begin
-                $display("DEBUG: AXI Master B handshake resp=0x%0X at time %0t", axi.bresp, $time);
+                // AXI Master B handshake
             end
             if (ar_handshake) begin
-                $display("DEBUG: AXI Master AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
+                // AXI Master AR handshake
             end
             if (r_handshake) begin
-                $display("DEBUG: AXI Master R handshake data=0x%08X resp=0x%0X at time %0t", axi.rdata, axi.rresp, $time);
+                // AXI Master R handshake
             end
             state_debug_prev <= state;
         end

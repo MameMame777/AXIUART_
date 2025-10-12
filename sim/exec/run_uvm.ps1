@@ -20,6 +20,9 @@ param(
     [ValidateSet("on", "off")]
     [string]$Coverage = "on",
 
+    [ValidateSet("on", "off")]
+    [string]$ClearWaveforms = "on",
+
     [string]$LogDir = "logs",
 
     [string]$WaveDir = "..\\..\\archive\\waveforms",
@@ -250,8 +253,12 @@ function Test-DsimEnvironment {
     throw "Unable to locate dsim executable under DSIM_HOME."
 }
 
-$scriptRoot = Split-Path -Parent $PSCommandPath
-Push-Location $scriptRoot
+# Get script directory (handle both script execution and interactive mode)
+if ($PSCommandPath) {
+    $scriptRoot = Split-Path -Parent $PSCommandPath
+} else {
+    $scriptRoot = Get-Location
+}
 try {
     $dsimExe = Test-DsimEnvironment
 
@@ -269,6 +276,32 @@ try {
             Write-Status "Creating directory: $dir" ([ConsoleColor]::Yellow)
             New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
+    }
+
+    # Clear old waveform files before new simulation
+    if ($ClearWaveforms -eq 'on' -and (Test-Path $waveRoot)) {
+        try {
+            $oldWaveforms = @(Get-ChildItem -Path $waveRoot -Filter "*.mxd" -ErrorAction SilentlyContinue)
+            if ($oldWaveforms -and $oldWaveforms.Count -gt 0) {
+                Write-Status "Clearing $($oldWaveforms.Count) old waveform files from $waveRoot" ([ConsoleColor]::Yellow)
+                $oldWaveforms | ForEach-Object {
+                    if ($_ -and $_.Name) {
+                        try {
+                            Remove-Item $_.FullName -Force -ErrorAction Stop
+                            Write-Status "  Removed: $($_.Name)" ([ConsoleColor]::DarkGray)
+                        } catch {
+                            Write-Status "  Warning: Failed to remove $($_.Name): $($_.Exception.Message)" ([ConsoleColor]::DarkYellow)
+                        }
+                    }
+                }
+            } else {
+                Write-Status "No old waveform files to clear in $waveRoot" ([ConsoleColor]::DarkGray)
+            }
+        } catch {
+            Write-Status "Warning: Error accessing waveform directory: $($_.Exception.Message)" ([ConsoleColor]::DarkYellow)
+        }
+    } elseif ($ClearWaveforms -eq 'off') {
+        Write-Status "Waveform clearing disabled" ([ConsoleColor]::DarkGray)
     }
 
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
@@ -396,9 +429,9 @@ try {
     } else {
         Write-Status "⚠ Enhanced reporting analysis was disabled (not recommended)" ([ConsoleColor]::Yellow)
     }
-}
-finally {
-    Pop-Location
+} catch {
+    Write-Status "Error: $($_.Exception.Message)" ([ConsoleColor]::Red)
+    exit 1
 }
 
 exit 0

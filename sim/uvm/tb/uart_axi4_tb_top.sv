@@ -24,13 +24,15 @@ module uart_axi4_tb_top;
     // Interface instances
     uart_if uart_if_inst(clk, rst_n);
     bridge_status_if status_if(clk);
-    // Note: AXIUART_Top uses internal AXI interface, no external AXI connections
+    
+    // AXI4-Lite interface for monitoring - will connect directly to DUT's internal interface
+    // No need for separate interface instance since DUT provides axi_internal interface
 
     // Optional internal loopback control (disabled by default)
     localparam bit ENABLE_UART_LOOPBACK = 1'b0;
 
     // Derived simulation guard to accommodate full register campaigns at 115200 baud
-    localparam time SIM_TIMEOUT = 400ms;
+    localparam time SIM_TIMEOUT = 5ms;  // Reduced from 10ms to 5ms for faster debug simulation
 
     // Ensure the RX line idles high until the driver starts toggling it
     initial begin
@@ -65,6 +67,9 @@ module uart_axi4_tb_top;
         .system_ready(system_ready)
         `endif    
     );
+
+    // Connect DUT AXI interface directly to UVM monitor - no signal copying needed
+    // UVM monitor will access dut.axi_internal directly via virtual interface
 
     // Bridge status interface wiring
     assign status_if.rst_n = rst_n;
@@ -108,12 +113,12 @@ module uart_axi4_tb_top;
         // Import the test package to ensure all classes are registered
         import uart_axi4_test_pkg::*;
         
-        // Set virtual interfaces in config database
-        uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
-            uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
-            uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
-            uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
-        // Note: AXIUART_Top uses internal AXI interface - no external AXI interface to set
+    // Set virtual interfaces in config database
+    uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
+    uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
+    uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
+    uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
+        // Phase 4.3: Set AXI monitoring interface for AXI transaction detection
         
         // Enable waveform dumping
         $dumpfile("uart_axi4_minimal_test.mxd");

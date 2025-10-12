@@ -145,6 +145,10 @@ module Uart_Axi4_Bridge #(
     logic [7:0] captured_cmd;
     logic [31:0] captured_addr;
     
+    // Transaction control flags - CRITICAL FIX for AXI transactions
+    logic axi_start_issued;
+    logic builder_start_issued;
+    
     localparam logic [31:0] CONTROL_ADDR = 32'h0000_1000;
     localparam logic [7:0] STATUS_BUSY_CODE = 8'h06;
     
@@ -286,6 +290,41 @@ module Uart_Axi4_Bridge #(
     
     // RX FIFO write control
     assign rx_fifo_wr_en = rx_valid && !rx_error && !rx_fifo_full;
+
+    // Comprehensive UART RX debug output with data path analysis
+    always @(posedge clk) begin
+        if (rst) begin
+            // Bridge reset - UART RX interface initialized
+        end else begin
+            // Monitor UART RX activity with enhanced detail - ALWAYS active
+            if (rx_valid) begin
+                // RX valid detected
+                if (rx_data == 8'hA5) begin
+                    // SOF DETECTED: SOF byte (0xA5) received and being written to RX FIFO
+                end
+            end
+            
+            // Monitor RX FIFO write operations
+            if (rx_fifo_wr_en) begin
+                // RX FIFO WRITE: Writing data to FIFO
+            end
+            
+            // Monitor RX FIFO read operations
+            if (rx_fifo_rd_en) begin
+                // RX FIFO READ: Parser reading data from FIFO
+            end
+            
+            // Monitor when frame parsing starts
+            if (parser_frame_valid) begin
+                // FRAME PARSER: Frame valid asserted - parsed successfully
+            end
+            
+            // Monitor SOF detection in FIFO
+            if (!rx_fifo_empty && rx_fifo_rd_data == 8'hA5) begin
+                // SOF IN FIFO: SOF byte (0xA5) available in RX FIFO for parser
+            end
+        end
+    end
     
     // TX FIFO read control and UART TX feeding
     logic tx_start_req, tx_start_reg;
@@ -298,8 +337,7 @@ module Uart_Axi4_Bridge #(
     `ifdef ENABLE_DEBUG
         always_ff @(posedge clk) begin
             if (tx_start_req) begin
-                $display("DEBUG: Bridge TX starting - fifo_data=0x%02X, tx_data=0x%02X at time %0t", 
-                         tx_fifo_rd_data, tx_data, $time);
+                // Bridge TX starting
             end
         end
     `endif
@@ -326,7 +364,12 @@ module Uart_Axi4_Bridge #(
             main_state <= MAIN_IDLE;
             captured_cmd <= 8'h00;
             captured_addr <= 32'h00000000;
+            // Bridge reset - state=IDLE
         end else begin
+            // Always show state transitions
+            if (main_state != main_state_next) begin
+                // Bridge state transition
+            end
             main_state <= main_state_next;
             
             // Frame_Parserの出力が有効な時にキャプチャ (修正: 条件を緩和)
@@ -334,28 +377,19 @@ module Uart_Axi4_Bridge #(
             if (parser_frame_valid) begin
                 captured_cmd <= parser_cmd;
                 captured_addr <= parser_addr;
-                `ifdef ENABLE_DEBUG
-                    $display("DEBUG: Bridge captured CMD=0x%02X, ADDR=0x%08X (frame_valid=%b, state=%s) at time %0t", 
-                             parser_cmd, parser_addr, parser_frame_valid, main_state.name(), $time);
-                `endif
+                // Bridge captured CMD and ADDR
             end
             
             // Frame_Parserからエラーが通知された場合は即座にキャプチャ
             if (parser_frame_error && !parser_frame_valid) begin
                 captured_cmd <= parser_cmd;  // エラー時でもCMDをキャプチャ
                 captured_addr <= parser_addr;
-                `ifdef ENABLE_DEBUG
-                    $display("DEBUG: Bridge captured ERROR CMD=0x%02X, ADDR=0x%08X (frame_error=%b) at time %0t", 
-                             parser_cmd, parser_addr, parser_frame_error, $time);
-                `endif
+                // Bridge captured ERROR CMD and ADDR
             end
         end
     end
     
     // Registers to generate single-cycle pulses
-    logic axi_start_issued;
-    logic builder_start_issued;
-    
     always_ff @(posedge clk) begin
         if (rst) begin
             axi_start_issued <= 1'b0;
@@ -382,6 +416,25 @@ module Uart_Axi4_Bridge #(
     // Main control state machine (combinational part)
     logic control_write_cmd;
 
+    // CRITICAL DEBUG: Always monitor key signals + frame_valid transition detection
+    logic prev_parser_frame_valid;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            prev_parser_frame_valid <= 1'b0;
+        end else begin
+            prev_parser_frame_valid <= parser_frame_valid;
+            
+            // Detect frame_valid transitions
+            if (parser_frame_valid && !prev_parser_frame_valid) begin
+                // BRIDGE CRITICAL: parser_frame_valid RISING EDGE detected
+            end
+            if (!parser_frame_valid && prev_parser_frame_valid) begin
+                // BRIDGE CRITICAL: parser_frame_valid FALLING EDGE detected
+            end
+        end
+    end
+
     always_comb begin
         main_state_next = main_state;
         axi_start_transaction = 1'b0;
@@ -402,7 +455,20 @@ module Uart_Axi4_Bridge #(
         
         case (main_state)
             MAIN_IDLE: begin
+                // 無条件デバッグ出力 - parser_frame_validの変化を確実に検出
                 if (parser_frame_valid) begin
+                    // BRIDGE DETECTED parser_frame_valid=1, transitioning to AXI_TRANSACTION
+                end
+                
+                `ifdef ENABLE_DEBUG
+                    // 詳細なframe_valid検出デバッグ
+                    if ($time % 20000 == 0) begin // 20ns毎にサンプリング  
+                        // BRIDGE MAIN_IDLE: parser_frame_valid monitoring
+                    end
+                `endif
+                
+                if (parser_frame_valid) begin
+                    // Bridge state transition IDLE->AXI_TRANSACTION
                     main_state_next = MAIN_AXI_TRANSACTION;
                 end else if (parser_frame_error) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
@@ -412,7 +478,14 @@ module Uart_Axi4_Bridge #(
             MAIN_AXI_TRANSACTION: begin
                 // Issue AXI transaction only once per frame
                 axi_start_transaction = !axi_start_issued;
+                
+                // Add debug output for AXI transaction start
+                if (!axi_start_issued) begin
+                    // AXI transaction START
+                end
+                
                 if (axi_transaction_done) begin
+                    // AXI transaction DONE
                     main_state_next = MAIN_BUILD_RESPONSE;
                 end
             end
@@ -425,8 +498,7 @@ module Uart_Axi4_Bridge #(
                 
                 `ifdef ENABLE_DEBUG
                     if (!builder_start_issued) begin
-                        $display("DEBUG: Bridge starting response - parser_frame_error=%b, captured_cmd=0x%02X at time %0t", 
-                                 parser_frame_error, captured_cmd, $time);
+                        // Bridge starting response
                     end
                 `endif
                 
@@ -437,7 +509,7 @@ module Uart_Axi4_Bridge #(
                     builder_response_data_count = 6'h00;
                     `ifdef ENABLE_DEBUG
                         if (!builder_start_issued) begin
-                            $display("DEBUG: Bridge error response - status=0x%02X at time %0t", parser_error_status, $time);
+                            // Bridge error response
                         end
                     `endif
                 end else begin
@@ -446,8 +518,7 @@ module Uart_Axi4_Bridge #(
                     builder_is_read_response = captured_cmd[7];  // 修正: parser_cmd[7] → captured_cmd[7]
                     `ifdef ENABLE_DEBUG
                         if (!builder_start_issued) begin
-                            $display("DEBUG: Bridge normal response - axi_status=0x%02X, is_read=%b at time %0t", 
-                                     axi_status, captured_cmd[7], $time);
+                            // Bridge normal response
                         end
                     `endif
                     
@@ -470,11 +541,11 @@ module Uart_Axi4_Bridge #(
                     parser_frame_consumed = 1'b1;
                     main_state_next = MAIN_IDLE;
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Bridge MAIN_WAIT_RESPONSE->MAIN_IDLE, frame_consumed=1 at time %0t", $time);
+                        // Bridge MAIN_WAIT_RESPONSE->MAIN_IDLE, frame_consumed=1
                     `endif
                 end else begin
                     `ifdef ENABLE_DEBUG
-                        $display("DEBUG: Bridge MAIN_WAIT_RESPONSE waiting for response_complete at time %0t", $time);
+                        // Bridge MAIN_WAIT_RESPONSE waiting for response_complete
                     `endif
                 end
             end

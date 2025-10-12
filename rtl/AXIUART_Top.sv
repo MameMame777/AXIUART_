@@ -58,6 +58,18 @@ module AXIUART_Top #(
     logic internal_rst;
     assign internal_rst = rst;
     
+    // Top-level UART signal monitoring for debugging - disabled for production
+    logic prev_uart_rx, prev_uart_tx;
+    always @(posedge clk) begin
+        if (rst) begin
+            prev_uart_rx <= 1'b1;
+            prev_uart_tx <= 1'b1;
+        end else begin
+            prev_uart_rx <= uart_rx;
+            prev_uart_tx <= uart_tx;
+        end
+    end
+    
     // UART-AXI4 Bridge instantiation
     Uart_Axi4_Bridge #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
