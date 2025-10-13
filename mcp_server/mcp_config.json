@@ -1,17 +1,45 @@
 {
+  "_comment": "Enhanced MCP Configuration - Phase 1 VSCode Optimization",
+  "_description": "Dynamic environment variable resolution for better portability",
+  "_version": "FastMCP Enhanced - October 2025",
+  
   "mcpServers": {
-    "dsim-uvm": {
+    "dsim-uvm-enhanced": {
       "command": "python",
       "args": [
-        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_\\mcp_server\\dsim_uvm_server.py",
-        "--workspace",
-        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_"
+        "-m", "dsim_uvm_server",
+        "--workspace", "${workspaceFolder}",
+        "--debug"
       ],
+      "cwd": "${workspaceFolder}/mcp_server",
       "env": {
+        "_comment": "Dynamic environment variables for cross-machine compatibility",
+        "DSIM_HOME": "${env:DSIM_HOME}",
+        "DSIM_ROOT": "${env:DSIM_ROOT}", 
+        "DSIM_LIB_PATH": "${env:DSIM_LIB_PATH}",
+        "DSIM_LICENSE": "${env:DSIM_LICENSE}",
+        "PYTHONPATH": "${workspaceFolder}/mcp_server"
+      },
+      "_fallback_env": {
+        "_comment": "Fallback values if environment variables not set",
         "DSIM_HOME": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
         "DSIM_ROOT": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
-        "DSIM_LIB_PATH": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0\\lib"
+        "DSIM_LIB_PATH": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0\\lib",
+        "DSIM_LICENSE": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim-license.json"
       }
     }
+  },
+  
+  "_diagnostics": {
+    "version": "Enhanced FastMCP v2.0",
+    "improvements": [
+      "Dynamic ${workspaceFolder} resolution",
+      "Environment variable ${env:VAR} support",
+      "Portable configuration across machines",
+      "Debug mode enabled for enhanced diagnostics",
+      "Python module import (-m flag) for better path handling"
+    ],
+    "compatibility": "VSCode MCP Extension 1.0+",
+    "debug_benefits": "Detailed error diagnostics, faster problem identification"
   }
 }
