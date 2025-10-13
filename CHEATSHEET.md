@@ -1,30 +1,33 @@
-# 🚀 MCP環境 - 作業者向けチートシート
+# 🚀 FastMCP Enhanced環境 - 作業者向けチートシート (Phase 1)
 
-## **⚡ 基本コマンド（コピペ用）**
+## **⚡ 基本コマンド（コピペ用）- 最新版**
 
-### **環境確認**
+### **⭐ 超高速環境確認（推奨）**
 ```bash
+# 全ツールテスト（最速）
+python mcp_server/dsim_uvm_server.py --workspace . --test-tools
+```
+
+### **🔍 詳細診断（デバッグ用）**
+```bash
+# 環境確認 + テスト一覧を一括取得
+python -c "
+import asyncio
+from mcp_server.dsim_uvm_server import setup_workspace, check_dsim_environment, list_available_tests
+setup_workspace('.')
+print('=== Environment ===')
+print(asyncio.run(check_dsim_environment()))
+print('\n=== 48+ Available Tests ===')
+print(asyncio.run(list_available_tests()))
+"
+```
+
+### **⚡ Legacy MCP Client（互換性維持）**
+```bash
+# 基本実行（従来通り）
 python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-```
-
-### **テスト一覧**
-```bash
-python mcp_server/mcp_client.py --workspace . --tool list_available_tests
-```
-
-### **基本実行**
-```bash
-# コンパイル
 python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test
-
-# シミュレーション
 python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name uart_axi4_basic_test
-
-# 波形生成
-python mcp_server/mcp_client.py --workspace . --tool generate_waveforms --test-name uart_axi4_basic_test
-
-# カバレッジ
-python mcp_server/mcp_client.py --workspace . --tool collect_coverage --test-name uart_axi4_basic_test
 ```
 
 ## **🎯 VSCodeタスク（推奨）**

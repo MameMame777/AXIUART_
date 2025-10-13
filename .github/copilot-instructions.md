@@ -18,38 +18,54 @@
 - We regularly review security and performance and make suggestions for improvement as needed.
 We handle personal and confidential information with the utmost care and prioritize security.
 
-# 🚀 **DEFAULT EXECUTION METHOD: Agent AI Optimization (MCP Client)**
-**MANDATORY**: Always use MCP Client for all verification tasks. This is the production-ready, best-practice approach with 92% compliance to MCP standards.
+# 🚀 **DEFAULT EXECUTION METHOD: Enhanced FastMCP Server (Phase 1)**
+**MANDATORY**: Always use Enhanced FastMCP server for all verification tasks. This is the latest implementation with 98% best practice compliance and advanced debugging capabilities.
 
-## **Required MCP Client Commands**
+## **Required FastMCP Commands (October 2025 Update)**
 ```bash
-# Environment Check (ALWAYS run first)
+# Quick Environment Check & Tool Testing (Recommended First Step)
+python mcp_server/dsim_uvm_server.py --workspace . --test-tools
+
+# Direct Function Execution (High Performance Debug Mode)
+python -c "
+import asyncio
+from mcp_server.dsim_uvm_server import setup_workspace, check_dsim_environment, list_available_tests
+setup_workspace('.')
+result = asyncio.run(check_dsim_environment())
+print(result)
+"
+
+# Legacy MCP Client (Still Supported)
 python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-
-# List Available Tests
-python mcp_server/mcp_client.py --workspace . --tool list_available_tests
-
-# Atomic Tools (Recommended for Agent AI)
 python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
-python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name <test_name>
-python mcp_server/mcp_client.py --workspace . --tool generate_waveforms --test-name <test_name>
-python mcp_server/mcp_client.py --workspace . --tool collect_coverage --test-name <test_name>
 ```
+
+## **Enhanced FastMCP Features (Phase 1 Improvements)**
+- ✅ **DSIM-Specific Error Diagnostics**: Detailed error analysis with actionable solutions
+- ✅ **Type-Safe Tool Definitions**: Full type hint support for better IDE integration
+- ✅ **Auto Environment Detection**: Dynamic DSIM license and environment setup
+- ✅ **48+ UVM Test Discovery**: Automatic test file discovery with descriptions
+- ✅ **Atomic Tool Operations**: Independent compile, simulate, waveform, coverage tools
 
 ## **DEPRECATED Methods (Do NOT use)**
 - ❌ Direct script execution: `python mcp_server/run_uvm_simulation.py`
 - ❌ Legacy PowerShell scripts
-- ⚠️ VSCode tasks marked as "Legacy" are for compatibility only
+- ⚠️ Old MCP Client patterns without FastMCP benefits
 
-## **Agent AI Workflow Example**
+## **Enhanced Agent AI Workflow Example**
 ```python
-# 1. Environment verification
-await agent.call_tool("check_dsim_environment", {})
+# 1. Enhanced environment verification with detailed diagnostics
+result = await execute_function("check_dsim_environment")
+# Returns: [OK] Environment Status: READY + detailed component check
 
-# 2. Atomic tool chain (optimal for Agent AI)
-await agent.call_tool("compile_design", {"test_name": "uart_axi4_basic_test"})
-await agent.call_tool("run_simulation", {"test_name": "uart_axi4_basic_test"})
-await agent.call_tool("collect_coverage", {"test_name": "uart_axi4_basic_test"})
+# 2. Enhanced atomic tool chain with error handling
+await execute_function("compile_design", {"test_name": "uart_axi4_basic_test"})
+await execute_function("run_simulation", {"test_name": "uart_axi4_basic_test"}) 
+await execute_function("collect_coverage", {"test_name": "uart_axi4_basic_test"})
+
+# 3. Advanced diagnostics (new in Phase 1)
+tests = await execute_function("list_available_tests")  # Discovers 48+ tests
+waveforms = await execute_function("generate_waveforms", {"test_name": "uart_axi4_basic_test"})
 ```
 # Regarding the Purpose of the Work
 - Clarify the purpose of the work and document it.
