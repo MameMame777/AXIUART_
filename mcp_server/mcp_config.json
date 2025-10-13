@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "dsim-uvm": {
+      "command": "python",
+      "args": [
+        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_\\mcp_server\\dsim_uvm_server.py",
+        "--workspace",
+        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_"
+      ],
+      "env": {
+        "DSIM_HOME": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
+        "DSIM_ROOT": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
+        "DSIM_LIB_PATH": "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0\\lib"
+      }
+    }
+  }
+}

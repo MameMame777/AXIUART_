@@ -56,8 +56,25 @@ interfaces/bridge_status_if.sv
 packages/uart_axi4_test_pkg.sv
 packages/axiuart_cov_pkg.sv
 
+# Phase 4.3 Transaction and Base Classes - Core UVM components
+agents/uart/uart_transaction.sv
+sequences/uart_base_sequence.sv
+
+# Phase 4.1.3 Sequence Files - Protocol verification sequences
+sequences/uart_base_sequence.sv
+sequences/uart_axi4_write_protocol_sequence.sv
+sequences/uart_axi4_error_protocol_sequence.sv
+sequences/uart_axi4_bridge_control_sequence.sv
+
 # Critical test files - required for UVM test registry
+tests/uart_axi4_base_test.sv
+tests/enhanced_uart_axi4_base_test.sv
 tests/uart_basic_test.sv
+
+# Phase 4.1.1 Protocol Test Files - AXI4 verification suite
+tests/uart_axi4_write_protocol_test.sv
+tests/uart_axi4_error_protocol_test.sv
+tests/uart_axi4_bridge_control_test.sv
 
 # Testbench top
 tb/uart_axi4_tb_top.sv

@@ -15,6 +15,8 @@ class uart_axi4_env_config extends uvm_object;
     bit enable_correlation = 1'b1;         // Phase 3: Enable correlation engine
     bit enable_protocol_checking = 1'b1;
     bit enable_axi_monitor = 1'b1;
+    bit enable_error_injection = 1'b0;     // Phase 4: Error injection testing
+    bit enable_bridge_control_testing = 1'b0; // Phase 4: Bridge control testing
     
     // Agent configurations - Modified for AXIUART_Top
     bit uart_agent_is_active = 1'b1;
@@ -54,6 +56,8 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(enable_correlation, UVM_ALL_ON)      // Phase 3: Correlation Engine
         `uvm_field_int(enable_protocol_checking, UVM_ALL_ON)
         `uvm_field_int(enable_axi_monitor, UVM_ALL_ON)
+        `uvm_field_int(enable_error_injection, UVM_ALL_ON)       // Phase 4: Error injection
+        `uvm_field_int(enable_bridge_control_testing, UVM_ALL_ON) // Phase 4: Bridge control
         `uvm_field_int(uart_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(axi_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(enable_system_status_monitoring, UVM_ALL_ON)

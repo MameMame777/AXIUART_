@@ -2,7 +2,40 @@
 
 ## Overview
 
-AXIUART is a complete SystemVerilog implementation of a UART to AXI4-Lite bridge system that enables communication between UART interfaces and internal AXI4-Lite register blocks. This project provides a comprehensive RTL implementation with integrated system-level verification using UVM.
+AXIUART is a complete SystemVerilog implementation of a UART to AXI4-Lite bridge system that enables communication between UART interfaces and internal AXI4-Lite register blocks. This project provides a comprehensive RTL implementation with integrated system-level verification using UVM and Model Context Protocol (MCP) server integration.
+
+## 🚀 New: Model Context Protocol (MCP) Server
+
+This project now includes a **Model Context Protocol (MCP) server** for DSIM UVM simulation execution, providing standardized tool integration for enhanced development workflow.
+
+### MCP Server Features
+- **Standardized Interface**: Uses Model Context Protocol for consistent tool integration
+- **DSIM Integration**: Direct execution of SystemVerilog UVM simulations
+- **Environment Management**: Automated DSIM environment validation
+- **Coverage Analysis**: Integrated coverage report generation
+- **Cross-Platform**: Python-based server works across different platforms
+
+### Quick Start with MCP Server
+
+#### 1. Setup MCP Server
+```powershell
+cd mcp_server
+python setup.py
+```
+
+#### 2. Start MCP Server
+```powershell
+python dsim_uvm_server.py --workspace .
+```
+
+#### 3. Available MCP Tools
+- `run_uvm_simulation` - Execute DSIM simulations
+- `check_dsim_environment` - Verify DSIM setup  
+- `list_available_tests` - Discover UVM tests
+- `get_simulation_logs` - Retrieve simulation results
+- `generate_coverage_report` - Create coverage analysis
+
+See [`mcp_server/README.md`](mcp_server/README.md) for detailed documentation.
 
 ## Project Structure
 
@@ -23,6 +56,12 @@ AXIUART_/
 │   └── interfaces/          # SystemVerilog interfaces
 │       ├── uart_if.sv       # UART interface
 │       └── axi4_lite_if.sv  # AXI4-Lite interface
+├── mcp_server/              # Model Context Protocol server (NEW)
+│   ├── dsim_uvm_server.py   # MCP server implementation
+│   ├── setup.py             # MCP environment setup
+│   ├── requirements.txt     # Python dependencies
+│   ├── mcp_config.json      # MCP client configuration
+│   └── README.md            # MCP server documentation
 ├── sim/                     # Simulation environment
 │   └── uvm/                # UVM system-level testbench
 │       ├── tb/             # Testbench top-level
@@ -167,6 +206,92 @@ uart_axi4_tb_top (Testbench Top)
 | register_access_test | Register read/write via UART | 🔄 In Development |
 | error_handling_test | Error injection and recovery | 🔄 In Development |
 
+## Model Context Protocol (MCP) Server Integration
+
+### 🎯 True Model Context Protocol Environment
+
+This project now provides **two simulation approaches**:
+
+1. **🚀 Model Context Protocol (MCP) Server** ← **RECOMMENDED for new workflows**
+2. **⚙️ Legacy Workspace MCP-UVM Environment** (PowerShell-based)
+
+#### 🌟 New: True MCP Server (Standard-Compliant)
+
+The **Model Context Protocol (MCP) server** provides standardized, cross-platform simulation execution that follows official MCP specifications.
+
+##### Quick Start with MCP Server
+
+```powershell
+# Setup MCP server environment
+cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
+python setup.py
+
+# Start MCP server
+python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
+```
+
+##### Available MCP Tools
+
+| Tool Name | Function | Example Usage |
+|-----------|----------|---------------|
+| `run_uvm_simulation` | Execute DSIM simulations | Test execution with full parameter control |
+| `check_dsim_environment` | Verify DSIM setup | Environment validation and diagnostics |
+| `list_available_tests` | Discover UVM tests | Automatic test class detection |
+| `get_simulation_logs` | Retrieve results | Log analysis and error reporting |
+| `generate_coverage_report` | Create coverage | HTML/XML coverage analysis |
+
+##### MCP Server Benefits
+- ✅ **Standard Protocol**: Official Model Context Protocol compliance
+- ✅ **Cross-Platform**: Python-based, works across environments
+- ✅ **Tool Integration**: Compatible with any MCP client
+- ✅ **Automated Setup**: One-command environment preparation
+- ✅ **Verified Execution**: Confirmed working with `uart_axi4_basic_test`
+
+See detailed documentation: [`mcp_server/README.md`](mcp_server/README.md)
+
+#### 🔧 Legacy: Workspace MCP-UVM Environment (PowerShell)
+
+For users preferring the PowerShell-based approach, the workspace-specific environment remains available.
+
+##### Safety Features
+- **No System-Wide Changes**: PowerShell profiles and registry remain untouched
+- **Session-Only**: Functions exist only in current PowerShell session  
+- **Workspace-Isolated**: Only affects this project directory
+- **Fully Reversible**: Close PowerShell to reset everything
+
+##### Legacy Setup
+
+```powershell
+# Navigate to workspace root
+cd e:\Nautilus\workspace\fpgawork\AXIUART_
+
+# Initialize workspace-specific environment (safe)
+.\workspace_init.ps1
+```
+
+##### Legacy Commands Available After Setup
+
+```powershell
+# Environment Verification
+Test-WorkspaceMCPUVM       # Check function availability
+Show-WorkspaceHelp         # Show available commands
+
+# Legacy UVM Simulation
+Invoke-MCPUVMTest          # Run UVM tests (PowerShell-based)
+Invoke-MCPUVMQuickTest     # Fast test execution
+Invoke-MCPUVMCompileOnly   # Compile-only verification
+```
+
+#### 🎯 Which Approach to Use?
+
+| Use Case | Recommended Approach |
+|----------|---------------------|
+| **New Development** | 🚀 **MCP Server** (standard-compliant) |
+| **Integration with Tools** | 🚀 **MCP Server** (universal compatibility) |
+| **Cross-Platform Work** | 🚀 **MCP Server** (Python-based) |
+| **Existing PowerShell Workflows** | ⚙️ Legacy Workspace Environment |
+| **Quick Testing** | Either approach works |
+
 ## Quick Start
 
 ### Prerequisites
@@ -178,6 +303,19 @@ uart_axi4_tb_top (Testbench Top)
 
 ### Environment Setup
 
+#### Option 1: Model Context Protocol (MCP) Server (Recommended)
+
+```powershell
+# Setup MCP server dependencies
+cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
+python setup.py
+
+# Start MCP server
+python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
+```
+
+#### Option 2: Legacy PowerShell Environment
+
 1. Set required environment variables:
 
    ```powershell
@@ -187,25 +325,64 @@ uart_axi4_tb_top (Testbench Top)
    # Optional: $env:DSIM_LICENSE = "path\to\license"
    ```
 
-2. Navigate to simulation directory:
+2. Initialize workspace environment:
 
    ```powershell
-   cd sim/uvm
+   cd e:\Nautilus\workspace\fpgawork\AXIUART_
+   .\workspace_init.ps1
    ```
 
-3. Run system-level tests:
+3. Navigate to simulation directory:
 
    ```powershell
-   # Basic system test
-   .\run_uvm.ps1 -TestName axiuart_system_test -Verbosity UVM_MEDIUM
-   
-   # With coverage and waveforms
-   .\run_uvm.ps1 -TestName axiuart_system_test -Coverage $true -Waves $true
+   Set-UVMWorkingDirectory  # or cd sim/uvm
    ```
+
+### Test Execution
+
+#### Using MCP Server (Recommended)
+
+Run simulations through the Model Context Protocol server:
+
+```python
+# MCP tool: run_uvm_simulation
+{
+  "test_name": "uart_axi4_basic_test",
+  "mode": "run",
+  "verbosity": "UVM_MEDIUM",
+  "waves": true,
+  "coverage": true,
+  "seed": 1
+}
+```
+
+#### Using Legacy PowerShell Environment
+
+```powershell
+# Basic test execution
+Invoke-MCPUVMTest -TestName "uart_axi4_basic_test"
+
+# With specific options
+Invoke-MCPUVMTest -TestName "uart_axi4_write_protocol_test" -Waves on -Coverage on
+```
 
 ### Test Execution Results
 
-Expected successful output:
+Expected successful output from MCP Server:
+```
+🚀 DSIM UVM Simulation Results
+==================================================
+📊 Execution Status: ✅ SUCCESS
+📁 Log File: uart_axi4_basic_test_20251013_130221.log
+🔢 Exit Code: 0
+
+📝 Simulation Output:
+--------------------------------------------------
+UVM_ERROR: 0
+TEST PASSED
+```
+
+Expected successful output from Legacy PowerShell:
 ```
 === AXIUART_Top System Test Started ===
 System Status: Ready=1, Busy=0, Error=00000000
