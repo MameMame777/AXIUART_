@@ -1,30 +1,48 @@
 # UART AXI4 Bridge SystemVerilog UVM Verification Project
 
-## 🚀 Primary Simulation Method: Model Context Protocol (MCP) Server
+## 🚀 MCP-Based Verification Environment (October 2025)
 
-This project uses a **true Model Context Protocol (MCP) server** for all UVM simulation tasks, providing standard-compliant tool integration and automated verification workflows.
+This project features a **production-ready Model Context Protocol (MCP) server** for automated DSIM UVM simulation and debugging workflows.
 
-### Quick Start with MCP Server
+### ✅ Verified Working Environment
 
-1. **Start MCP Server**:
+**VSCode Integration**: 
+- Auto-starts MCP server on workspace open
+- Environment variables pre-configured
+- All tasks use PowerShell-safe Python scripts
+
+**Current Status (Confirmed Working)**:
+- ✅ DSIM Environment: Fully operational
+- ✅ MCP Server: Auto-start on VSCode open
+- ✅ UVM Tests: 42+ test files available
+- ✅ Basic Tests: `uart_axi4_basic_test`, `uart_axi4_base_test` verified
+- ✅ Waveform Generation: MXD format supported
+- ✅ Coverage Collection: Metrics gathering functional
+
+### 🎯 Primary Debugging Method
+
+**VSCode Tasks (Recommended)**:
+1. `DSIM: Check Environment` - Verify setup
+2. `DSIM: List Available Tests` - Browse test catalog  
+3. `DSIM: Run Basic Test (Compile Only)` - Quick syntax check
+4. `DSIM: Run Basic Test (Full Simulation)` - Complete execution
+5. `DSIM: Run Test with Waveforms` - Debug with waveforms
+
+**Direct MCP Usage**:
 ```powershell
-cd e:\Nautilus\workspace\fpgawork\AXIUART_
+# Start MCP server (auto-starts in VSCode)
 python mcp_server/dsim_uvm_server.py --workspace .
+
+# Run specific tests
+python mcp_server/run_uvm_simulation.py --test_name uart_axi4_basic_test --mode run --verbosity UVM_MEDIUM
 ```
 
-2. **Use MCP Tools** (via any MCP client):
-- `run_uvm_simulation`: Execute UVM tests with comprehensive options
-- `check_dsim_environment`: Verify DSIM setup and environment
-- `list_available_tests`: Show all available test cases
-- `get_simulation_logs`: Retrieve detailed simulation results
-- `generate_coverage_report`: Create coverage analysis reports
-
-### MCP Server Benefits
-- **Standards Compliant**: Official Model Context Protocol implementation
-- **Cross-Platform**: Python-based, works everywhere
-- **Tool Integration**: Compatible with any MCP client
-- **Automated Workflows**: Streamlined simulation and analysis
-- **Comprehensive Logging**: Detailed results and debugging info
+### MCP Server Features (Production Ready)
+- **Auto-Configuration**: DSIM environment auto-detection
+- **Test Discovery**: Automatic UVM test scanning
+- **Logging**: Comprehensive simulation logs with timestamps
+- **Error Handling**: Robust timeout and error management
+- **Waveform Support**: Integrated MXD generation
 
 ## 📋 Project Overview
 
