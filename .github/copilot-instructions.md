@@ -215,3 +215,189 @@ Get-MCPUVMStatus
 - Maintain the directory structure.
 - references/ - Store reference materials and refer to them as needed.
 - `rtl/` - RTL source
+
+# UVM Verification Quality Assurance Work Instructions
+
+## Current Project Status (Phase 4 Ready)
+- **Environment**: DSIM v20240422.0.0 · SystemVerilog UVM 1.2 · Windows PowerShell
+- **Quality Standard**: Real hardware operation guarantee level, UVM_ERROR complete zero, comprehensive verification
+- **Current Situation**: Phase 3 Scoreboard integration completed, Phase 4 quality assurance ready to start
+
+## Quality Level Definition
+| Level | Definition | Requirements | Current AXIUART Status |
+|-------|------------|--------------|------------------------|
+| **Level 0** | Compilable | No syntax errors | ✓ Achieved |
+| **Level 1** | Basic operation | UVM_ERROR = 0 | ✓ Achieved |
+| **Level 2** | Functional verification | Scoreboard normal operation | ✓ Basic operation achieved |
+| **Level 3** | Comprehensive verification | Error injection test pass | ⚠️ Implement in Phase 4 |
+| **Level 4** | Real hardware guarantee | Physical signal level verification | ⚠️ Implement in Phase 4 |
+| **Level 5** | Product quality | Mass production level reliability | ❌ Not implemented |
+
+**Current Target**: Level 2 → Level 4 quality improvement
+
+## Phase 4 Execution Plan - Zero Tolerance Verification Implementation
+
+### 🚨 Absolute Quality Assurance Principles
+**Complete elimination of false positive and miss risks as the highest priority, strictly applying the following principles:**
+
+1. **Triple Verification Principle**:
+   - All verification results must be confirmed by 3 independent methods
+   - If any discrepancy exists, stop work until complete cause clarification
+   - Speculation and expectation-based judgments are completely prohibited
+
+2. **Negative Proof Mandatory**:
+   - Prove corresponding "failure" detection capability before all "success" judgments
+   - Pre-confirm verification environment sensitivity with error injection tests
+   - Fix verification environment if even one undetectable error exists
+
+3. **Zero Tolerance Policy**:
+   - Never accept gray zones or unclear results
+   - Do not make PASS judgments without 100% confidence
+   - Pursue complete root cause clarification for any questionable results
+
+### Phase 4.1: Complete Quality Diagnosis - False Positive Elimination (3-4 days)
+
+#### 🎯 Target
+Completely identify false positive and miss risks in current verification environment and establish elimination plan
+
+#### ✅ Execution Tasks (Zero Tolerance Version)
+
+**Step 4.1.1: Verification Environment Self-Verification**
+
+```powershell
+# Step 1: Independent verification of scoreboard judgment logic
+Invoke-MCPUVMTest -TestName "scoreboard_self_verification_test" -Verbosity UVM_HIGH
+
+# Step 2: Verification environment sensitivity confirmation with known failure patterns
+Invoke-MCPUVMTest -TestName "known_failure_injection_test" -Verbosity UVM_HIGH
+
+# Step 3: External confirmation of coverage measurement accuracy
+Invoke-MCPUVMTest -TestName "coverage_validation_test" -Mode "compile"
+```
+
+**Mandatory Confirmation Items**:
+- [ ] Complete confirmation of scoreboard "PERFECT" judgment evidence data
+- [ ] Complete clarification of logical contradiction of PERFECT reporting with 0 matches
+- [ ] Operation verification of coverage measurement tool itself
+- [ ] Complete match confirmation between UVM reports and waveform analysis results
+
+**Step 4.1.2: Negative Proof Test Implementation**
+
+**Step 4.1.3: Triple Verification System Construction**
+
+### Phase 4.2: Complete Coverage - Miss Elimination (4-5 days)
+
+#### 🎯 Target
+Achieve 100% coverage to completely eliminate miss risks
+
+#### ✅ Execution Tasks (Complete Coverage Version)
+
+**Step 4.2.1: Force All Code Path Execution**
+
+**Step 4.2.2: Zero Unverified Path Achievement**
+
+- Force execution of all state transitions
+- Force execution of all conditional branches
+- Force execution of all exception handling paths
+- Force execution of all timing patterns
+
+### Phase 4.3: Complete Error Injection - Detection Capability Proof (4-5 days)
+
+#### 🎯 Target
+Prove 100% detection capability for all error modes
+
+#### ✅ Execution Tasks (Complete Error Injection Version)
+
+**Step 4.3.1: Systematic Error Injection Framework**
+
+### Phase 4.4: Real Hardware Level Complete Verification (5-6 days)
+
+#### 🎯 Target
+Confirm 100% match with real hardware operation
+
+### Phase 4.5: Final Completeness Confirmation (3-4 days)
+
+#### 🎯 Target
+Final confirmation of all Phase 4 achievements completeness
+
+## Systematic Problem Identification and Solution Implementation
+
+### Current Problem Analysis
+Based on the UVM verification quality assurance instructions, identify the following critical issues:
+
+1. **Coverage Insufficiency**: Frame 1.39%, Overall 17.13% (Target 80% not achieved)
+2. **Error Case Verification**: Systematic error injection tests not implemented
+3. **Real Hardware Level Verification**: Waveform automatic analysis, timing verification not implemented
+4. **Scoreboard Extension**: Detailed correlation analysis, end-to-end verification incomplete
+
+### Solution Implementation Strategy
+
+#### Problem 1: Coverage Improvement
+**MANDATORY Actions**:
+- [ ] Implement forced execution of all frame variations (4096 patterns)
+- [ ] Implement forced access to all address spaces
+- [ ] Implement forced generation of all error modes
+- [ ] Implement forced testing of all boundary conditions
+
+#### Problem 2: Error Detection Capability
+**MANDATORY Actions**:
+- [ ] Implement CRC error injection and detection verification
+- [ ] Implement alignment error injection and detection verification
+- [ ] Implement timeout error injection and detection verification
+- [ ] Implement protocol violation error injection and detection verification
+
+#### Problem 3: Real Hardware Guarantee
+**MANDATORY Actions**:
+- [ ] Implement automatic waveform analysis tools
+- [ ] Implement timing verification automation
+- [ ] Implement setup/hold time verification
+- [ ] Implement signal quality automatic evaluation
+
+### Quality Gate System
+
+#### Level 3 Gate: Error Injection Test
+- [ ] **Condition 3-1**: Reliable detection when CRC error injected
+- [ ] **Condition 3-2**: Reliable detection of alignment errors
+- [ ] **Condition 3-3**: Reliable detection of timeout conditions
+- [ ] **Condition 3-4**: Complete pass of boundary value tests
+
+#### Level 4 Gate: Real Hardware Operation Guarantee
+- [ ] **Condition 4-1**: Signal verification at waveform level
+- [ ] **Condition 4-2**: Setup/hold time confirmation
+- [ ] **Condition 4-3**: Power noise tolerance confirmation
+- [ ] **Condition 4-4**: Operation guarantee under temperature variation
+
+## Execution Schedule and Success Criteria
+
+| Sub-Phase | Duration | Main Deliverables | Quality Gate |
+|-----------|----------|-------------------|--------------|
+| **Phase 4.1** | 3-4 days | Detailed diagnosis report | Complete current status understanding |
+| **Phase 4.2** | 4-5 days | 80% coverage achievement | Comprehensive test implementation |
+| **Phase 4.3** | 4-5 days | Error injection tests | Negative proof completion |
+| **Phase 4.4** | 5-6 days | Real hardware level verification | Waveform analysis automation |
+| **Phase 4.5** | 3-4 days | Integrated verification completion | Level 4 quality achievement |
+
+**Total Duration**: 19-24 days (approximately 4 weeks)
+
+## MCP Function Integration for Quality Assurance
+
+### Required MCP Commands for Phase 4
+```powershell
+# Quality diagnosis execution
+Invoke-MCPUVMTest -TestName "quality_diagnosis_test" -Verbosity UVM_HIGH -Coverage "on"
+
+# Coverage improvement verification
+Invoke-MCPUVMTest -TestName "coverage_improvement_test" -Verbosity UVM_MEDIUM
+
+# Error injection test execution
+Invoke-MCPUVMTest -TestName "error_injection_test" -Verbosity UVM_HIGH -Waves "on"
+
+# Status monitoring during quality assurance
+Get-MCPUVMStatus
+```
+
+### Verification Environment Requirements
+- **ALWAYS use MCP functions**: Never use direct DSIM commands for quality assurance work
+- **Triple verification mandatory**: Use UVM reports + waveform analysis + assertion results
+- **Complete documentation**: Document all verification steps and results
+- **Zero tolerance for ambiguity**: Clarify all unclear results completely
