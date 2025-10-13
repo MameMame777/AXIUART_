@@ -12,7 +12,7 @@ from pathlib import Path
 
 def install_mcp_package():
     """Install MCP package using pip"""
-    print("🔧 Installing MCP package...")
+    print("[INFO] Installing MCP package...")
     
     try:
         # Try installing MCP package
@@ -20,16 +20,16 @@ def install_mcp_package():
             sys.executable, "-m", "pip", "install", "mcp"
         ], capture_output=True, text=True, check=True)
         
-        print("✅ MCP package installed successfully")
+        print("[OK] MCP package installed successfully")
         return True
         
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install MCP package: {e}")
+        print(f"[FAIL] Failed to install MCP package: {e}")
         print(f"STDOUT: {e.stdout}")
         print(f"STDERR: {e.stderr}")
         
         # Try alternative installation methods
-        print("🔄 Trying alternative installation...")
+        print("[INFO] Trying alternative installation...")
         
         try:
             # Try installing from PyPI with specific version
@@ -37,21 +37,21 @@ def install_mcp_package():
                 sys.executable, "-m", "pip", "install", "model-context-protocol"
             ], capture_output=True, text=True, check=True)
             
-            print("✅ Alternative MCP package installed")
+            print("[OK] Alternative MCP package installed")
             return True
             
         except subprocess.CalledProcessError as e2:
-            print(f"❌ Alternative installation also failed: {e2}")
+            print(f"[FAIL] Alternative installation also failed: {e2}")
             return False
 
 def install_requirements():
     """Install requirements from requirements.txt"""
-    print("📦 Installing requirements...")
+    print("[INFO] Installing requirements...")
     
     requirements_file = Path(__file__).parent / "requirements.txt"
     
     if not requirements_file.exists():
-        print("❌ requirements.txt not found")
+        print("[FAIL] requirements.txt not found")
         return False
     
     try:
@@ -59,37 +59,80 @@ def install_requirements():
             sys.executable, "-m", "pip", "install", "-r", str(requirements_file)
         ], capture_output=True, text=True, check=True)
         
-        print("✅ Requirements installed successfully")
+        print("[OK] Requirements installed successfully")
         return True
         
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to install requirements: {e}")
+        print(f"[FAIL] Failed to install requirements: {e}")
         print(f"STDERR: {e.stderr}")
         return False
 
 def verify_dsim_environment():
     """Verify DSIM environment variables"""
-    print("🔍 Verifying DSIM environment...")
+    print("[INFO] Verifying DSIM environment...")
     
     dsim_home = os.environ.get('DSIM_HOME')
     
     if not dsim_home:
-        print("⚠️  DSIM_HOME not set in environment")
+        print("[WARN] DSIM_HOME not set in environment")
         print("   Please set DSIM_HOME to your DSIM installation directory")
         return False
         
     dsim_path = Path(dsim_home)
     if not dsim_path.exists():
-        print(f"❌ DSIM_HOME path does not exist: {dsim_home}")
+        print(f"[FAIL] DSIM_HOME path does not exist: {dsim_home}")
         return False
         
     dsim_exe = dsim_path / "bin" / "dsim.exe"
     if not dsim_exe.exists():
-        print(f"❌ DSIM executable not found: {dsim_exe}")
+        print(f"[FAIL] DSIM executable not found: {dsim_exe}")
         return False
         
-    print(f"✅ DSIM environment verified: {dsim_home}")
+    print(f"[OK] DSIM environment verified: {dsim_home}")
     return True
+
+def setup_dsim_license():
+    """Automatically setup DSIM_LICENSE environment variable if not set"""
+    print("[INFO] Checking DSIM license configuration...")
+    
+    if os.environ.get('DSIM_LICENSE'):
+        print(f"[OK] DSIM_LICENSE already set: {os.environ['DSIM_LICENSE']}")
+        return True
+    
+    # Check common license locations
+    dsim_home = os.environ.get('DSIM_HOME')
+    if not dsim_home:
+        print("[WARN] DSIM_HOME not set, cannot auto-configure license")
+        return False
+        
+    license_locations = [
+        Path(dsim_home).parent / "dsim-license.json",
+        Path(dsim_home) / "dsim-license.json",
+        Path("C:/Users/Nautilus/AppData/Local/metrics-ca/dsim-license.json")
+    ]
+    
+    for license_path in license_locations:
+        if license_path.exists():
+            os.environ['DSIM_LICENSE'] = str(license_path)
+            print(f"[OK] Auto-configured DSIM_LICENSE: {license_path}")
+            
+            # Try to make it persistent for current session
+            try:
+                # Write to a temporary env file that can be sourced
+                env_file = Path(__file__).parent / "dsim_env_setup.bat"
+                with open(env_file, 'w') as f:
+                    f.write(f"@echo off\n")
+                    f.write(f"set DSIM_LICENSE={license_path}\n")
+                    f.write(f"echo DSIM_LICENSE set to: {license_path}\n")
+                print(f"[INFO] Environment setup script created: {env_file}")
+            except Exception as e:
+                print(f"[WARN] Could not create environment setup script: {e}")
+            
+            return True
+    
+    print("[WARN] No DSIM license file found in common locations")
+    print("   You may need to set DSIM_LICENSE manually")
+    return False
 
 def create_launcher_script():
     """Create a launcher script for the MCP server"""
@@ -138,42 +181,55 @@ pause
 
 def test_mcp_server():
     """Test MCP server functionality"""
-    print("🧪 Testing MCP server...")
+    print("[INFO] Testing MCP server...")
     
     server_file = Path(__file__).parent / "dsim_uvm_server.py"
     
     if not server_file.exists():
-        print("❌ MCP server file not found")
+        print("[FAIL] MCP server file not found")
         return False
     
     try:
-        # Try importing the server module
+        # Try importing the server module with ASCII-safe output
+        test_code = '''
+import sys
+import os
+sys.path.append(r'{}')
+# Set environment to prevent Unicode issues
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+try:
+    from dsim_uvm_server import DSIMSimulationServer
+    print("[OK] MCP server module loaded successfully")
+except Exception as e:
+    print("[FAIL] Failed to load MCP server: " + str(e))
+    sys.exit(1)
+'''.format(str(server_file.parent))
+        
         result = subprocess.run([
-            sys.executable, "-c", 
-            "import sys; sys.path.append(r'{}'); from dsim_uvm_server import DSIMSimulationServer; print('✅ MCP server module loaded successfully')".format(str(server_file.parent))
-        ], capture_output=True, text=True, timeout=10)
+            sys.executable, "-c", test_code
+        ], capture_output=True, text=True, timeout=10, env=dict(os.environ, PYTHONIOENCODING='utf-8'))
         
         if result.returncode == 0:
-            print("✅ MCP server module test passed")
+            print("[OK] MCP server module test passed")
             return True
         else:
-            print(f"❌ MCP server module test failed: {result.stderr}")
+            print(f"[FAIL] MCP server module test failed: {result.stderr}")
             return False
             
     except subprocess.TimeoutExpired:
-        print("❌ MCP server test timed out")
+        print("[FAIL] MCP server test timed out")
         return False
     except Exception as e:
-        print(f"❌ MCP server test error: {e}")
+        print(f"[FAIL] MCP server test error: {e}")
         return False
 
 def main():
     """Main setup function"""
-    print("🚀 DSIM UVM MCP Server Setup")
+    print("[INFO] DSIM UVM MCP Server Setup")
     print("=" * 50)
     
     success_count = 0
-    total_steps = 5
+    total_steps = 6
     
     # Step 1: Install MCP package
     if install_mcp_package():
@@ -187,26 +243,30 @@ def main():
     if verify_dsim_environment():
         success_count += 1
     
-    # Step 4: Create launcher script
+    # Step 4: Setup DSIM license (NEW)
+    if setup_dsim_license():
+        success_count += 1
+    
+    # Step 5: Create launcher script
     if create_launcher_script():
         success_count += 1
     
-    # Step 5: Test MCP server
+    # Step 6: Test MCP server
     if test_mcp_server():
         success_count += 1
     
     # Summary
     print("\n" + "=" * 50)
-    print(f"📊 Setup Summary: {success_count}/{total_steps} steps completed")
+    print(f"[INFO] Setup Summary: {success_count}/{total_steps} steps completed")
     
     if success_count == total_steps:
-        print("🎉 Setup completed successfully!")
-        print("\n💡 Next steps:")
+        print("[OK] Setup completed successfully!")
+        print("\nNext steps:")
         print("1. Run: start_mcp_server.bat")
         print("2. Configure your MCP client to use the server")
         print("3. Test with tools like run_uvm_simulation")
     else:
-        print("⚠️  Setup completed with some issues")
+        print("[WARN] Setup completed with some issues")
         print("   Please review the error messages above")
     
     return success_count == total_steps

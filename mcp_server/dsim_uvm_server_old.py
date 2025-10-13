@@ -6,7 +6,6 @@ Model Context Protocol server for executing DSIM SystemVerilog UVM simulations
 
 Created: October 13, 2025
 Purpose: Enable MCP clients to execute DSIM simulations directly
-Fixed: Unicode encoding issues for Windows compatibility
 """
 
 import asyncio
@@ -19,12 +18,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import argparse
 from datetime import datetime
-
-# Configure stdout/stderr encoding for Windows compatibility
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # MCP imports
 try:
@@ -43,7 +36,15 @@ except ImportError as e:
     print(f"Error: MCP package not found. Install with: pip install mcp", file=sys.stderr)
     sys.exit(1)
 
-# Configure logging
+# Configure logging with UTF-8 output for Windows compatibility
+import locale
+import io
+
+# Set stdout encoding to UTF-8 for Windows compatibility
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("dsim-mcp-server")
 
@@ -61,26 +62,9 @@ class DSIMSimulationServer:
         self.dsim_home = os.environ.get('DSIM_HOME')
         self.server = Server("dsim-uvm-server")
         self._setup_tools()
-        self._auto_setup_dsim_license()
         
         if not self.dsim_home:
             logger.warning("DSIM_HOME not set in environment")
-    
-    def _auto_setup_dsim_license(self):
-        """Automatically set DSIM_LICENSE if not already set"""
-        if not os.environ.get('DSIM_LICENSE') and self.dsim_home:
-            # Check common license locations
-            license_locations = [
-                Path(self.dsim_home).parent / "dsim-license.json",
-                Path(self.dsim_home) / "dsim-license.json",
-                Path("C:/Users/Nautilus/AppData/Local/metrics-ca/dsim-license.json")
-            ]
-            
-            for license_path in license_locations:
-                if license_path.exists():
-                    os.environ['DSIM_LICENSE'] = str(license_path)
-                    logger.info(f"Auto-configured DSIM_LICENSE: {license_path}")
-                    break
             
     def _setup_tools(self):
         """Register MCP tools for DSIM simulation"""
@@ -230,7 +214,7 @@ class DSIMSimulationServer:
         
         # Prepare simulation environment
         env_check = await self._check_dsim_environment()
-        if STATUS_FAIL in env_check.content[0].text:
+        if "❌" in env_check.content[0].text:
             return CallToolResult(
                 content=[TextContent(type="text", text=f"Environment check failed:\n{env_check.content[0].text}")]
             )
@@ -293,12 +277,12 @@ class DSIMSimulationServer:
             
             # Analyze results
             success = result.returncode == 0
-            status = f"{STATUS_OK} SUCCESS" if success else f"{STATUS_FAIL} FAILED"
+            status = "✅ SUCCESS" if success else "❌ FAILED"
             
             response_text = f"""
-DSIM UVM Simulation Results
+🚀 DSIM UVM Simulation Results
 {'='*50}
-Configuration:
+📋 Configuration:
   Test: {test_name}
   Mode: {mode}
   Verbosity: {verbosity}
@@ -306,15 +290,15 @@ Configuration:
   Waves: {'Enabled' if waves else 'Disabled'}
   Coverage: {'Enabled' if coverage else 'Disabled'}
 
-Execution Status: {status}
-Log File: {log_file}
-Exit Code: {result.returncode}
+📊 Execution Status: {status}
+📁 Log File: {log_file}
+🔢 Exit Code: {result.returncode}
 
-Simulation Output:
+📝 Simulation Output:
 {'-'*50}
 {stdout_text[-2000:]}  # Last 2000 characters
 
-Next Steps:
+💡 Next Steps:
 {'- Check simulation logs for detailed analysis' if success else '- Review error messages and fix compilation/runtime issues'}
 {'- Generate coverage report if needed' if success and coverage else ''}
 """
@@ -325,11 +309,11 @@ Next Steps:
             
         except asyncio.TimeoutError:
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} Simulation timeout after {timeout} seconds")]
+                content=[TextContent(type="text", text=f"❌ Simulation timeout after {timeout} seconds")]
             )
         except Exception as e:
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} Simulation execution failed: {str(e)}")]
+                content=[TextContent(type="text", text=f"❌ Simulation execution failed: {str(e)}")]
             )
 
     async def _check_dsim_environment(self) -> CallToolResult:
@@ -397,21 +381,21 @@ Next Steps:
                         import re
                         classes = re.findall(r'class\s+(\w+)\s+extends', content)
                         if classes:
-                            test_files.append(f"File {test_file.name}: {', '.join(classes)}")
+                            test_files.append(f"📄 {test_file.name}: {', '.join(classes)}")
                 except Exception:
-                    test_files.append(f"File {test_file.name}: (could not parse)")
+                    test_files.append(f"📄 {test_file.name}: (could not parse)")
         
         if not test_files:
-            test_files = [f"{STATUS_FAIL} No test files found"]
+            test_files = ["❌ No test files found"]
             
         response = f"""
-Available UVM Tests
+🧪 Available UVM Tests
 {'='*50}
-Tests Directory: {tests_dir}
+📁 Tests Directory: {tests_dir}
 
 {chr(10).join(test_files)}
 
-Usage: Use test class names with run_uvm_simulation tool
+💡 Usage: Use test class names with run_uvm_simulation tool
 """
         
         return CallToolResult(
@@ -428,153 +412,191 @@ Usage: Use test class names with run_uvm_simulation tool
         
         if not log_dir.exists():
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} No logs directory found")]
+                content=[TextContent(type="text", text="❌ No logs directory found")]
             )
         
         log_files = list(log_dir.glob("*.log"))
+        log_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
         
         if not log_files:
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} No log files found")]
+                content=[TextContent(type="text", text="❌ No log files found")]
             )
         
         if log_type == "latest":
-            # Get most recent log file
-            latest_log = max(log_files, key=lambda f: f.stat().st_mtime)
-            
+            # Return latest log
+            latest_log = log_files[0]
             try:
                 with open(latest_log, 'r', encoding='utf-8') as f:
                     content = f.read()
-                
+                    
                 response = f"""
-Latest Simulation Log
+📋 Latest Simulation Log
 {'='*50}
-File: {latest_log.name}
-Size: {latest_log.stat().st_size} bytes
+📁 File: {latest_log.name}
+📅 Modified: {datetime.fromtimestamp(latest_log.stat().st_mtime)}
 
-Content (last 3000 characters):
+📝 Content (last 3000 characters):
 {'-'*50}
 {content[-3000:]}
 """
-                
                 return CallToolResult(
                     content=[TextContent(type="text", text=response)]
                 )
-                
             except Exception as e:
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"{STATUS_FAIL} Error reading log: {e}")]
+                    content=[TextContent(type="text", text=f"❌ Error reading log: {e}")]
                 )
         
-        # Add other log_type implementations as needed
+        elif log_type == "all":
+            # List all logs
+            log_list = []
+            for log_file in log_files[:10]:  # Limit to 10 most recent
+                size = log_file.stat().st_size
+                modified = datetime.fromtimestamp(log_file.stat().st_mtime)
+                log_list.append(f"📄 {log_file.name} ({size} bytes, {modified})")
+            
+            response = f"""
+📋 All Simulation Logs
+{'='*50}
+📁 Directory: {log_dir}
+
+{chr(10).join(log_list)}
+
+💡 Use log_type='latest' to read the most recent log content
+"""
+            return CallToolResult(
+                content=[TextContent(type="text", text=response)]
+            )
+        
+        # Add more log_type handling as needed
         return CallToolResult(
-            content=[TextContent(type="text", text="Log type not yet implemented")]
+            content=[TextContent(type="text", text=f"Log type '{log_type}' not implemented yet")]
         )
 
     async def _generate_coverage_report(self, args: Dict[str, Any]) -> CallToolResult:
         """Generate coverage analysis report"""
         
-        report_format = args.get("format", "html")
+        format_type = args.get("format", "html")
         
-        # Check if coverage database exists
-        uvm_dir = self.workspace_root / "sim" / "uvm"
-        coverage_db = uvm_dir / "metrics.db"
+        # Check for coverage database
+        coverage_db = self.workspace_root / "sim" / "uvm" / "metrics.db"
         
         if not coverage_db.exists():
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} No coverage database found. Run simulation with coverage enabled first.")]
+                content=[TextContent(type="text", text="❌ No coverage database found. Run simulation with coverage enabled first.")]
             )
-        
-        # Generate coverage report
-        output_dir = self.workspace_root / "sim" / "exec" / "coverage_report"
-        output_dir.mkdir(exist_ok=True)
         
         try:
             # Use dcreport to generate coverage report
+            dcreport_exe = Path(self.dsim_home) / "bin" / "dcreport.exe"
+            output_dir = self.workspace_root / "sim" / "exec" / "coverage_report"
+            output_dir.mkdir(exist_ok=True)
+            
             cmd = [
-                "dcreport.exe",
+                str(dcreport_exe),
                 str(coverage_db),
                 "-out_dir", str(output_dir)
             ]
             
-            result = subprocess.run(
-                cmd,
-                cwd=str(uvm_dir),
-                capture_output=True,
-                text=True,
-                timeout=60
+            if format_type == "text":
+                cmd.extend(["-text"])
+            elif format_type == "xml":
+                cmd.extend(["-xml"])
+            # HTML is default
+            
+            result = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(self.workspace_root / "sim" / "uvm"),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
             
+            stdout, stderr = await result.communicate()
+            
             if result.returncode == 0:
-                # List generated files
-                report_files = list(output_dir.glob("*.html"))
-                
                 response = f"""
-Coverage Report Generated
+📊 Coverage Report Generated
 {'='*50}
-{STATUS_OK} Status: Success
-Output Directory: {output_dir}
-Format: {report_format.upper()}
+✅ Status: Success
+📁 Output Directory: {output_dir}
+📋 Format: {format_type.upper()}
 
-Report Files:
+📈 Report Files:
 {'-'*30}
-{chr(10).join([f"File {f.name}" for f in report_files])}
-
-Open coverage report: {output_dir / 'index.html'}"""
+"""
+                # List generated files
+                for report_file in output_dir.iterdir():
+                    if report_file.is_file():
+                        response += f"📄 {report_file.name}\n"
+                
+                if format_type == "html":
+                    index_html = output_dir / "index.html"
+                    if index_html.exists():
+                        response += f"\n💡 Open coverage report: {index_html}"
                 
                 return CallToolResult(
                     content=[TextContent(type="text", text=response)]
                 )
             else:
+                error_text = stderr.decode('utf-8', errors='replace')
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"{STATUS_FAIL} Coverage report generation failed: {result.stderr}")]
+                    content=[TextContent(type="text", text=f"❌ Coverage report generation failed:\n{error_text}")]
                 )
                 
         except Exception as e:
             return CallToolResult(
-                content=[TextContent(type="text", text=f"{STATUS_FAIL} Error generating coverage report: {str(e)}")]
+                content=[TextContent(type="text", text=f"❌ Error generating coverage report: {str(e)}")]
             )
 
     def _get_dsim_env(self) -> Dict[str, str]:
-        """Get DSIM-specific environment variables"""
+        """Get DSIM environment variables"""
         env_vars = {}
         
         if self.dsim_home:
-            env_vars['DSIM_HOME'] = self.dsim_home
+            env_vars.update({
+                'DSIM_HOME': self.dsim_home,
+                'DSIM_ROOT': self.dsim_home,
+                'DSIM_LIB_PATH': str(Path(self.dsim_home) / "lib")
+            })
             
-        if os.environ.get('DSIM_LICENSE'):
-            env_vars['DSIM_LICENSE'] = os.environ['DSIM_LICENSE']
-        
+        # Add license if set
+        license_env = os.environ.get('DSIM_LICENSE')
+        if license_env:
+            env_vars['DSIM_LICENSE'] = license_env
+            
         return env_vars
 
+    async def run(self):
+        """Start the MCP server"""
+        logger.info("Starting DSIM UVM MCP Server...")
+        async with stdio_server() as (read_stream, write_stream):
+            await self.server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="dsim-uvm-server",
+                    server_version="1.0.0",
+                    capabilities=self.server.get_capabilities(
+                        notification_options=None,
+                        experimental_capabilities={}
+                    )
+                )
+            )
+
 async def main():
-    """Main entry point for the MCP server"""
+    """Main entry point"""
     parser = argparse.ArgumentParser(description="DSIM UVM MCP Server")
     parser.add_argument(
-        "--workspace", 
-        default=".", 
+        "--workspace",
+        default=os.getcwd(),
         help="Workspace root directory (default: current directory)"
     )
     
     args = parser.parse_args()
     
-    # Initialize server
-    sim_server = DSIMSimulationServer(args.workspace)
-    
-    # Run MCP server using stdio
-    async with stdio_server() as (read_stream, write_stream):
-        await sim_server.server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="dsim-uvm-server",
-                server_version="1.0.0",
-                capabilities=sim_server.server.get_capabilities(
-                    notification_options=None,
-                    experimental_capabilities={}
-                )
-            )
-        )
+    server = DSIMSimulationServer(args.workspace)
+    await server.run()
 
 if __name__ == "__main__":
     asyncio.run(main())

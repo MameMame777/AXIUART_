@@ -165,83 +165,116 @@ See the DSIM UVM documentation.
 # Using VIVADO
 Reference user environment variables and perform operations using TCL scripts.
 
-# Workspace-Specific MCP-UVM Environment Setup
-## 🔒 Safe Workspace-Only Configuration (MANDATORY for Agent Operations)
+# Model Context Protocol (MCP) Server Integration Guidelines
 
-### Critical Safety Requirements
-- **NEVER modify system-wide PowerShell profiles** - Use workspace-specific initialization only
-- **NEVER modify Windows registry** - Session-only changes are required
-- **NEVER install system-wide modules** - Workspace isolation is mandatory
-- **ALWAYS use workspace_init.ps1** - This is the only approved method
+## � Primary Simulation Method: True Model Context Protocol Server
 
-### Agent Initialization Protocol
-```powershell
-# STEP 1: Navigate to workspace root (MANDATORY)
-cd e:\Nautilus\workspace\fpgawork\AXIUART_
+- **PREFERRED APPROACH**: Use the **Model Context Protocol (MCP) server** for all UVM simulation tasks
+- **Standard Compliance**: True MCP protocol implementation, not PowerShell wrapper functions
+- **Location**: `mcp_server/dsim_uvm_server.py`
+- **Setup**: Run `python mcp_server/setup.py` for dependency installation
 
-# STEP 2: Initialize workspace-specific MCP-UVM environment (REQUIRED)
-.\workspace_init.ps1
+### MCP Server Tools (Standard-Compliant)
 
-# STEP 3: Verify MCP-UVM functions are available (VERIFICATION)
-Test-WorkspaceMCPUVM
+#### Core MCP Tools Available
+```python
+# Tool 1: run_uvm_simulation
+{
+  "name": "run_uvm_simulation",
+  "arguments": {
+    "test_name": "uart_axi4_basic_test",
+    "mode": "run",
+    "verbosity": "UVM_MEDIUM",
+    "waves": true,
+    "coverage": true,
+    "seed": 42,
+    "timeout": 300
+  }
+}
+
+# Tool 2: check_dsim_environment
+{
+  "name": "check_dsim_environment",
+  "arguments": {}
+}
+
+# Tool 3: list_available_tests
+{
+  "name": "list_available_tests", 
+  "arguments": {}
+}
+
+# Tool 4: get_simulation_logs
+{
+  "name": "get_simulation_logs",
+  "arguments": {
+    "log_type": "latest"
+  }
+}
+
+# Tool 5: generate_coverage_report
+{
+  "name": "generate_coverage_report",
+  "arguments": {
+    "format": "html"
+  }
+}
 ```
 
-### Available Workspace-Specific Commands (After Initialization)
+### MCP Server Startup
 ```powershell
-# Navigation Commands (Workspace-Specific)
-Set-UVMWorkingDirectory     # Navigate to sim/uvm directory
-Set-RTLWorkingDirectory     # Navigate to rtl directory  
-Set-WorkspaceRoot          # Navigate to workspace root
-
-# Environment Verification Commands
-Test-WorkspaceMCPUVM       # Verify MCP-UVM function availability
-Show-WorkspaceHelp         # Show all available workspace commands
-
-# Enhanced UVM Simulation Commands (MCP-Optimized)
-Invoke-MCPUVMTest          # Primary UVM test execution (preferred)
-Invoke-MCPUVMQuickTest     # Fast iteration testing
-Invoke-MCPUVMCompileOnly   # Compile verification only
-Get-MCPUVMStatus           # Check simulation status and results
-Show-MCPUVMHelp            # Show MCP-UVM specific help
+# Start the MCP server
+cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
+python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
 ```
 
-### Agent Best Practices for MCP-UVM Environment
-- **Pre-Check Environment**: ALWAYS run `Test-WorkspaceMCPUVM` before UVM operations
-- **Session Management**: Re-initialize `workspace_init.ps1` for each new PowerShell session
-- **Error Recovery**: If MCP functions are missing, re-run `workspace_init.ps1`
-- **Safety Verification**: Confirm no system changes with `Get-Command Test-WorkspaceMCPUVM`
+### MCP Server Benefits for Agents
+- **Standard Protocol**: Official Model Context Protocol compliance
+- **Cross-Platform**: Python-based, works everywhere
+- **Tool Integration**: Compatible with any MCP client
+- **Verified Execution**: Confirmed working (UVM_ERROR: 0, TEST PASSED)
+- **Comprehensive Logging**: Detailed simulation results and analysis
 
-### Troubleshooting for Agents
+## ⚙️ Legacy PowerShell Environment (Backup Option)
+
+### Alternative: Direct PowerShell Scripts
+When MCP server is unavailable, use direct PowerShell script execution:
+
 ```powershell
-# Issue: MCP functions not found
-# Solution: Re-initialize workspace environment
-.\workspace_init.ps1
+# Navigate to simulation directory
+cd e:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec
 
-# Issue: Wrong working directory
-# Solution: Navigate to workspace root first
-cd e:\Nautilus\workspace\fpgawork\AXIUART_
-.\workspace_init.ps1
-
-# Issue: PowerShell execution policy
-# Solution: Use Bypass for workspace script only
-powershell -ExecutionPolicy Bypass -File ".\workspace_init.ps1"
+# Execute UVM tests directly
+.\run_uvm.ps1 -TestName "uart_axi4_basic_test" -Waves on -Coverage on
 ```
 
-### Integration with VS Code Tasks
-- **Approved Method**: Use VS Code tasks for initialization
-- Task Name: `Initialize Workspace MCP-UVM Environment`
-- Command Path: `Ctrl+Shift+P` → `Tasks: Run Task`
-- Alternative: Use run_task tool with task ID
+### When to Use Each Approach
 
-### Agent Verification Protocol
-```powershell
-# Mandatory verification sequence for agents
-1. cd e:\Nautilus\workspace\fpgawork\AXIUART_
-2. .\workspace_init.ps1
-3. Test-WorkspaceMCPUVM
-4. Confirm all ✅ indicators are shown
-5. Proceed with UVM operations using Invoke-MCPUVMTest
-```
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| **New Development** | 🚀 **MCP Server** (true MCP protocol) |
+| **Tool Integration** | 🚀 **MCP Server** (standard-compliant) |
+| **Agent Operations** | 🚀 **MCP Server** (preferred) |
+| **PowerShell Session** | ⚙️ Direct scripts (if MCP unavailable) |
+| **Quick Testing** | Either approach works |
+
+## 🎯 Agent Usage Guidelines
+
+### Primary Workflow (MCP Server)
+1. **Start MCP Server**: `python mcp_server/dsim_uvm_server.py --workspace .`
+2. **Use MCP Tools**: Call standard MCP tools via protocol
+3. **Check Results**: Use `get_simulation_logs` for analysis
+
+### Fallback Workflow (Legacy PowerShell)
+1. **Navigate to Directory**: `cd sim\exec`
+2. **Execute Script**: `.\run_uvm.ps1 -TestName "test_name"`
+3. **Review Results**: Check generated logs and reports
+
+### Critical Requirements
+- **ALWAYS prefer MCP Server** over direct PowerShell execution
+- **Verify MCP Server availability** before falling back to scripts
+- **Use standard MCP protocol** when possible
+- **Document approach used** in development logs
 
 # Model Context Protocol (MCP) Server Integration Guidelines
 
