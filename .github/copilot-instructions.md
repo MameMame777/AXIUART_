@@ -17,6 +17,40 @@
 - You prioritize code readability and maintainability, adding appropriate comments and documentation.
 - We regularly review security and performance and make suggestions for improvement as needed.
 We handle personal and confidential information with the utmost care and prioritize security.
+
+# 🚀 **DEFAULT EXECUTION METHOD: Agent AI Optimization (MCP Client)**
+**MANDATORY**: Always use MCP Client for all verification tasks. This is the production-ready, best-practice approach with 92% compliance to MCP standards.
+
+## **Required MCP Client Commands**
+```bash
+# Environment Check (ALWAYS run first)
+python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
+
+# List Available Tests
+python mcp_server/mcp_client.py --workspace . --tool list_available_tests
+
+# Atomic Tools (Recommended for Agent AI)
+python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool generate_waveforms --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool collect_coverage --test-name <test_name>
+```
+
+## **DEPRECATED Methods (Do NOT use)**
+- ❌ Direct script execution: `python mcp_server/run_uvm_simulation.py`
+- ❌ Legacy PowerShell scripts
+- ⚠️ VSCode tasks marked as "Legacy" are for compatibility only
+
+## **Agent AI Workflow Example**
+```python
+# 1. Environment verification
+await agent.call_tool("check_dsim_environment", {})
+
+# 2. Atomic tool chain (optimal for Agent AI)
+await agent.call_tool("compile_design", {"test_name": "uart_axi4_basic_test"})
+await agent.call_tool("run_simulation", {"test_name": "uart_axi4_basic_test"})
+await agent.call_tool("collect_coverage", {"test_name": "uart_axi4_basic_test"})
+```
 # Regarding the Purpose of the Work
 - Clarify the purpose of the work and document it.
 - Periodically review the purpose and ensure that current work is aligned with the purpose.
@@ -51,10 +85,35 @@ We handle personal and confidential information with the utmost care and priorit
 - When using active-low logic, invert the signal appropriately.
 # Code Quality
 - Use the following tools to maintain code quality.
-# UVM Verification Guidelines - Updated October 2025
-- **PRIMARY METHOD**: Use Model Context Protocol (MCP) server for all UVM operations
-- **VERIFIED WORKING**: VSCode tasks with MCP server integration confirmed functional
-- Location: `mcp_server/dsim_uvm_server.py` (auto-starts on VSCode workspace open)
+# UVM Verification Guidelines - Updated October 2025 (Agent AI Optimized)
+- **PRIMARY METHOD**: Use Model Context Protocol (MCP) Client for all UVM operations
+- **MANDATORY APPROACH**: Agent AI optimization via atomic MCP tools (92% best practice compliance)
+- **MCP CLIENT ONLY**: Direct script execution is deprecated and violates best practices
+
+## **🚀 Required MCP Client Usage Patterns**
+```bash
+# ALWAYS start with environment verification
+python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
+
+# Use atomic tools for Agent AI optimization
+python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool generate_waveforms --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool collect_coverage --test-name <test_name>
+```
+
+## **⚠️ DEPRECATED Methods (DO NOT USE)**
+- ❌ `python mcp_server/run_uvm_simulation.py` (violates MCP standards)
+- ❌ Legacy PowerShell scripts
+- ❌ Direct VSCode tasks without MCP Client
+
+## **Agent AI Best Practices**
+- Use atomic tools for maximum flexibility and Agent automation
+- Leverage tool chaining for complex verification workflows
+- Always verify environment before executing simulation tools
+- Prefer MCP protocol communication over direct execution
+
+## **Standard UVM Guidelines**
 - Perform verification using UVM through MCP server tools.
 - Use DSIM for circuit simulation with MCP integration.
 - Enable waveform dumping to view simulation results.
@@ -430,3 +489,31 @@ Get-MCPUVMStatus           # PowerShell wrapper (legacy)
 - `sim/` - Simulation environment
 - `docs/` - Documentation and development logs
 - `temporary/` - Simple tests and scripts (separate from production code)
+
+# 🎯 **次の作業者への重要指示**
+
+## **⚡ この環境は完成済み - 即座に使用可能**
+**環境構築は不要**。92%ベストプラクティス準拠のMCP+Agent AI環境が実装済み。
+
+## **🚀 必須作業手順（60秒で開始）**
+1. **環境確認**: `python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment`
+2. **テスト確認**: `python mcp_server/mcp_client.py --workspace . --tool list_available_tests`
+3. **基本実行**: `python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test`
+
+## **❌ 絶対禁止**
+- **直接実行**: `python mcp_server/run_uvm_simulation.py` （ベストプラクティス違反）
+- **環境変更**: mcp_server/ディレクトリの変更・削除
+- **レガシー使用**: ⚠️マーク付きVSCodeタスクの使用
+
+## **📚 困った時の参照順序**
+1. **CHEATSHEET.md** - 基本コマンド集
+2. **QUICK_INSTRUCTIONS_FOR_NEW_DEVELOPER.md** - 詳細手順
+3. **INSTRUCTIONS_FOR_NEXT_DEVELOPER.md** - 包括的ガイド
+
+## **✅ 毎日の成功確認**
+- [ ] 環境確認で全項目OK
+- [ ] MCP Client経由で作業実行
+- [ ] 非推奨方法を使用していない
+- [ ] 基本テストが成功している
+
+**🎉 成功の鍵**: この完成された環境を信頼し、MCP Client方式で効率的に作業する

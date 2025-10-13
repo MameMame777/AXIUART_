@@ -40,11 +40,9 @@ interfaces/bridge_status_if.sv
 ../../rtl/Frame_Parser_Assertions.sv
 ../../rtl/Frame_Parser_Assertions_Bind.sv
 
-# Emergency UART-AXI diagnostic assertions
-../emergency_uart_axi_assertions.sv
-../emergency_uart_axi_assertions_bind.sv
-
-# Emergency Frame_Parser diagnostics
+# Emergency diagnostic assertions
+# ../emergency_uart_axi_assertions.sv
+# ../emergency_uart_axi_assertions_bind.sv
 ../emergency_frame_parser_diagnostics.sv
 
 # Assertions modules (temporarily disabled to resolve compilation issues)

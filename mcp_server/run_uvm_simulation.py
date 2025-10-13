@@ -1,10 +1,29 @@
 #!/usr/bin/env python3
-"""DSIM UVM Simulation Runner Script"""
+"""DSIM UVM Simulation Runner Script (DEPRECATED - USE MCP CLIENT)
 
+⚠️  DEPRECATION WARNING:
+This direct execution approach violates MCP best practices.
+Please use MCP client instead:
+    python mcp_server/mcp_client.py --tool run_uvm_simulation
+"""
+
+import warnings
 import asyncio
 import sys
 import os
 import argparse
+
+# Deprecation warning
+warnings.warn(
+    "Direct script execution is deprecated. Use 'python mcp_server/mcp_client.py --tool run_uvm_simulation' instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+print("⚠️  DEPRECATION WARNING: This script is deprecated!")
+print("Use MCP protocol instead:")
+print("    python mcp_server/mcp_client.py --workspace . --tool run_uvm_simulation")
+print("="*70)
 
 # Add mcp_server to path
 sys.path.append(os.path.dirname(__file__))

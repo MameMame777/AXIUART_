@@ -100,24 +100,6 @@ class uart_axi4_env extends uvm_env;
     // UVM環境レベルの最終レポート
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
-        // Phase 4.1b: Connect UART/AXI agent to scoreboard (CORRECT IMPLEMENTATION)
-        if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null && uart_agt.monitor != null) begin
-            uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
-            `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
-        end
-
-        // Connect UART agent to coverage
-        if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
-            uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
-            `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
-        end
-
-        if (cfg.enable_axi_monitor && axi_monitor != null) begin
-            if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null) begin
-                axi_monitor.analysis_port.connect(phase3_scoreboard.axi_analysis_imp);
-                `uvm_info("ENV", "Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
-            end
-        end
         `uvm_info("ENV", "Environment cleanup completed", UVM_LOW)
     endfunction
 

@@ -187,6 +187,120 @@ class DSIMSimulationServer:
                                 }
                             }
                         }
+                    ),
+                    # Atomic tools for improved Agent AI integration
+                    Tool(
+                        name="compile_design",
+                        description="Compile SystemVerilog design and testbench only (no simulation)",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "test_name": {
+                                    "type": "string",
+                                    "description": "Test name for compilation target",
+                                    "default": "uart_axi4_basic_test"
+                                },
+                                "verbosity": {
+                                    "type": "string",
+                                    "enum": ["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"],
+                                    "description": "UVM verbosity level",
+                                    "default": "UVM_LOW"
+                                },
+                                "timeout": {
+                                    "type": "integer",
+                                    "description": "Compilation timeout in seconds",
+                                    "default": 120
+                                }
+                            },
+                            "required": []
+                        }
+                    ),
+                    Tool(
+                        name="run_simulation",
+                        description="Execute simulation using pre-compiled design",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "test_name": {
+                                    "type": "string",
+                                    "description": "Test name to execute",
+                                    "default": "uart_axi4_basic_test"
+                                },
+                                "verbosity": {
+                                    "type": "string",
+                                    "enum": ["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"],
+                                    "description": "UVM verbosity level",
+                                    "default": "UVM_MEDIUM"
+                                },
+                                "seed": {
+                                    "type": "integer",
+                                    "description": "Random seed for simulation",
+                                    "default": 1
+                                },
+                                "timeout": {
+                                    "type": "integer",
+                                    "description": "Simulation timeout in seconds", 
+                                    "default": 300
+                                }
+                            },
+                            "required": []
+                        }
+                    ),
+                    Tool(
+                        name="generate_waveforms",
+                        description="Generate waveform files during simulation for debugging",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "test_name": {
+                                    "type": "string",
+                                    "description": "Test name for waveform generation",
+                                    "default": "uart_axi4_basic_test"
+                                },
+                                "format": {
+                                    "type": "string",
+                                    "enum": ["mxd", "vcd", "both"],
+                                    "description": "Waveform format (mxd recommended for DSIM)",
+                                    "default": "mxd"
+                                },
+                                "depth": {
+                                    "type": "string",
+                                    "enum": ["all", "top_level", "selected"],
+                                    "description": "Signal depth for waveform capture",
+                                    "default": "all"
+                                }
+                            },
+                            "required": []
+                        }
+                    ),
+                    Tool(
+                        name="collect_coverage",
+                        description="Collect and analyze coverage data from simulation",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "test_name": {
+                                    "type": "string",
+                                    "description": "Test name for coverage collection",
+                                    "default": "uart_axi4_basic_test"
+                                },
+                                "coverage_types": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": ["line", "branch", "condition", "toggle", "functional"]
+                                    },
+                                    "description": "Types of coverage to collect",
+                                    "default": ["line", "branch", "toggle"]
+                                },
+                                "merge_previous": {
+                                    "type": "boolean",
+                                    "description": "Merge with previous coverage data",
+                                    "default": false
+                                }
+                            },
+                            "required": []
+                        }
                     )
                 ]
             )
@@ -206,6 +320,14 @@ class DSIMSimulationServer:
                     return await self._get_simulation_logs(arguments)
                 elif name == "generate_coverage_report":
                     return await self._generate_coverage_report(arguments)
+                elif name == "compile_design":
+                    return await self._compile_design(arguments)
+                elif name == "run_simulation":
+                    return await self._run_simulation(arguments)
+                elif name == "generate_waveforms":
+                    return await self._generate_waveforms(arguments)
+                elif name == "collect_coverage":
+                    return await self._collect_coverage(arguments)
                 else:
                     return CallToolResult(
                         content=[TextContent(type="text", text=f"Unknown tool: {name}")]
@@ -416,8 +538,107 @@ Usage: Use test class names with run_uvm_simulation tool
 """
         
         return CallToolResult(
-            content=[TextContent(type="text", text=response)]
+            content=[TextContent(type="text", text=result_text)]
         )
+
+    async def _compile_design(self, args: Dict[str, Any]) -> CallToolResult:
+        """Compile SystemVerilog design and testbench only (atomic tool)"""
+        
+        # Convert to run_uvm_simulation args with compile mode
+        compile_args = {
+            "test_name": args.get("test_name", "uart_axi4_basic_test"),
+            "mode": "compile",
+            "verbosity": args.get("verbosity", "UVM_LOW"),
+            "waves": False,  # No simulation, no waves
+            "coverage": False,  # No simulation, no coverage
+            "timeout": args.get("timeout", 120)
+        }
+        
+        return await self._run_uvm_simulation(compile_args)
+    
+    async def _run_simulation(self, args: Dict[str, Any]) -> CallToolResult:
+        """Execute simulation using pre-compiled design (atomic tool)"""
+        
+        # Convert to run_uvm_simulation args with run mode
+        run_args = {
+            "test_name": args.get("test_name", "uart_axi4_basic_test"),
+            "mode": "run",
+            "verbosity": args.get("verbosity", "UVM_MEDIUM"),
+            "waves": False,  # Pure simulation, no additional outputs
+            "coverage": False,  # Pure simulation, no additional outputs
+            "seed": args.get("seed", 1),
+            "timeout": args.get("timeout", 300)
+        }
+        
+        return await self._run_uvm_simulation(run_args)
+    
+    async def _generate_waveforms(self, args: Dict[str, Any]) -> CallToolResult:
+        """Generate waveform files during simulation (atomic tool)"""
+        
+        # Convert to run_uvm_simulation args with waves enabled
+        wave_args = {
+            "test_name": args.get("test_name", "uart_axi4_basic_test"),
+            "mode": "run",
+            "verbosity": "UVM_MEDIUM",
+            "waves": True,  # Focus on waveform generation
+            "coverage": False,
+            "timeout": args.get("timeout", 300)
+        }
+        
+        result = await self._run_uvm_simulation(wave_args)
+        
+        # Append waveform-specific information
+        format_type = args.get("format", "mxd")
+        depth = args.get("depth", "all")
+        
+        additional_info = f"\n\nWaveform Generation Settings:\n"
+        additional_info += f"- Format: {format_type}\n"
+        additional_info += f"- Signal Depth: {depth}\n"
+        additional_info += f"- Output Directory: {self.workspace_path}/sim/exec/\n"
+        
+        # Modify result to include waveform info
+        if result.content and len(result.content) > 0:
+            original_text = result.content[0].text
+            enhanced_text = original_text + additional_info
+            return CallToolResult(
+                content=[TextContent(type="text", text=enhanced_text)]
+            )
+        
+        return result
+    
+    async def _collect_coverage(self, args: Dict[str, Any]) -> CallToolResult:
+        """Collect and analyze coverage data from simulation (atomic tool)"""
+        
+        # Convert to run_uvm_simulation args with coverage enabled
+        coverage_args = {
+            "test_name": args.get("test_name", "uart_axi4_basic_test"),
+            "mode": "run",
+            "verbosity": "UVM_MEDIUM",
+            "waves": False,
+            "coverage": True,  # Focus on coverage collection
+            "timeout": args.get("timeout", 300)
+        }
+        
+        result = await self._run_uvm_simulation(coverage_args)
+        
+        # Append coverage-specific information
+        coverage_types = args.get("coverage_types", ["line", "branch", "toggle"])
+        merge_previous = args.get("merge_previous", False)
+        
+        additional_info = f"\n\nCoverage Collection Settings:\n"
+        additional_info += f"- Coverage Types: {', '.join(coverage_types)}\n"
+        additional_info += f"- Merge with Previous: {merge_previous}\n"
+        additional_info += f"- Coverage Database: {self.workspace_path}/sim/exec/coverage.ucdb\n"
+        
+        # Modify result to include coverage info
+        if result.content and len(result.content) > 0:
+            original_text = result.content[0].text
+            enhanced_text = original_text + additional_info
+            return CallToolResult(
+                content=[TextContent(type="text", text=enhanced_text)]
+            )
+        
+        return result
 
     async def _get_simulation_logs(self, args: Dict[str, Any]) -> CallToolResult:
         """Retrieve simulation logs"""

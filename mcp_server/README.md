@@ -15,6 +15,17 @@ This MCP server provides **verified working** DSIM SystemVerilog UVM simulation 
 - **Production Logging**: Timestamped logs with detailed simulation results
 - **Waveform Generation**: MXD format support for debugging
 
+## 📋 Quality Assurance Work Instructions
+
+**Latest Work Instructions**: [UVM Verification Quality Assurance Instructions (MCP Environment)](../docs/local/uvm_verification_quality_assurance_instructions_mcp_2025-10-13.md)
+
+**Key Updates (October 13, 2025)**:
+- **Current Status Analysis**: Based on latest MCP execution results (UVM_ERROR: 2, ZERO ACTIVITY issues)
+- **Phase 4 Implementation Plan**: Systematic approach to Level 4 quality assurance  
+- **Critical Issue Focus**: Scoreboard false positive elimination as highest priority
+- **MCP Server Optimization**: Full utilization of Python-based automation capabilities
+- **Quality Gates**: Strict verification criteria with triple verification system
+
 ## 🎯 Primary Usage Methods
 
 ### VSCode Tasks (Recommended)
