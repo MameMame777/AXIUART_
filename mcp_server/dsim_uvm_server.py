@@ -31,6 +31,7 @@ try:
     from mcp.server import Server
     from mcp.server.models import InitializationOptions
     from mcp.server.stdio import stdio_server
+    from mcp.server.lowlevel.server import NotificationOptions
     from mcp.types import (
         CallToolRequest,
         CallToolResult,
@@ -570,7 +571,11 @@ async def main():
                 server_name="dsim-uvm-server",
                 server_version="1.0.0",
                 capabilities=sim_server.server.get_capabilities(
-                    notification_options=None,
+                    notification_options=NotificationOptions(
+                        prompts_changed=False,
+                        resources_changed=False,
+                        tools_changed=False
+                    ),
                     experimental_capabilities={}
                 )
             )
