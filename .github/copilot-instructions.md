@@ -106,12 +106,22 @@ See the DSIM UVM documentation.
 - **Signal Integrity Check**: Pre-verify bit-width and type matches for interface connections.
 - **Do Not Avoid Compilation Errors**: Errors indicate design issues, so fix them appropriately.
 - **Test Coverage**: Cover basic functions, error cases, and boundary values.
+- **Assertion Integration**: Implement SystemVerilog assertions (SVA) for automated protocol checking and signal validation.
+- **Bind Assertions**: Use bind statements to attach assertions to RTL modules for comprehensive verification.
+- **MANDATORY Assertion Architecture**: ALWAYS use dedicated assertion modules with bind statements - never embed assertions directly in RTL modules.
+- **Assertion Module Pattern**: Create separate `<module_name>_Assertions` modules and bind them to target RTL modules.
+- **Assertion-Driven Debugging**: Prioritize assertion failures over manual waveform analysis for faster root cause identification.
 
 ### Streamline Waveform Debugging
 - **MXD Format**: Use MXD format instead of VCD format (DSIM native support).
 - **Auto-Generation**: Automatically enable waveform dumps during test execution.
 - **File Naming**: Name the waveform file according to the test name (e.g., uart_basic_test.mxd).
 - **Signal Hierarchy**: Configure to properly display the module hierarchy.
+- **Assertion-Based Verification**: Use SystemVerilog assertions (SVA) for waveform analysis and signal validation.
+- **Assertion Monitoring**: Implement bind assertions to monitor critical signal transitions and protocol compliance.
+- **MANDATORY Assertion Pattern**: Always create dedicated assertion modules (e.g., `Frame_Parser_Assertions`) and use bind statements to attach them to RTL modules.
+- **Assertion Reports**: Leverage assertion results in waveforms to identify timing violations and protocol errors.
+- **Preferred Debugging Method**: Use assertions for automated signal verification rather than manual waveform inspection.
 
 ### Troubleshooting Procedure
 1. **Check Environment Variables**: First check the settings, such as `$env:DSIM_HOME`.
@@ -154,6 +164,51 @@ See the DSIM UVM documentation.
 
 # Using VIVADO
 Reference user environment variables and perform operations using TCL scripts.
+
+# MCP Server Integration Guidelines
+## UVM Simulation Execution
+- **ALWAYS use MCP-optimized UVM functions** for simulation execution instead of manual terminal commands.
+- **Primary Tool**: Use `Invoke-MCPUVMTest` for all UVM simulation tasks.
+- **Never use direct DSIM commands** - always use the MCP wrapper functions.
+- **Environment**: MCP server automatically handles DSIM environment validation and path resolution.
+
+### MCP UVM Function Usage
+```powershell
+# Basic UVM test execution (recommended)
+Invoke-MCPUVMTest -TestName "uart_axi4_basic_test"
+
+# Compile-only mode (for verification)
+Invoke-MCPUVMTest -TestName "uart_axi4_basic_test" -Mode "compile"
+
+# Quick test with minimal logging
+Invoke-MCPUVMQuickTest -TestName "uart_axi4_basic_test"
+
+# Compile only (no test name required)
+Invoke-MCPUVMCompileOnly
+
+# Check simulation status and recent results
+Get-MCPUVMStatus
+```
+
+### MCP Server Best Practices
+- **Environment Validation**: MCP functions automatically validate DSIM environment variables.
+- **Error Handling**: All MCP functions include comprehensive error detection and reporting.
+- **Working Directory**: MCP functions automatically handle working directory management.
+- **Log Management**: Structured logging optimized for GitHub Copilot Agent analysis.
+- **Waveform Control**: Default waveform capture is disabled for performance (enable with `-Waves "on"`).
+
+### GitHub Copilot Agent Integration
+- **MCP Optimization**: All functions include MCP optimization flags for enhanced agent compatibility.
+- **Parameter Validation**: Automatic validation of all input parameters with clear error messages.
+- **Status Reporting**: Real-time progress and result reporting optimized for agent consumption.
+- **Automation Ready**: All functions designed for unattended execution by GitHub Copilot Agent.
+
+## MCP Server Execution Requirements
+- **MANDATORY**: Use MCP wrapper functions instead of direct tool execution.
+- **MANDATORY**: Allow MCP functions to handle environment setup and validation.
+- **MANDATORY**: Use structured parameter passing (not string concatenation).
+- **MANDATORY**: Check function return values and handle errors appropriately.
+
 # Directory Structure
 - Create the following subdirectories in the project root directory.
 - Store simple tests and scripts in the `temporary/` directory, separate from the project's production code.

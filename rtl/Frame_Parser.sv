@@ -461,34 +461,50 @@ module Frame_Parser #(
     
     // Frame valid持続制御のための追加ロジック
     logic frame_valid_hold;
+    logic frame_consumed_reg;  // frame_consumedパルスをラッチ
     
-    // frame_valid信号を持続的に保持 - 最終修正版
+    // frame_consumed パルス検出とラッチ
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            frame_consumed_reg <= 1'b0;
+        end else begin
+            if (frame_consumed) begin
+                frame_consumed_reg <= 1'b1;  // frame_consumedパルスをラッチ
+            end else if (state == IDLE) begin
+                frame_consumed_reg <= 1'b0;  // 次のフレーム開始時にクリア
+            end
+        end
+    end
+    
+    // frame_valid信号の正確な制御 - CRITICAL FIX
     always_ff @(posedge clk) begin
         if (rst) begin
             frame_valid_hold <= 1'b0;
         end else begin
-            // CRITICAL FIX: error_status評価とframe_valid設定を分離
-            case (state)
-                VALIDATE: begin
-                    // VALIDATE状態でのframe_valid評価（error_statusとCRCを直接評価）
-                    if (cmd_valid && (received_crc == expected_crc)) begin
-                        frame_valid_hold <= 1'b1;  // 条件満足時のみ有効フレーム
-                    end else begin
-                        frame_valid_hold <= 1'b0;  // CRCエラーまたはコマンドエラー時は無効
+            // CRITICAL: frame_consumed検出時は即座にクリア（最優先）
+            if (frame_consumed || frame_consumed_reg) begin
+                frame_valid_hold <= 1'b0;  // frame_consumedパルスまたはラッチで即座にクリア
+            end else begin
+                // CRITICAL FIX: frame_valid_holdはVALIDATE状態でのみ1に設定
+                case (state)
+                    VALIDATE: begin
+                        // VALIDATE状態でのframe_valid評価
+                        if (cmd_valid && (received_crc == expected_crc)) begin
+                            frame_valid_hold <= 1'b1;  // 条件満足時のみ有効フレーム
+                        end else begin
+                            frame_valid_hold <= 1'b0;  // CRCエラーまたはコマンドエラー時は無効
+                        end
                     end
-                end
-                IDLE: begin
-                    // IDLE状態では必ずframe_validをクリア
-                    frame_valid_hold <= 1'b0;
-                end
-                default: begin
-                    // その他の状態ではframe_validを保持
-                    if (frame_consumed) begin
-                        frame_valid_hold <= 1'b0;  // フレーム消費時は即座にクリア
+                    IDLE: begin
+                        // IDLE状態では必ずframe_valid_holdをクリア
+                        frame_valid_hold <= 1'b0;
                     end
-                    // それ以外は現在値保持
-                end
-            endcase
+                    default: begin
+                        // その他の状態では現在値を保持（VALIDATE後の遷移中）
+                        // frame_valid_holdは維持される
+                    end
+                endcase
+            end
         end
     end
     
@@ -496,11 +512,38 @@ module Frame_Parser #(
     assign cmd = cmd_reg;
     assign addr = addr_reg;
     assign data_count = data_byte_count;
-    assign frame_valid = frame_valid_hold;  // 修正: 持続的なframe_valid信号
+    assign frame_valid = frame_valid_hold && (state == VALIDATE);  // CRITICAL: Only valid in VALIDATE state
     assign error_status = error_status_reg;
     assign frame_error = ((state == VALIDATE) && (error_status_reg != STATUS_OK)) || 
                         (state == ERROR) || timeout_occurred;
     assign parser_busy = (state != IDLE);
+
+    // CRITICAL: frame_consumed検証アサーション
+    `ifdef ENABLE_DEBUG
+    // frame_consumedパルス検出の検証
+    property frame_consumed_pulse_detection;
+        @(posedge clk) disable iff (rst)
+        $rose(frame_consumed) |-> ##1 frame_consumed_reg;
+    endproperty
+    assert property (frame_consumed_pulse_detection) else
+        $error("[FRAME_PARSER] frame_consumed pulse not latched correctly at time %0t", $time);
+
+    // frame_valid_holdがframe_consumed後にクリアされることの検証
+    property frame_valid_cleared_after_consumed;
+        @(posedge clk) disable iff (rst)
+        (frame_consumed && frame_valid_hold) |-> ##1 !frame_valid_hold;
+    endproperty
+    assert property (frame_valid_cleared_after_consumed) else
+        $error("[FRAME_PARSER] frame_valid_hold not cleared after frame_consumed at time %0t", $time);
+
+    // frame_valid_holdがVALIDATE状態以外で1になることを防ぐ
+    property frame_valid_only_in_validate;
+        @(posedge clk) disable iff (rst)
+        (frame_valid_hold && (state != VALIDATE)) |-> ##1 !frame_valid_hold;
+    endproperty
+    assert property (frame_valid_only_in_validate) else
+        $error("[FRAME_PARSER] frame_valid_hold asserted outside VALIDATE state! state=%0d at time %0t", state, $time);
+    `endif
     
     // Debug signal assignments for hardware analysis
     assign debug_cmd_in = rx_fifo_data;
@@ -523,5 +566,34 @@ module Frame_Parser #(
             data_out[i] = data_reg[i];
         end
     end
+
+    // Emergency diagnostics instance for assertion-based debugging
+    emergency_frame_parser_diagnostics emergency_frame_parser_diag_internal_inst (
+        .clk(clk),
+        .rst(rst),
+        .frame_valid_hold(frame_valid_hold),
+        .state(state)
+    );
+
+    // CRITICAL: frame_consumed処理の検証アサーション
+    `ifdef ENABLE_DEBUG
+    // frame_consumedパルス後のframe_valid_holdクリア検証
+    property frame_consumed_clears_valid;
+        @(posedge clk) disable iff (rst)
+        $rose(frame_consumed) |=> (frame_valid_hold == 1'b0);
+    endproperty
+    
+    assert property (frame_consumed_clears_valid) else
+        $error("[FP_CRITICAL] frame_consumed did not clear frame_valid_hold at time=%0t", $time);
+    
+    // frame_valid_holdの状態整合性検証
+    property frame_valid_state_consistency;
+        @(posedge clk) disable iff (rst)
+        frame_valid_hold |-> (state == VALIDATE);
+    endproperty
+    
+    assert property (frame_valid_state_consistency) else
+        $error("[FP_CRITICAL] frame_valid_hold=1 in wrong state=%0d (expected VALIDATE=8) at time=%0t", state, $time);
+    `endif
 
 endmodule

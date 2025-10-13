@@ -101,15 +101,13 @@ module Frame_Parser_Assertions (
         else $fatal("ASSERTION_FAIL: CRC validation integrity violation - received=0x%02X, expected=0x%02X, status=0x%02X at %t", 
                     received_crc, expected_crc, error_status_reg, $time);
 
-    // A3: Frame Valid Generation Correctness  
+    // A3: Frame Valid Generation Correctness - CRITICAL FIX for frame_consumed handling
     property frame_valid_generation_correctness;
         @(posedge clk) disable iff (rst)
-        (state == VALIDATE && error_status_reg == STATUS_OK) |=> frame_valid;
+        (state == VALIDATE && error_status_reg == STATUS_OK && !frame_consumed) |=> frame_valid;
     endproperty
     assert_frame_valid: assert property (frame_valid_generation_correctness)
-        else $fatal("ASSERTION_FAIL: frame_valid generation failed - Critical system failure at %t", $time);
-
-    // A4: Frame Valid Persistence Guarantee
+        else $fatal("ASSERTION_FAIL: frame_valid generation failed - Critical system failure at %t", $time);    // A4: Frame Valid Persistence Guarantee
     property frame_valid_persistence_guarantee;
         @(posedge clk) disable iff (rst)
         (frame_valid && !frame_consumed) |=> frame_valid;
