@@ -32,8 +32,17 @@ interface uart_if (
     // Frame timing for monitoring
     logic frame_start;
     logic frame_end;
+    logic frame_complete;   // Added for enhanced scoreboard
     logic byte_received;
     logic byte_transmitted;
+    
+    // Frame processing monitoring fields
+    logic frame_processing_active;
+    logic [7:0] current_command;
+    logic [31:0] current_address;
+    logic [7:0] current_data_length;
+    logic [63:0] current_payload;  // Support up to 8 bytes
+    logic [7:0] current_crc;
     
     // Driver modport - for UVM driver (active agent)
     modport driver (
@@ -61,11 +70,18 @@ interface uart_if (
         input rx_error,
         input frame_start,
         input frame_end,
+        input frame_complete,
         input byte_received,
         input byte_transmitted,
         input system_busy,
         input system_error,
-        input system_ready
+        input system_ready,
+        input frame_processing_active,
+        input current_command,
+        input current_address,
+        input current_data_length,
+        input current_payload,
+        input current_crc
     );
     
     // DUT modport - for connecting to RTL
@@ -80,11 +96,18 @@ interface uart_if (
         output rx_error,
         output frame_start,
         output frame_end,
+        output frame_complete,
         output byte_received,
         output byte_transmitted,
         input  system_busy,
         input  system_error,
-        input  system_ready
+        input  system_ready,
+        output frame_processing_active,
+        output current_command,
+        output current_address,
+        output current_data_length,
+        output current_payload,
+        output current_crc
     );
 
     // Helper tasks for timing calculations

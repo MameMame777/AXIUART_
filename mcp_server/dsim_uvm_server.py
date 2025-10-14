@@ -21,6 +21,9 @@ import argparse
 from datetime import datetime
 import re
 
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 # Configure stdout/stderr encoding for Windows compatibility  
 if sys.platform == "win32":
     import io
@@ -147,11 +150,13 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
     
     try:
         # Execute with timeout and capture output
+        # Change working directory to sim/uvm for correct relative path resolution
+        uvm_work_dir = workspace_root / "sim" / "uvm"
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=workspace_root
+            cwd=uvm_work_dir
         )
         
         stdout, stderr = await asyncio.wait_for(
@@ -175,7 +180,7 @@ Message: {dsim_error.message}
 Suggestion: {dsim_error.suggestion}
 
 Command: {' '.join(cmd)}
-Working Directory: {workspace_root}
+Working Directory: {uvm_work_dir}
 
 STDERR Output:
 {stderr_text}
@@ -192,7 +197,7 @@ STDOUT Output:
 
 Command: {' '.join(cmd)}
 Exit Code: 0
-Working Directory: {workspace_root}
+Working Directory: {uvm_work_dir}
 
 Output:
 {stdout_text}
@@ -283,16 +288,20 @@ async def run_uvm_simulation(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = workspace_root / "sim" / "exec" / "logs"  
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / f"{test_name}_{timestamp}.log"
+    
+    # Use correct relative path from sim/uvm working directory
+    # sim/uvm -> ../exec/logs (one level up to sim, then exec/logs)
+    log_file_relative = f"../exec/logs/{test_name}_{timestamp}.log"
     
     # Build command with enhanced options
+    # Use relative config file path since we're executing from sim/uvm directory
     cmd = [
         str(dsim_exe),
-        "-f", str(config_file),
+        "-f", "dsim_config.f",
         f"+UVM_TESTNAME={test_name}",
         f"+UVM_VERBOSITY={verbosity}",
         "-sv_seed", str(seed),
-        "-l", str(log_file)
+        "-l", log_file_relative
     ]
     
     # Mode-specific options
@@ -324,7 +333,7 @@ async def run_uvm_simulation(
 Test: {test_name}
 Mode: {mode} 
 Verbosity: {verbosity}
-Log File: {log_file}
+Log File: {log_file_relative}
 {f'Waveform: {waves_file}' if waves else 'Waveforms: Disabled'}
 Coverage: {'Enabled' if coverage else 'Disabled'}
 Seed: {seed}
@@ -348,7 +357,7 @@ Test Configuration:
 
 {str(e)}
 
-Log File: {log_file} (may contain additional details)
+Log File: {log_file_relative} (may contain additional details)
         """.strip()
         
         raise DSIMError(enhanced_error, e.error_type, e.suggestion, e.exit_code)

@@ -192,18 +192,29 @@ def test_mcp_server():
     try:
         # Try importing the server module with ASCII-safe output
         test_code = '''
-import sys
+import asyncio
 import os
-sys.path.append(r'{}')
-# Set environment to prevent Unicode issues
+import sys
+sys.path.append(r"{server_dir}")
 os.environ['PYTHONIOENCODING'] = 'utf-8'
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 try:
-    from dsim_uvm_server import DSIMSimulationServer
+    from dsim_uvm_server import setup_workspace, list_available_tests
+    workspace = r"{workspace_dir}"
+    setup_workspace(workspace)
+
+    async def _probe() -> None:
+        await list_available_tests()
+
+    asyncio.run(_probe())
     print("[OK] MCP server module loaded successfully")
-except Exception as e:
-    print("[FAIL] Failed to load MCP server: " + str(e))
+except Exception as exc:
+    print("[FAIL] Failed to load MCP server: " + str(exc))
     sys.exit(1)
-'''.format(str(server_file.parent))
+'''.format(server_dir=str(server_file.parent), workspace_dir=str(server_file.parent.parent))
         
         result = subprocess.run([
             sys.executable, "-c", test_code

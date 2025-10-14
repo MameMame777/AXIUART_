@@ -7,12 +7,32 @@ package uart_axi4_test_pkg;
     import uvm_pkg::*;
     `include "uvm_macros.svh"
     
+    // UVM Analysis Port Declarations (must be before class definitions)
+    `uvm_analysis_imp_decl(_uart)
+    `uvm_analysis_imp_decl(_axi)
+    `uvm_analysis_imp_decl(_dut)
+    
     // Configuration class first (must be before anything that uses it)
     `include "../env/uart_axi4_env_config.sv"
     
     // Transaction direction constants
     typedef enum { UART_RX, UART_TX } uart_direction_t;
     typedef enum { AXI_WRITE, AXI_READ } axi_trans_type_t;
+    typedef enum { AXI_OKAY, AXI_EXOKAY, AXI_SLVERR, AXI_DECERR } axi_response_t;
+    
+    // DUT Transaction Types  
+    typedef enum {
+        UART_RX_DATA, 
+        FRAME_START_DETECTED, 
+        FRAME_COMPLETE,
+        AXI_WRITE_ADDR,
+        AXI_WRITE_DATA, 
+        AXI_WRITE_RESP,
+        AXI_READ_ADDR,
+        AXI_READ_DATA,
+        INTERNAL_STATE_CHANGE,
+        FIFO_STATUS_CHANGE
+    } dut_transaction_type_t;
     
     // Protocol constants
     parameter int CLK_FREQ_HZ = 125_000_000;
@@ -53,6 +73,18 @@ package uart_axi4_test_pkg;
         PARSE_ERROR_PAYLOAD
     } uart_monitor_parse_error_e;
     
+    // Additional enum types for QA-2.1 Enhanced Scoreboard and DUT Monitor  
+    // Note: Using existing axi_trans_type_t for transaction types (AXI_READ, AXI_WRITE)
+    // Note: Using existing axi_response_t for response types (AXI_OKAY, AXI_EXOKAY, etc.)
+    
+    // Additional DUT Transaction Types (complementing dut_transaction_type_t)
+    typedef enum {
+        UART_TX_START,
+        UART_TX_COMPLETE,
+        FRAME_PARSING_ERROR,
+        CRC_CHECK_RESULT
+    } additional_dut_transaction_type_t;
+    
     // CRC8 calculation function (polynomial 0x07)
     function automatic logic [7:0] calculate_crc8(input logic [7:0] data[], input int length);
         logic [7:0] crc = 8'h00;
@@ -86,6 +118,13 @@ package uart_axi4_test_pkg;
         // Standardized frame fields for compatibility
         rand logic [7:0]  frame_data[];  // Complete frame data including SOF, CMD, ADDR, DATA, CRC
         rand int          frame_length;  // Total frame length in bytes
+        
+        // Additional frame analysis fields
+        logic [7:0] start_delimiter;   // Same as sof but for scoreboard compatibility
+        logic [7:0] crc_received;      // CRC received in frame
+        logic [7:0] crc_calculated;    // CRC calculated from data
+        int data_length;               // Data payload length  
+        logic [7:0] payload_data[];    // Payload data array
         
         // Transaction type
         rand bit is_write;
@@ -244,6 +283,7 @@ package uart_axi4_test_pkg;
         logic [1:0]  rresp;
         bit is_write;
         axi_trans_type_t trans_type;
+        axi_trans_type_t trans_kind;  // AXI_WRITE or AXI_READ transaction kind
         
         // Additional fields needed by sequences and coverage
         logic [1:0]  size;           // AXI size field: 00=8bit, 01=16bit, 10=32bit
@@ -289,6 +329,60 @@ package uart_axi4_test_pkg;
         endfunction
     endclass
 
+    // DUT Internal State Transaction for enhanced monitoring
+    class dut_internal_transaction extends uvm_sequence_item;
+        dut_transaction_type_t transaction_type;
+        logic [31:0] data_value;
+        logic [31:0] address;
+        logic [1:0] response;
+        string state_info;
+        string internal_state;  // DUT internal state info
+        logic [7:0] fifo_level; // FIFO level info
+        realtime timestamp;
+        
+        `uvm_object_utils_begin(dut_internal_transaction)
+            `uvm_field_enum(dut_transaction_type_t, transaction_type, UVM_ALL_ON)
+            `uvm_field_int(data_value, UVM_ALL_ON)
+            `uvm_field_int(address, UVM_ALL_ON) 
+            `uvm_field_int(response, UVM_ALL_ON)
+            `uvm_field_string(state_info, UVM_ALL_ON)
+            `uvm_field_string(internal_state, UVM_ALL_ON)
+            `uvm_field_int(fifo_level, UVM_ALL_ON)
+            `uvm_field_real(timestamp, UVM_ALL_ON)
+        `uvm_object_utils_end
+        
+        function new(string name = "dut_internal_transaction");
+            super.new(name);
+            timestamp = $realtime;
+        endfunction
+    endclass
+    
+
+    
+    // UART AXI4 DUT Transaction Class (QA-2.1 DUT Monitor) 
+    class uart_axi4_dut_transaction extends uvm_sequence_item;
+        `uvm_object_utils(uart_axi4_dut_transaction)
+        
+        // Transaction fields
+        dut_transaction_type_t transaction_type;
+        logic [31:0] address;
+        logic [31:0] data_value;
+        axi_response_t response;
+        string state_info;
+        time timestamp;
+        
+        function new(string name = "uart_axi4_dut_transaction");
+            super.new(name);
+            timestamp = $time;
+        endfunction
+    endclass
+    
+    // Remove the alias since we have actual class definitions now
+    // typedef dut_internal_transaction uart_axi4_dut_transaction;
+    
+    // Alias for configuration class (naming compatibility)
+    typedef uart_axi4_env_config uart_axi4_config;
+
     // Include UVM component files in dependency order  
     // Components are now compiled within the package context
     
@@ -329,6 +423,8 @@ package uart_axi4_test_pkg;
     // Test files
     `include "tests/uart_axi4_base_test.sv"
     `include "tests/enhanced_uart_axi4_base_test.sv"  // Enhanced reporting base class (Oct 10, 2025)
+
+    // Include all test files
     `include "tests/uart_axi4_scoreboard_test.sv"     // Phase 3: Scoreboard integration test
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"

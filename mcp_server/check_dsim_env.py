@@ -3,20 +3,23 @@
 
 import asyncio
 import sys
-import os
+from pathlib import Path
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 # Add mcp_server to path
-sys.path.append(os.path.dirname(__file__))
+sys.path.append(str(Path(__file__).parent))
 
-from dsim_uvm_server import DSIMSimulationServer
+from dsim_uvm_server import setup_workspace, check_dsim_environment  # type: ignore
 
-async def main():
-    workspace = os.path.dirname(os.path.dirname(__file__))
-    server = DSIMSimulationServer(workspace)
-    result = await server._check_dsim_environment()
-    
-    for content in result.content:
-        print(content.text)
+
+async def main() -> None:
+    workspace = Path(__file__).resolve().parents[1]
+    setup_workspace(str(workspace))
+    report = await check_dsim_environment()
+    print(report)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -34,7 +34,6 @@
 # RTL interface files (must be compiled first)
 interfaces/bridge_status_if.sv
 ../../rtl/interfaces/axi4_lite_if.sv
-../../rtl/interfaces/uart_if.sv
 
 # RTL source files (in dependency order)
 ../../rtl/Crc8_Calculator.sv
@@ -56,13 +55,9 @@ interfaces/bridge_status_if.sv
 # Emergency diagnostic assertions (corrected path)
 ../emergency_frame_parser_diagnostics.sv
 
-# UVM package files (MUST be compiled first for import resolution)  
+# UVM package files (main package first, then extensions)  
 packages/uart_axi4_test_pkg.sv
 packages/axiuart_cov_pkg.sv
-
-# QA-2.1 Enhanced Scoreboard and DUT Monitor (after packages)
-scoreboard/uart_axi4_enhanced_scoreboard.sv
-monitors/uart_axi4_dut_monitor.sv
 
 # Transaction and Base Classes - Core UVM components
 agents/uart/uart_transaction.sv
@@ -79,9 +74,6 @@ sequences/uart_axi4_bridge_control_sequence.sv
 tests/uart_axi4_base_test.sv
 tests/enhanced_uart_axi4_base_test.sv
 tests/uart_basic_test.sv
-
-# QA-1.3 Quality Assurance test files
-# tests/uart_axi4_qa_basic_test.sv  # Temporarily disabled for QA-2.2 testing
 
 # Protocol Test Files - AXI4 verification suite
 tests/uart_axi4_write_protocol_test.sv

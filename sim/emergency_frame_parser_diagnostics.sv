@@ -9,7 +9,7 @@ module emergency_frame_parser_diagnostics (
     input  logic clk,
     input  logic rst,
     input  logic frame_valid_hold,
-    input  logic [2:0] state
+    input  logic [3:0] state    // Fixed: Changed from [2:0] to [3:0] to match Frame_Parser.sv
 );
 
     // Diagnostic assertions for Frame Parser
