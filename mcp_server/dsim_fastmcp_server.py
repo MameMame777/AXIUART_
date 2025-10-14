@@ -10,10 +10,9 @@ Purpose: 実用的な専門家レベルのMCPサーバー実装
 """
 
 import asyncio
-import json
 import logging
 import os
-import subprocess
+import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Literal
@@ -25,6 +24,12 @@ if sys.platform == "win32":
 
 # FastMCP 2.12.4 imports
 from fastmcp import FastMCP
+from dsim_uvm_server import (
+    setup_workspace as dsim_setup_workspace,
+    check_dsim_environment as dsim_check_environment_async,
+    run_uvm_simulation as dsim_run_uvm_simulation_async,
+    DSIMError,
+)
 
 # Configure logging 
 logging.basicConfig(
@@ -53,55 +58,77 @@ def get_workspace_path() -> Path:
     return _workspace_path
 
 # ===============================================================================
-# Core Utility Functions
+# Core Utility Helpers
 # ===============================================================================
 
-def call_existing_script(script_name: str, args: List[str]) -> Dict[str, Any]:
-    """
-    既存のPythonスクリプトを呼び出し、結果を構造化して返す
-    """
-    try:
-        workspace = get_workspace_path()
-        script_path = workspace / "mcp_server" / script_name
-        cmd = [sys.executable, str(script_path)] + args
-        
-        logger.info(f"Executing: {' '.join(cmd)}")
-        
-        result = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            timeout=300,
-            cwd=str(workspace)
-        )
-        
-        return {
-            "success": result.returncode == 0,
-            "exit_code": result.returncode,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "command": ' '.join(cmd),
-            "timestamp": datetime.now().isoformat()
+def _load_test_metadata(tests_dir: Path) -> List[Dict[str, str]]:
+    """Collect metadata for each *_test.sv file in the tests directory."""
+    test_entries: List[Dict[str, str]] = []
+
+    for test_file in sorted(tests_dir.glob("*_test.sv")):
+        entry: Dict[str, str] = {
+            "file": test_file.name,
+            "class": test_file.stem,
+            "description": "No description available",
+            "status": "ok",
         }
-        
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": "Command timed out after 300 seconds",
-            "command": script_name,
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": f"Execution error: {str(e)}",
-            "command": script_name,
-            "timestamp": datetime.now().isoformat()
-        }
+
+        try:
+            content = test_file.read_text(encoding="utf-8")
+        except Exception as exc:  # pragma: no cover - file IO failure
+            entry["description"] = f"Unable to read file ({exc})"
+            entry["status"] = "error"
+            test_entries.append(entry)
+            continue
+
+        class_match = re.search(r"class\s+(\w+)\s+extends", content)
+        if class_match:
+            entry["class"] = class_match.group(1)
+
+        desc_match = re.search(r"//\s*Description:\s*(.+)", content, re.IGNORECASE)
+        if desc_match:
+            entry["description"] = desc_match.group(1).strip()
+
+        test_entries.append(entry)
+
+    return test_entries
+
+
+def _format_test_report(tests_dir: Path, tests: List[Dict[str, str]]) -> str:
+    """Generate a human-readable test discovery report."""
+    lines: List[str] = [
+        "[INFO] Available UVM Tests Discovery Report",
+        "=" * 60,
+        f"Search Directory: {tests_dir}",
+        f"Found {len(tests)} test files",
+        "",
+    ]
+
+    for index, test in enumerate(tests, 1):
+        lines.append(f"{index:2d}. {test['class']}")
+        lines.append(f"    File: {test['file']}")
+        lines.append(f"    Description: {test['description']}")
+        if test["status"] != "ok":
+            lines.append(f"    Status: {test['status']}")
+        lines.append("")
+
+    lines.append("=" * 60)
+    lines.append("[OK] Test Discovery Complete")
+    lines.append("[INFO] Use test class names (not file names) with run_uvm_simulation")
+
+    return "\n".join(lines)
+
+
+def _analyze_simulation_output(output: str, waves: bool) -> Dict[str, Union[bool, str]]:
+    """Extract useful status indicators from DSIM output text."""
+    has_uvm_errors = "UVM_ERROR" in output and "UVM_ERROR: 0" not in output
+    passed = "TEST PASSED" in output or "UVM_ERROR: 0" in output
+
+    return {
+        "test_passed": passed,
+        "uvm_errors_present": has_uvm_errors,
+        "waveform_hint": waves and (".mxd" in output.lower() or "waves" in output.lower()),
+    }
 
 # ===============================================================================
 # FastMCP Server and Tools Setup
@@ -132,188 +159,153 @@ def create_fastmcp_server() -> FastMCP:
     # Tool Definitions
     # ===============================================================================
     
-    @mcp.tool
-    def check_dsim_environment() -> Dict[str, Any]:
-        """
-        DSIM環境の詳細診断を実行
-        
-        Returns:
-            環境ステータスの詳細情報
-        """
-        result = call_existing_script("check_dsim_env.py", [])
-        
-        # 既存スクリプトの出力を解析してStructured Dataを作成
-        if result["success"]:
-            # 成功時の詳細解析
-            status_data = {
-                "status": "OK",
-                "dsim_home": os.environ.get("DSIM_HOME"),
-                "dsim_license": os.environ.get("DSIM_LICENSE"),
-                "details": {
-                    "raw_output": result["stdout"],
-                    "environment_variables": {
-                        "DSIM_HOME": os.environ.get("DSIM_HOME"),
-                        "DSIM_ROOT": os.environ.get("DSIM_ROOT"),
-                        "DSIM_LIB_PATH": os.environ.get("DSIM_LIB_PATH")
-                    }
-                },
-                "recommendations": ["Environment properly configured"]
-            }
-        else:
-            # エラー時の診断
-            status_data = {
-                "status": "ERROR",
-                "dsim_home": os.environ.get("DSIM_HOME"),
-                "dsim_license": os.environ.get("DSIM_LICENSE"),
-                "details": {
-                    "error_output": result["stderr"],
-                    "exit_code": result["exit_code"]
-                },
-                "recommendations": [
-                    "Check DSIM_HOME environment variable",
-                    "Verify DSIM installation",
-                    "Check license configuration"
-                ]
-            }
-        
-        return status_data
+    workspace = get_workspace_path()
+    dsim_setup_workspace(str(workspace))
 
-    @mcp.tool
-    def list_available_tests() -> Dict[str, Any]:
-        """
-        利用可能なUVMテストの一覧を取得
-        
-        Returns:
-            テスト一覧とメタデータ
-        """
-        result = call_existing_script("list_available_tests.py", [])
-        
-        if result["success"]:
-            # テスト一覧の解析（既存スクリプトの出力形式に合わせて）
-            tests_data = {
-                "status": "success",
-                "tests": [],
-                "total_count": 0,
-                "categories": ["basic", "advanced", "stress"],
-                "raw_output": result["stdout"]
-            }
-            
-            # 出力からテスト名を抽出（既存スクリプトの出力形式を解析）
-            lines = result["stdout"].split('\n')
-            test_names = []
-            for line in lines:
-                if "test" in line.lower() and line.strip():
-                    test_names.append(line.strip())
-            
-            tests_data["tests"] = test_names
-            tests_data["total_count"] = len(test_names)
-            
-        else:
-            tests_data = {
-                "status": "error",
-                "tests": [],
-                "total_count": 0,
-                "error": result["stderr"]
-            }
-        
-        return tests_data
-
-    @mcp.tool
-    def run_uvm_simulation(
+    async def _execute_simulation(
         test_name: str,
-        mode: str = "run",
-        verbosity: str = "UVM_MEDIUM",
-        waves: bool = True,
-        coverage: bool = False,
-        seed: Optional[int] = None,
-        timeout: int = 300
+        mode: Literal["compile", "run", "elaborate"],
+        verbosity: Literal[
+            "UVM_NONE",
+            "UVM_LOW",
+            "UVM_MEDIUM",
+            "UVM_HIGH",
+            "UVM_FULL",
+            "UVM_DEBUG",
+        ],
+        waves: bool,
+        coverage: bool,
+        seed: Optional[int],
+        timeout: int,
     ) -> Dict[str, Any]:
-        """
-        UVMシミュレーションを実行（既存のrun_uvm_simulation.pyを活用）
-        
-        Args:
-            test_name: テスト名
-            mode: 実行モード ("compile" または "run")
-            verbosity: UVM詳細レベル
-            waves: 波形生成を有効化
-            coverage: カバレッジ収集を有効化  
-            seed: ランダムシード
-            timeout: タイムアウト秒数
-            
-        Returns:
-            シミュレーション実行結果
-        """
-        # 既存スクリプトの引数形式に変換
-        args = [
-            "--test_name", test_name,
-            "--mode", mode,
-            "--verbosity", verbosity,
-            "--timeout", str(timeout)
-        ]
-        
-        if waves:
-            args.append("--waves")
-        if coverage:
-            args.append("--coverage")
-        if seed is not None:
-            args.extend(["--seed", str(seed)])
-        
-        result = call_existing_script("run_uvm_simulation.py", args)
-        
-        # 結果の拡張（FastMCP用の構造化）
-        enhanced_result = {
-            **result,
+        effective_seed = seed if seed is not None else 1
+
+        try:
+            output_text = await dsim_run_uvm_simulation_async(
+                test_name=test_name,
+                mode=mode,
+                verbosity=verbosity,
+                waves=waves,
+                coverage=coverage,
+                seed=effective_seed,
+                timeout=timeout,
+            )
+        except DSIMError as exc:  # pragma: no cover - delegated diagnostics
+            return {
+                "status": "error",
+                "error_type": exc.error_type,
+                "message": exc.message,
+                "suggestion": exc.suggestion,
+                "exit_code": exc.exit_code if exc.exit_code is not None else -1,
+            }
+
+        analysis = _analyze_simulation_output(output_text, waves)
+
+        return {
+            "status": "success",
+            "output": output_text,
+            "analysis": analysis,
             "test_name": test_name,
             "mode": mode,
             "verbosity": verbosity,
-            "waveforms_enabled": waves,
-            "coverage_enabled": coverage,
-            "seed": seed
+            "waves": waves,
+            "coverage": coverage,
+            "seed": effective_seed,
+            "timeout": timeout,
         }
-        
-        # 成功/失敗の詳細解析
-        if result["success"]:
-            enhanced_result["analysis"] = {
-                "compilation_status": "PASS" if "compilation" in result["stdout"].lower() else "UNKNOWN",
-                "simulation_status": "PASS" if "UVM_ERROR: 0" in result["stdout"] else "CHECK_REQUIRED",
-                "waveform_generated": waves and "mxd" in result["stdout"].lower()
-            }
-        else:
-            enhanced_result["analysis"] = {
-                "error_type": "RUNTIME_ERROR" if result["exit_code"] != 0 else "UNKNOWN",
-                "suggested_actions": [
-                    "Check test name spelling",
-                    "Verify DSIM environment",
-                    "Review error messages in stderr"
-                ]
-            }
-        
-        return enhanced_result
 
     @mcp.tool
-    def compile_design_only(
-        test_name: str, 
-        verbosity: str = "UVM_LOW", 
-        timeout: int = 120
+    async def check_dsim_environment() -> Dict[str, Any]:
+        """Run the DSIM environment diagnostic using the unified server."""
+        try:
+            report_text = await dsim_check_environment_async()
+            return {
+                "status": "success",
+                "report": report_text,
+                "environment_variables": {
+                    "DSIM_HOME": os.environ.get("DSIM_HOME", ""),
+                    "DSIM_ROOT": os.environ.get("DSIM_ROOT", ""),
+                    "DSIM_LIB_PATH": os.environ.get("DSIM_LIB_PATH", ""),
+                    "DSIM_LICENSE": os.environ.get("DSIM_LICENSE", ""),
+                },
+            }
+        except DSIMError as exc:  # pragma: no cover - delegated diagnostics
+            return {
+                "status": "error",
+                "error_type": exc.error_type,
+                "message": exc.message,
+                "suggestion": exc.suggestion,
+                "exit_code": exc.exit_code if exc.exit_code is not None else -1,
+            }
+
+    @mcp.tool
+    def list_available_tests() -> Dict[str, Any]:
+        """Enumerate available UVM tests without spawning helper scripts."""
+        tests_dir = workspace / "sim" / "uvm" / "tests"
+
+        if not tests_dir.exists():
+            return {
+                "status": "error",
+                "message": f"UVM tests directory not found: {tests_dir}",
+                "tests": [],
+                "total_count": 0,
+            }
+
+        tests = _load_test_metadata(tests_dir)
+        report = _format_test_report(tests_dir, tests)
+
+        ok_tests = [test for test in tests if test["status"] == "ok"]
+
+        return {
+            "status": "success",
+            "total_count": len(ok_tests),
+            "tests": tests,
+            "report": report,
+        }
+
+    @mcp.tool
+    async def run_uvm_simulation(
+        test_name: str,
+        mode: Literal["compile", "run", "elaborate"] = "run",
+        verbosity: Literal[
+            "UVM_NONE",
+            "UVM_LOW",
+            "UVM_MEDIUM",
+            "UVM_HIGH",
+            "UVM_FULL",
+            "UVM_DEBUG",
+        ] = "UVM_MEDIUM",
+        waves: bool = True,
+        coverage: bool = False,
+        seed: Optional[int] = None,
+        timeout: int = 300,
     ) -> Dict[str, Any]:
-        """
-        設計のコンパイルのみを実行（高速構文チェック用）
-        
-        Args:
-            test_name: テスト名
-            verbosity: 詳細レベル  
-            timeout: タイムアウト秒数
-            
-        Returns:
-            コンパイル結果
-        """
-        return run_uvm_simulation(
+        """Execute a DSIM UVM simulation via the unified async API."""
+        return await _execute_simulation(
+            test_name=test_name,
+            mode=mode,
+            verbosity=verbosity,
+            waves=waves,
+            coverage=coverage,
+            seed=seed,
+            timeout=timeout,
+        )
+
+    @mcp.tool
+    async def compile_design_only(
+        test_name: str,
+        verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH"] = "UVM_LOW",
+        timeout: int = 120,
+    ) -> Dict[str, Any]:
+        """Run a compile-only pass using the unified simulation path."""
+        return await _execute_simulation(
             test_name=test_name,
             mode="compile",
             verbosity=verbosity,
             waves=False,
             coverage=False,
-            timeout=timeout
+            seed=1,
+            timeout=timeout,
         )
 
     @mcp.tool  
@@ -327,7 +319,7 @@ def create_fastmcp_server() -> FastMCP:
         Returns:
             ログデータ
         """
-        logs_data = {
+        logs_data: Dict[str, Any] = {
             "log_type": log_type,
             "timestamp": datetime.now().isoformat(),
             "logs": [],

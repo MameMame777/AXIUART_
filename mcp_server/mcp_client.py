@@ -102,7 +102,7 @@ async def main():
                         "coverage": args.coverage,
                         "timeout": args.timeout
                     }
-                elif args.tool == "compile_design":
+                elif args.tool == "compile_design" or args.tool == "compile_design_only":
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",
                         "verbosity": args.verbosity,

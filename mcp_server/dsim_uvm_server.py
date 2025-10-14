@@ -143,33 +143,59 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
             exit_code
         )
 
+def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess:
+    """Run subprocess synchronously to support Windows event loop limitations."""
+    return subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=cwd,
+        timeout=timeout,
+        check=False
+    )
+
+
 async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
     """Execute DSIM command with enhanced error handling and diagnostics."""
     
     logger.info(f"Executing DSIM: {' '.join(cmd)}")
     
     try:
+        loop = asyncio.get_running_loop()
+        logger.debug(f"Current asyncio loop: {type(loop)}")
         # Execute with timeout and capture output
         # Change working directory to sim/uvm for correct relative path resolution
         uvm_work_dir = workspace_root / "sim" / "uvm"
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=uvm_work_dir
-        )
-        
-        stdout, stderr = await asyncio.wait_for(
-            process.communicate(), 
-            timeout=timeout
-        )
+
+        if sys.platform == "win32":
+            completed = await asyncio.to_thread(
+                _run_subprocess_sync,
+                cmd,
+                timeout,
+                uvm_work_dir
+            )
+            stdout = completed.stdout or b""
+            stderr = completed.stderr or b""
+            return_code = completed.returncode
+        else:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=uvm_work_dir
+            )
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), 
+                timeout=timeout
+            )
+            return_code = process.returncode
         
         stdout_text = stdout.decode('utf-8', errors='replace')
         stderr_text = stderr.decode('utf-8', errors='replace')
         
-        if process.returncode != 0:
+        if return_code != 0:
             # Parse and enhance error information
-            dsim_error = parse_dsim_error(stderr_text, process.returncode)
+            dsim_error = parse_dsim_error(stderr_text, return_code)
             error_msg = f"""
 {STATUS_FAIL} DSIM Execution Failed
 
@@ -208,6 +234,14 @@ Output:
         logger.info("DSIM command completed successfully")
         return result
         
+    except DSIMError:
+        raise
+    except subprocess.TimeoutExpired:
+        raise DSIMError(
+            f"DSIM command timed out after {timeout} seconds",
+            "timeout", 
+            f"Increase timeout value (current: {timeout}s) or optimize testbench for faster execution"
+        )
     except asyncio.TimeoutError:
         raise DSIMError(
             f"DSIM command timed out after {timeout} seconds",
@@ -221,8 +255,9 @@ Output:
             "Verify DSIM_HOME environment variable and PATH configuration"
         )
     except Exception as e:
+        logger.exception("Unexpected error during DSIM execution")
         raise DSIMError(
-            f"Unexpected error during DSIM execution: {str(e)}",
+            f"Unexpected error during DSIM execution: {type(e).__name__}: {str(e)}",
             "system",
             "Check system resources and DSIM installation integrity"
         )
