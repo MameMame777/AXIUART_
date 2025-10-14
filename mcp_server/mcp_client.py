@@ -14,7 +14,6 @@ import logging
 import sys
 import argparse
 from pathlib import Path
-import subprocess
 import json
 
 # Windows asyncio workaround: use selector event loop to avoid Proactor pipe bugs
@@ -137,102 +136,15 @@ async def main():
                 else:
                     print("No content returned")
 
-    except Exception as e:
-        logger.error(f"MCP communication error: {e}", exc_info=True)
-        # Fallback to direct FastMCP execution
-        print(f"\n{'-'*50}")
-        print("MCP Client failed, using direct FastMCP execution:")
-        print(f"{'-'*50}")
-            
-        # Execute existing scripts directly instead of FastMCP server
-        if args.tool == "check_dsim_environment":
-            try:
-                direct_result = subprocess.run(
-                    [sys.executable, str(workspace_path / "mcp_server" / "check_dsim_env.py")],
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=args.timeout
-                )
-
-                if direct_result.returncode == 0:
-                    print("✅ Direct script execution successful:")
-                    print("Environment Check Result:")
-                    print(direct_result.stdout)
-                else:
-                    print("❌ Direct script execution failed:")
-                    print(direct_result.stderr)
-                    sys.exit(1)
-            except Exception as direct_error:
-                print(f"❌ Direct execution error: {direct_error}")
-                sys.exit(1)
-
-        elif args.tool == "compile_design":
-            try:
-                test_name = getattr(args, "test_name", None) or "uart_axi4_basic_test"
-                verbosity = getattr(args, "verbosity", "UVM_LOW")
-                timeout = getattr(args, "timeout", 120)
-
-                direct_result = subprocess.run(
-                    [
-                        sys.executable,
-                        str(workspace_path / "mcp_server" / "run_uvm_simulation.py"),
-                        "--test_name",
-                        test_name,
-                        "--mode",
-                        "compile",
-                        "--verbosity",
-                        verbosity,
-                        "--timeout",
-                        str(timeout),
-                    ],
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=timeout,
-                )
-
-                if direct_result.returncode == 0:
-                    print("✅ Direct compile execution successful:")
-                    print("Compile Result:")
-                    print(direct_result.stdout)
-                else:
-                    print("❌ Direct compile execution failed:")
-                    print(direct_result.stderr)
-                    sys.exit(1)
-            except Exception as direct_error:
-                print(f"❌ Direct compile execution error: {direct_error}")
-                sys.exit(1)
-
-        elif args.tool == "list_available_tests":
-            try:
-                direct_result = subprocess.run(
-                    [sys.executable, str(workspace_path / "mcp_server" / "list_available_tests.py")],
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=args.timeout,
-                )
-
-                if direct_result.returncode == 0:
-                    print("✅ Direct test list execution successful:")
-                    print("Available Tests:")
-                    print(direct_result.stdout)
-                else:
-                    print("❌ Direct test list execution failed:")
-                    print(direct_result.stderr)
-                    sys.exit(1)
-            except Exception as direct_error:
-                print(f"❌ Direct test list execution error: {direct_error}")
-                sys.exit(1)
-
-        else:
-            print(f"❌ Tool '{args.tool}' fallback not implemented")
-            print("Available fallback tools: check_dsim_environment, compile_design, list_available_tests")
-            sys.exit(1)
-
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
+    except Exception as exc:
+        logger.error("MCP communication error: %s", exc, exc_info=True)
+        print(
+            "ERROR: MCP communication failed. Ensure the FastMCP server is running and reachable.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())

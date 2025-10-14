@@ -28,7 +28,7 @@ We handle personal and confidential information with the utmost care and priorit
 
 # Direct MCP Client (Backup option)
 python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-name <test_name>
 ```
 
 ## **Production FastMCP Environment Features**
@@ -52,7 +52,7 @@ check_dsim_environment()
 
 # 2. Test discovery and execution
 list_available_tests()
-compile_design({"test_name": "uart_axi4_basic_test"})
+compile_design_only({"test_name": "uart_axi4_basic_test"})
 run_simulation({"test_name": "uart_axi4_basic_test"}) 
 collect_coverage({"test_name": "uart_axi4_basic_test"})
 ```
@@ -101,7 +101,7 @@ collect_coverage({"test_name": "uart_axi4_basic_test"})
 # Manual MCP client for troubleshooting only
 python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
 python mcp_server/mcp_client.py --workspace . --tool list_available_tests
-python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
+python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-name <test_name>
 ```
 
 ## **✅ PRODUCTION METHODS (Always Use)**
@@ -256,8 +256,8 @@ Reference user environment variables and perform operations using TCL scripts.
 **Verified Working Tests**:
 ```python
 # Confirmed functional tests (Exit Code: 0)
-python mcp_server/run_uvm_simulation.py --test_name uart_axi4_basic_test --mode run --verbosity UVM_MEDIUM
-python mcp_server/run_uvm_simulation.py --test_name uart_axi4_base_test --mode run --verbosity UVM_MEDIUM
+python mcp_server/mcp_client.py --workspace . --tool run_uvm_simulation --test-name uart_axi4_basic_test --mode run --verbosity UVM_MEDIUM
+python mcp_server/mcp_client.py --workspace . --tool run_uvm_simulation --test-name uart_axi4_base_test --mode run --verbosity UVM_MEDIUM
 
 # Tool 2: check_dsim_environment
 {
@@ -292,7 +292,7 @@ python mcp_server/run_uvm_simulation.py --test_name uart_axi4_base_test --mode r
 ```powershell
 # Start the MCP server
 cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
-python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
+python dsim_fastmcp_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
 ```
 
 ### MCP Server Benefits for Agents
@@ -328,7 +328,7 @@ cd e:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec
 ## 🎯 Agent Usage Guidelines
 
 ### Primary Workflow (MCP Server)
-1. **Start MCP Server**: `python mcp_server/dsim_uvm_server.py --workspace .`
+1. **Start MCP Server**: `python mcp_server/dsim_fastmcp_server.py --workspace .`
 2. **Use MCP Tools**: Call standard MCP tools via protocol
 3. **Check Results**: Use `get_simulation_logs` for analysis
 
@@ -349,7 +349,7 @@ cd e:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec
 
 - **PREFERRED APPROACH**: Use the **Model Context Protocol (MCP) server** for all UVM simulation tasks
 - **Standard Compliance**: True MCP protocol implementation, not PowerShell wrapper functions
-- **Location**: `mcp_server/dsim_uvm_server.py`
+- **Location**: `mcp_server/dsim_fastmcp_server.py`
 - **Setup**: Run `python mcp_server/setup.py` for dependency installation
 
 ### MCP Server Tools (Standard-Compliant)
@@ -403,7 +403,7 @@ cd e:\Nautilus\workspace\fpgawork\AXIUART_\sim\exec
 ```powershell
 # Start the MCP server
 cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
-python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
+python dsim_fastmcp_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
 ```
 
 ### MCP Server Benefits for Agents
@@ -452,7 +452,7 @@ Get-MCPUVMStatus           # PowerShell wrapper (legacy)
 ## 🎯 Agent Usage Guidelines
 
 ### Primary Workflow (MCP Server)
-1. **Start MCP Server**: `python mcp_server/dsim_uvm_server.py --workspace .`
+1. **Start MCP Server**: `python mcp_server/dsim_fastmcp_server.py --workspace .`
 2. **Use MCP Tools**: Call standard MCP tools via protocol
 3. **Check Results**: Use `get_simulation_logs` for analysis
 
@@ -474,7 +474,8 @@ Get-MCPUVMStatus           # PowerShell wrapper (legacy)
 
 ## 🚀 Model Context Protocol (MCP) Server
 - **mcp_server/** - True Model Context Protocol server implementation
-  - **dsim_uvm_server.py** - Main MCP server (Python)
+  - **dsim_fastmcp_server.py** - FastMCP server entry point (Python)
+  - **dsim_uvm_server.py** - DSIM orchestration utilities used by the server
   - **setup.py** - Automatic dependency installation
   - **requirements.txt** - Python package dependencies
   - **mcp_config.json** - MCP client configuration example
@@ -501,12 +502,12 @@ Get-MCPUVMStatus           # PowerShell wrapper (legacy)
 ## **🚀 必須作業手順（60秒で開始）**
 1. **環境確認**: VS Code MCP統合で自動開始、またはmanual: `python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment`
 2. **テスト確認**: `python mcp_server/mcp_client.py --workspace . --tool list_available_tests`
-3. **基本実行**: `python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test`
+3. **基本実行**: `python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-name uart_axi4_basic_test`
 
 ## **❌ 絶対禁止**
-- **直接実行**: `python mcp_server/run_uvm_simulation.py` （ベストプラクティス違反）
+- **直接実行**: 旧`run_uvm_simulation.py`スクリプトの呼び出し（削除済み・ベストプラクティス違反）
 - **アーカイブファイル使用**: archive/legacy_mcp_files/ 内のファイル実行
-- **古いサーバー**: dsim_uvm_server.py以外のMCPサーバー使用
+- **古いサーバー**: dsim_fastmcp_server.py以外のMCPサーバー使用
 
 ## **📚 困った時の参照順序**
 1. **VS Code MCP統合**: .vscode/mcp.json設定確認

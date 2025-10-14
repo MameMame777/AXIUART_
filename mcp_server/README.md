@@ -1,205 +1,82 @@
-# DSIM UVM Model Context Protocol (MCP) Server
+# DSIM UVM MCP Server (FastMCP Edition)
 
-## ✅ Production Ready Status (October 13, 2025)
+## Status — October 15, 2025
 
-This MCP server provides **verified working** DSIM SystemVerilog UVM simulation through the Model Context Protocol, replacing legacy PowerShell scripts with a standardized interface.
+- FastMCP 2.12.4 server (`dsim_fastmcp_server.py`) is the only MCP entry point.
+- Reference DSIM integration lives in `dsim_uvm_server.py` and is validated on Windows selector event loop.
+- Legacy helper scripts were removed; the MCP tools now expose all required operations directly.
 
-**Verification Status**: All components tested and confirmed functional after VSCode restart.
+## Key Components
 
-## 🚀 Key Features (Verified Working)
+- `dsim_fastmcp_server.py` – FastMCP server definition and tool registry.
+- `dsim_uvm_server.py` – DSIM command orchestration, logging, and analysis utilities.
+- `mcp_client.py` – Standard MCP stdio client for local execution/testing.
+- `setup.py` / `setup_dsim_env.py` – Dependency install and DSIM environment verification helpers.
+- `requirements.txt` – Python package list required by the server.
+- `dsim.env` – Optional environment snapshot used by CI tasks.
 
-- **Auto-Start Integration**: Launches automatically when VSCode workspace opens
-- **Environment Auto-Configuration**: DSIM paths and licenses detected automatically  
-- **PowerShell-Safe Operation**: All tasks use Python scripts, eliminating quoting issues
-- **Comprehensive Test Support**: 42+ UVM test files discovered and executable
-- **Production Logging**: Timestamped logs with detailed simulation results
-- **Waveform Generation**: MXD format support for debugging
+## Getting Started
 
-## 📋 Quality Assurance Work Instructions
 
-**Latest Work Instructions**: [UVM Verification Quality Assurance Instructions (MCP Environment)](../docs/local/uvm_verification_quality_assurance_instructions_mcp_2025-10-13.md)
+1. Install dependencies (once per environment):
 
-**Key Updates (October 13, 2025)**:
-- **Current Status Analysis**: Based on latest MCP execution results (UVM_ERROR: 2, ZERO ACTIVITY issues)
-- **Phase 4 Implementation Plan**: Systematic approach to Level 4 quality assurance  
-- **Critical Issue Focus**: Scoreboard false positive elimination as highest priority
-- **MCP Server Optimization**: Full utilization of Python-based automation capabilities
-- **Quality Gates**: Strict verification criteria with triple verification system
+   ```powershell
+   cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
+   python setup.py
+   ```
 
-## 🎯 Primary Usage Methods
+2. Ensure DSIM variables are defined (`DSIM_HOME`, `DSIM_ROOT`, `DSIM_LIB_PATH`, `DSIM_LICENSE`). The `setup_dsim_env.py` helper can validate these.
 
-### VSCode Tasks (Recommended)
+3. Start the server (VS Code task **“🚀 Start Enhanced MCP Server (FastMCP Edition)”** runs this automatically):
 
-1. **Environment Check**: `DSIM: Check Environment`
-2. **Test Discovery**: `DSIM: List Available Tests`  
-3. **Quick Validation**: `DSIM: Run Basic Test (Compile Only)`
-4. **Full Simulation**: `DSIM: Run Basic Test (Full Simulation)`
-5. **Debug with Waveforms**: `DSIM: Run Test with Waveforms`
+   ```powershell
+   python dsim_fastmcp_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
+   ```
 
-### Direct CLI Usage
+## Using the MCP Client
 
-```bash
-# Basic test execution
-python mcp_server/run_uvm_simulation.py --test_name uart_axi4_basic_test --mode run
-
-# With waveforms and coverage
-python mcp_server/run_uvm_simulation.py --test_name uart_axi4_base_test --mode run --waves --coverage
-```
-
-## ✅ Verified Working Tests
-
-- `uart_axi4_basic_test` - Complete simulation in 2761810000 ps
-- `uart_axi4_base_test` - Shorter simulation in 4190000 ps
-- Multiple compilation and execution modes confirmed
-   - パラメータ: log_type, test_name
-
-5. **generate_coverage_report**
-   - カバレッジ分析レポートの生成
-   - パラメータ: format (html/text/xml)
-
-## セットアップ
-
-### 1. 依存関係のインストール
+All tooling is exposed through `mcp_client.py`. Examples below assume the workspace root.
 
 ```powershell
-cd e:\Nautilus\workspace\fpgawork\AXIUART_\mcp_server
-python setup.py
+# Environment diagnostics
+python mcp_server\mcp_client.py --workspace . --tool check_dsim_environment
+
+# Discover registered UVM tests
+python mcp_server\mcp_client.py --workspace . --tool list_available_tests
+
+# Compile-only run
+python mcp_server\mcp_client.py --workspace . --tool compile_design_only --test-name uart_axi4_basic_test --verbosity UVM_LOW --timeout 120
+
+# Full simulation
+python mcp_server\mcp_client.py --workspace . --tool run_uvm_simulation --test-name uart_axi4_basic_test --mode run --verbosity UVM_MEDIUM --timeout 300
+
+# Waveform generation (MXD)
+python mcp_server\mcp_client.py --workspace . --tool generate_waveforms --test-name uart_axi4_basic_test --timeout 300
 ```
 
-### 2. 環境変数の設定
+Outputs are returned as structured JSON; `mcp_client.py` prints a prettified view if content is JSON-serialisable.
 
-以下の環境変数が必要です：
+## Available MCP Tools
 
-```
-DSIM_HOME=C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0
-DSIM_ROOT=C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0
-DSIM_LIB_PATH=C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\lib
-```
+| Tool Name             | Description                                  |
+|-----------------------|----------------------------------------------|
+| `check_dsim_environment` | Validates DSIM installation and workspace structure |
+| `list_available_tests` | Enumerates discovered `_test.sv` files with metadata |
+| `compile_design_only`  | Generates a DSIM image without running simulation |
+| `run_uvm_simulation`   | Runs compile/elaborate/run depending on `mode` |
+| `run_simulation`       | Executes an existing DSIM image (post-compile) |
+| `generate_waveforms`   | Runs simulation with MXD waveform dumping |
+| `get_simulation_logs`  | Returns tail content for recent DSIM logs |
 
-### 3. MCPサーバー起動
+## Legacy Cleanup (October 2025)
 
-#### 方法1: 直接起動
-```powershell
-python dsim_uvm_server.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_
-```
+The following scripts were retired and removed: `check_dsim_env.py`, `dsim_mcp_simplified.py`, `fastmcp_client.py`, `fastmcp_final_test.py`, `list_available_tests.py`, `run_uvm_simulation.py`. All functionality now exists within the MCP server itself. Update any external references to use `mcp_client.py` commands instead.
 
-#### 方法2: ランチャースクリプト使用
-```powershell
-start_mcp_server.bat
-```
+## Troubleshooting
 
-## 使用方法
+- **Server fails to launch** – confirm `python dsim_fastmcp_server.py --debug` and inspect logs for missing environment variables.
+- **Client cannot connect** – ensure the VS Code task is running or start the server manually, then re-run `mcp_client.py`.
+- **DSIM compilation errors** – review `sim/exec/logs/*.log` or call `get_simulation_logs` to surface the most recent diagnostics.
 
-### MCP設定ファイル
+For detailed verification procedures refer to `docs/uvm_verification_quality_assurance_instructions_mcp_2025-10-13.md`.
 
-`mcp_config.json`を参考にMCPクライアントを設定：
-
-```json
-{
-  "mcpServers": {
-    "dsim-uvm": {
-      "command": "python",
-      "args": [
-        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_\\mcp_server\\dsim_uvm_server.py",
-        "--workspace",
-        "e:\\Nautilus\\workspace\\fpgawork\\AXIUART_"
-      ]
-    }
-  }
-}
-```
-
-### ツール使用例
-
-#### 基本的なUVMテスト実行
-```json
-{
-  "name": "run_uvm_simulation",
-  "arguments": {
-    "test_name": "uart_axi4_basic_test",
-    "mode": "run",
-    "verbosity": "UVM_MEDIUM",
-    "waves": true,
-    "coverage": true
-  }
-}
-```
-
-#### 環境確認
-```json
-{
-  "name": "check_dsim_environment",
-  "arguments": {}
-}
-```
-
-#### カバレッジレポート生成
-```json
-{
-  "name": "generate_coverage_report",
-  "arguments": {
-    "format": "html"
-  }
-}
-```
-
-## 従来システムとの比較
-
-### 従来のPowerShell "MCP-UVM"システム
-- ✅ ワークスペース固有の設定
-- ✅ 簡単なセットアップ
-- ❌ 標準化されていないインターフェース
-- ❌ プラットフォーム依存
-
-### 新しいMCPサーバー
-- ✅ 標準化されたModel Context Protocol
-- ✅ プラットフォーム独立
-- ✅ 拡張性の高いアーキテクチャ
-- ✅ 他のMCPクライアントとの統合可能
-- ⚠️ 初期セットアップがやや複雑
-
-## トラブルシューティング
-
-### MCPパッケージインポートエラー
-```powershell
-pip install mcp
-```
-
-### DSIM環境エラー
-1. DSIM_HOME環境変数を確認
-2. DSIMライセンスファイルの確認
-3. `check_dsim_environment`ツールで詳細診断
-
-### シミュレーション実行エラー
-1. dsim_config.fファイルの存在確認
-2. テストファイルのパス確認
-3. ログファイルでエラー詳細確認
-
-## 開発者情報
-
-### ファイル構成
-```
-mcp_server/
-├── dsim_uvm_server.py      # メインMCPサーバー
-├── setup.py                # セットアップスクリプト
-├── requirements.txt        # Python依存関係
-├── mcp_config.json        # MCP設定例
-├── start_mcp_server.bat   # Windows起動スクリプト
-└── README.md              # このファイル
-```
-
-### 拡張方法
-1. `DSIMSimulationServer`クラスに新しいメソッド追加
-2. `_setup_tools()`で新しいツール登録
-3. 対応するハンドラー実装
-
-### ログレベル調整
-```python
-logging.basicConfig(level=logging.DEBUG)  # 詳細ログ
-```
-
-## 参考資料
-
-- [Model Context Protocol仕様](https://modelcontextprotocol.io/)
-- [DSIM User Manual](https://help.metrics.ca/support/solutions/articles/154000141193-user-guide-dsim-user-manual)
-- [UVM Verification Plan](../docs/uvm_verification_plan.md)
