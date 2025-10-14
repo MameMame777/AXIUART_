@@ -10,13 +10,12 @@ Architecture: FastMCP → Agent AI → DSIM Tools (92% → 98% Best Practice Com
 """
 
 import asyncio
-import json
 import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import List, Optional, Literal
 import argparse
 from datetime import datetime
 import re
@@ -33,7 +32,6 @@ if sys.platform == "win32":
 # FastMCP imports (Latest Best Practice)
 try:
     from mcp.server.fastmcp import FastMCP
-    from mcp.types import TextContent
 except ImportError as e:
     print(f"Error: FastMCP not found. Install with: pip install mcp", file=sys.stderr)
     sys.exit(1)
@@ -60,6 +58,7 @@ mcp = FastMCP("dsim-uvm-server")
 # Global configuration
 workspace_root: Optional[Path] = None
 dsim_home: Optional[str] = None
+MAX_LOG_FILES = 50  # keep the most recent DSIM log files to control disk usage
 
 def setup_dsim_environment():
     """Auto-setup DSIM environment with enhanced error reporting."""
@@ -95,6 +94,29 @@ class DSIMError(Exception):
         self.suggestion = suggestion
         self.exit_code = exit_code
         super().__init__(self.message)
+
+
+def cleanup_old_logs(log_dir: Path, max_logs: int = MAX_LOG_FILES) -> None:
+    """Remove older DSIM log files while keeping the newest max_logs entries."""
+    if max_logs <= 0 or not log_dir.exists():
+        return
+
+    try:
+        log_files = sorted(
+            (p for p in log_dir.glob("*.log") if p.is_file()),
+            key=lambda file_path: file_path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError as exc:
+        logger.warning("Failed to examine DSIM log directory: %s", exc)
+        return
+
+    for old_file in log_files[max_logs:]:
+        try:
+            old_file.unlink()
+            logger.info("Removed old DSIM log: %s", old_file.name)
+        except OSError as exc:
+            logger.warning("Unable to delete DSIM log %s: %s", old_file.name, exc)
 
 def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
     """Parse DSIM error output and provide specific diagnostics."""
@@ -143,7 +165,7 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
             exit_code
         )
 
-def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess:
+def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess[bytes]:
     """Run subprocess synchronously to support Windows event loop limitations."""
     return subprocess.run(
         cmd,
@@ -160,6 +182,13 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
     
     logger.info(f"Executing DSIM: {' '.join(cmd)}")
     
+    if workspace_root is None:
+        raise DSIMError(
+            "Workspace root not configured",
+            "configuration",
+            "Call setup_workspace before invoking DSIM commands",
+        )
+
     try:
         loop = asyncio.get_running_loop()
         logger.debug(f"Current asyncio loop: {type(loop)}")
@@ -174,8 +203,8 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
                 timeout,
                 uvm_work_dir
             )
-            stdout = completed.stdout or b""
-            stderr = completed.stderr or b""
+            stdout: bytes = completed.stdout
+            stderr: bytes = completed.stderr
             return_code = completed.returncode
         else:
             process = await asyncio.create_subprocess_exec(
@@ -299,6 +328,18 @@ async def run_uvm_simulation(
             "environment", 
             "Set DSIM_HOME environment variable to DSIM installation directory"
         )
+    if workspace_root is None:
+        raise DSIMError(
+            "Workspace root not configured",
+            "configuration",
+            "Call setup_workspace before invoking DSIM tools",
+        )
+    if dsim_home is None:
+        raise DSIMError(
+            "DSIM_HOME not set",
+            "environment",
+            "Set DSIM_HOME environment variable to point at the DSIM install directory",
+        )
     
     # Build DSIM command with validation
     dsim_exe = Path(dsim_home) / "bin" / "dsim.exe"
@@ -319,10 +360,11 @@ async def run_uvm_simulation(
             "Ensure dsim_config.f exists in sim/uvm directory"
         )
     
-    # Create timestamped log directory
+    # Create timestamped log directory and prune older entries to limit clutter
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = workspace_root / "sim" / "exec" / "logs"  
     log_dir.mkdir(parents=True, exist_ok=True)
+    cleanup_old_logs(log_dir)
     
     # Use correct relative path from sim/uvm working directory
     # sim/uvm -> ../exec/logs (one level up to sim, then exec/logs)
@@ -348,6 +390,7 @@ async def run_uvm_simulation(
         cmd.extend(["-image", "compiled_image"])
     
     # Enhanced feature options
+    waves_file: Optional[Path] = None
     if waves:
         waves_dir = workspace_root / "archive" / "waveforms"
         waves_dir.mkdir(parents=True, exist_ok=True)
@@ -369,7 +412,7 @@ Test: {test_name}
 Mode: {mode} 
 Verbosity: {verbosity}
 Log File: {log_file_relative}
-{f'Waveform: {waves_file}' if waves else 'Waveforms: Disabled'}
+{f'Waveform: {waves_file}' if waves_file else 'Waveforms: Disabled'}
 Coverage: {'Enabled' if coverage else 'Disabled'}
 Seed: {seed}
 
@@ -619,7 +662,14 @@ async def generate_waveforms(
     
     # Add waveform-specific information
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    waves_dir = workspace_root / "archive" / "waveforms"
+    if workspace_root is None:
+        raise DSIMError(
+            "Workspace root not configured",
+            "configuration",
+            "Call setup_workspace before invoking DSIM tools",
+        )
+    current_workspace = workspace_root
+    waves_dir = current_workspace / "archive" / "waveforms"
     expected_file = waves_dir / f"{test_name}_{timestamp}.mxd"
     
     waveform_info = f"""
