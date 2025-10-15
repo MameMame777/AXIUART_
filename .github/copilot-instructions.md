@@ -38,6 +38,7 @@ python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-
 - ✅ **DSIM-Specific Diagnostics**: Detailed error analysis with solutions
 - ✅ **48+ UVM Test Discovery**: Automatic test discovery with descriptions
 - ✅ **Production-Grade Reliability**: Thoroughly tested and validated
+- ✅ **Structured Telemetry**: `run_uvm_simulation` returns JSON with summaries, log paths, and assertion metrics
 
 ## **PRIMARY METHODS (Use these)**
 - ✅ VS Code MCP Interface (Recommended for all operations)
@@ -53,7 +54,8 @@ check_dsim_environment()
 # 2. Test discovery and execution
 list_available_tests()
 compile_design_only({"test_name": "uart_axi4_basic_test"})
-run_simulation({"test_name": "uart_axi4_basic_test"}) 
+run_simulation({"test_name": "uart_axi4_basic_test"})
+analyze_uvm_log({"log_path": "sim/exec/logs/<latest>.log"})
 collect_coverage({"test_name": "uart_axi4_basic_test"})
 ```
 # Regarding the Purpose of the Work
@@ -115,6 +117,7 @@ python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-
 - Leverage FastMCP tools for atomic operations
 - Always verify environment before executing operations
 - Prefer standard MCP protocol over custom implementations
+- Consume JSON responses (`run_uvm_simulation`, `analyze_uvm_log`) instead of raw logs for dashboards and triage
 
 ## **Standard UVM Guidelines**
 - Perform verification using UVM through MCP server tools.

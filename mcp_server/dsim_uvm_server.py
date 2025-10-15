@@ -10,15 +10,18 @@ Architecture: FastMCP → Agent AI → DSIM Tools (92% → 98% Best Practice Com
 """
 
 import asyncio
+import json
 import logging
 import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any, cast
 import argparse
 from datetime import datetime
 import re
+
+from tools.utils import analyse_uvm_log, summarise_test_result, collect_assertion_summary
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -402,43 +405,148 @@ async def run_uvm_simulation(
     
     # Execute with enhanced error handling
     try:
-        result = await execute_dsim_command(cmd, timeout)
-        
-        # Add success summary with file locations
-        success_summary = f"""
-{STATUS_OK} UVM Simulation Completed Successfully
+        result_text = await execute_dsim_command(cmd, timeout)
 
-Test: {test_name}
-Mode: {mode} 
-Verbosity: {verbosity}
-Log File: {log_file_relative}
-{f'Waveform: {waves_file}' if waves_file else 'Waveforms: Disabled'}
-Coverage: {'Enabled' if coverage else 'Disabled'}
-Seed: {seed}
+        log_file_absolute = (uvm_dir / log_file_relative).resolve()
 
-{result}
-        """.strip()
-        
-        return success_summary
-        
+        analysis: Dict[str, Any] = {}
+        summary_report: Dict[str, Any] = {}
+        warning_messages: List[str] = []
+        status = "success"
+
+        assertion_summary: Dict[str, Any] = {}
+
+        try:
+            analysis = analyse_uvm_log(log_file_absolute)
+            summary_report = summarise_test_result(analysis)
+            status = summary_report.get("status", "success")
+
+            assertion_summary = collect_assertion_summary(analysis)
+
+            raw_warnings: List[Dict[str, Any]] = []
+            if analysis:
+                warnings_value = analysis.get("warnings", [])
+                if isinstance(warnings_value, list):
+                    for item in cast(List[Any], warnings_value):
+                        if isinstance(item, dict):
+                            raw_warnings.append(cast(Dict[str, Any], item))
+
+            warning_messages = [
+                f"[{entry.get('id', 'UNKNOWN')}] {entry.get('message', '')}" for entry in raw_warnings[:10]
+            ]
+            if raw_warnings and len(raw_warnings) > 10:
+                warning_messages.append("Additional warnings truncated")
+        except FileNotFoundError:
+            warning_messages.append("Log file not found for analysis. Skipping analytics phase.")
+        except Exception as exc:  # pragma: no cover - defensive catch
+            warning_messages.append(f"Log analysis failed: {exc}")
+
+        response: Dict[str, Any] = {
+            "status": status,
+            "test_name": analysis.get("test_name") or test_name,
+            "mode": mode,
+            "verbosity": verbosity,
+            "seed": analysis.get("seed") if analysis.get("seed") is not None else seed,
+            "log_file": log_file_relative,
+            "log_file_absolute": str(log_file_absolute),
+            "waves_file": str(waves_file) if waves_file else None,
+            "coverage_requested": coverage,
+            "analysis": {
+                **analysis,
+                "warnings": (analysis.get("warnings", [])[:10] if analysis else []),
+                "assertions": (analysis.get("assertions", [])[:10] if analysis else []),
+            } if analysis else {},
+            "summary": summary_report,
+            "assertion_summary": assertion_summary,
+            "details": result_text,
+            "warnings": warning_messages,
+        }
+
+        return json.dumps(response, ensure_ascii=False)
+
     except DSIMError as e:
-        # Re-raise with additional context
-        enhanced_error = f"""
-{STATUS_FAIL} UVM Simulation Failed
+        enhanced_error: Dict[str, Any] = {
+            "status": "failure",
+            "test_name": test_name,
+            "mode": mode,
+            "verbosity": verbosity,
+            "seed": seed,
+            "timeout": timeout,
+            "error": str(e),
+            "log_file": log_file_relative,
+        }
 
-Test Configuration:
-- Test Name: {test_name}
-- Mode: {mode}
-- Verbosity: {verbosity}  
-- Seed: {seed}
-- Timeout: {timeout}s
+        raise DSIMError(json.dumps(enhanced_error, ensure_ascii=False), e.error_type, e.suggestion, e.exit_code)
 
-{str(e)}
+@mcp.tool()
+async def analyze_uvm_log(log_path: str, limit: int = 10) -> str:
+    """Analyse a DSIM UVM log file and return structured insight as JSON."""
 
-Log File: {log_file_relative} (may contain additional details)
-        """.strip()
-        
-        raise DSIMError(enhanced_error, e.error_type, e.suggestion, e.exit_code)
+    if workspace_root is None:
+        raise DSIMError(
+            "Workspace root not configured",
+            "configuration",
+            "Call setup_workspace before invoking DSIM tools",
+        )
+
+    if limit <= 0:
+        raise DSIMError(
+            "Limit must be greater than zero",
+            "configuration",
+            "Provide a positive integer for the limit parameter",
+        )
+
+    candidate_path = Path(log_path)
+    if not candidate_path.is_absolute():
+        candidate_path = workspace_root / candidate_path
+
+    candidate_path = candidate_path.resolve()
+
+    try:
+        analysis = analyse_uvm_log(candidate_path)
+    except FileNotFoundError as exc:
+        raise DSIMError(str(exc), "io", "Verify the log file path", -1) from exc
+
+    summary = summarise_test_result(analysis)
+    assertion_summary = collect_assertion_summary(analysis)
+
+    warnings_subset: List[Dict[str, Any]] = []
+    warnings_value = analysis.get("warnings", [])
+    if isinstance(warnings_value, list):
+        for item in cast(List[Any], warnings_value[:limit]):
+            if isinstance(item, dict):
+                warnings_subset.append(cast(Dict[str, Any], item))
+
+    assertions_subset: List[Dict[str, Any]] = []
+    assertions_value = analysis.get("assertions", [])
+    if isinstance(assertions_value, list):
+        for item in cast(List[Any], assertions_value[:limit]):
+            if isinstance(item, dict):
+                assertions_subset.append(cast(Dict[str, Any], item))
+
+    try:
+        workspace_relative = str(candidate_path.relative_to(workspace_root))
+    except ValueError:
+        workspace_relative = None
+
+    response: Dict[str, Any] = {
+        "status": summary.get("status", "unknown"),
+        "log_file": analysis.get("log_path", str(candidate_path)),
+        "workspace_relative": workspace_relative,
+        "summary": summary,
+        "analysis": {
+            **analysis,
+            "warnings": warnings_subset,
+            "assertions": assertions_subset,
+        },
+        "assertion_summary": assertion_summary,
+        "limits": {
+            "warnings": limit,
+            "assertions": limit,
+        },
+    }
+
+    return json.dumps(response, ensure_ascii=False)
 
 @mcp.tool()
 async def check_dsim_environment() -> str:
