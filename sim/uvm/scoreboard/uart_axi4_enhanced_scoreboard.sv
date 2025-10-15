@@ -143,6 +143,56 @@ class uart_axi4_enhanced_scoreboard extends uvm_scoreboard;
         match_transactions();
     endfunction
 
+    function automatic bit string_contains(input string haystack, input string needle);
+        int h_len;
+        int n_len;
+
+        n_len = needle.len();
+        if (n_len == 0) begin
+            return 1;
+        end
+
+        h_len = haystack.len();
+        if (h_len < n_len) begin
+            return 0;
+        end
+
+        for (int idx = 0; idx <= h_len - n_len; idx++) begin
+            if (haystack.substr(idx, idx + n_len - 1) == needle) begin
+                return 1;
+            end
+        end
+
+        return 0;
+    endfunction
+
+    function automatic dut_state_t decode_dut_state(const ref dut_internal_transaction t);
+        string info_lower;
+
+        info_lower = t.state_info.tolower();
+        if ((info_lower.len() > 0) && string_contains(info_lower, "error")) begin
+            return ERROR_STATE;
+        end
+
+        unique case (t.transaction_type)
+            UART_RX_DATA,
+            FRAME_START_DETECTED: return RECEIVING;
+
+            AXI_WRITE_ADDR,
+            AXI_WRITE_DATA,
+            AXI_READ_ADDR,
+            AXI_READ_DATA,
+            INTERNAL_STATE_CHANGE: return PROCESSING;
+
+            AXI_WRITE_RESP,
+            FRAME_COMPLETE: return RESPONDING;
+
+            FIFO_STATUS_CHANGE: return current_dut_state;
+
+            default: return IDLE;
+        endcase
+    endfunction
+
     // DUT Internal State Analysis (NEW in QA-2.1)
     virtual function void write_dut(dut_internal_transaction t);
         dut_state_changes_received++;
@@ -150,15 +200,7 @@ class uart_axi4_enhanced_scoreboard extends uvm_scoreboard;
         last_dut_activity = $time;
         
         previous_dut_state = current_dut_state;
-        
-        // Decode DUT internal state
-        case (t.internal_state)
-            0: current_dut_state = IDLE;
-            1: current_dut_state = RECEIVING;
-            2: current_dut_state = PROCESSING;
-            3: current_dut_state = RESPONDING;
-            default: current_dut_state = ERROR_STATE;
-        endcase
+        current_dut_state = decode_dut_state(t);
         
         `uvm_info("ENHANCED_SB_DUT", 
                   $sformatf("DUT State Change #%0d: %s -> %s, fifo_count=%0d, time=%0t", 

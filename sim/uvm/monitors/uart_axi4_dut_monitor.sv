@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
@@ -150,7 +150,7 @@ class uart_axi4_dut_monitor extends uvm_monitor;
             if (axi_vif.bvalid && axi_vif.bready) begin
                 dut_trans = uart_axi4_dut_transaction::type_id::create("dut_trans");
                 dut_trans.transaction_type = AXI_WRITE_RESP;
-                dut_trans.response = axi_vif.bresp;
+                dut_trans.response = axi_response_t'(axi_vif.bresp);
                 dut_trans.timestamp = $time;
                 
                 `uvm_info("DUT_MON", $sformatf("AXI Write Response: %s at %0t", 
@@ -177,7 +177,7 @@ class uart_axi4_dut_monitor extends uvm_monitor;
                 dut_trans = uart_axi4_dut_transaction::type_id::create("dut_trans");
                 dut_trans.transaction_type = AXI_READ_DATA;
                 dut_trans.data_value = axi_vif.rdata;
-                dut_trans.response = axi_vif.rresp;
+                dut_trans.response = axi_response_t'(axi_vif.rresp);
                 dut_trans.timestamp = $time;
                 
                 `uvm_info("DUT_MON", $sformatf("AXI Read Data: 0x%08h, Resp: %s at %0t", 
@@ -242,19 +242,47 @@ class uart_axi4_dut_monitor extends uvm_monitor;
             
             // Detect frame processing events
             if (uart_vif.frame_processing_active) begin
+                int payload_len;
                 frame_trans = uart_frame_transaction::type_id::create("frame_trans");
-                
-                // Collect frame information
-                frame_trans.command = uart_vif.current_command;
-                frame_trans.address = uart_vif.current_address;
-                frame_trans.data_length = uart_vif.current_data_length;
-                frame_trans.payload_data = uart_vif.current_payload;
+
+                frame_trans.sof = SOF_HOST_TO_DEVICE;
+                frame_trans.start_delimiter = SOF_HOST_TO_DEVICE;
+                frame_trans.cmd = uart_vif.current_command;
+                frame_trans.addr = uart_vif.current_address;
+                frame_trans.target_addr = uart_vif.current_address;
+
+                payload_len = int'(uart_vif.current_data_length);
+                if (payload_len < 0) begin
+                    payload_len = 0;
+                end else if (payload_len > 8) begin
+                    payload_len = 8; // uart_if exposes up to 8 payload bytes
+                end
+
+                frame_trans.len = payload_len[7:0];
+                frame_trans.data_length = payload_len;
+
+                frame_trans.data = new[payload_len];
+                frame_trans.payload_data = new[payload_len];
+                frame_trans.frame_data = new[payload_len];
+                frame_trans.frame_length = payload_len;
+
+                for (int idx = 0; idx < payload_len; idx++) begin
+                    logic [7:0] byte_val;
+                    byte_val = (uart_vif.current_payload >> (idx * 8)) & 8'hFF;
+                    frame_trans.data[idx] = byte_val;
+                    frame_trans.payload_data[idx] = byte_val;
+                    frame_trans.frame_data[idx] = byte_val;
+                end
+
                 frame_trans.crc = uart_vif.current_crc;
-                frame_trans.timestamp = $time;
-                
-                `uvm_info("DUT_MON", $sformatf("Frame processing: Cmd=0x%02h, Addr=0x%08h at %0t", 
-                    frame_trans.command, frame_trans.address, $time), UVM_MEDIUM)
-                
+                frame_trans.crc_received = uart_vif.current_crc;
+                frame_trans.crc_calculated = uart_vif.current_crc;
+                frame_trans.timestamp = $realtime;
+                frame_trans.direction = UART_RX;
+
+                `uvm_info("DUT_MON", $sformatf("Frame processing: Cmd=0x%02h, Addr=0x%08h, Len=%0d at %0t",
+                    frame_trans.cmd, frame_trans.addr, payload_len, $time), UVM_MEDIUM)
+
                 frame_analysis_port.write(frame_trans);
             end
         end

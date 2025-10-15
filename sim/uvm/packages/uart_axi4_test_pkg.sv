@@ -18,7 +18,7 @@ package uart_axi4_test_pkg;
     // Transaction direction constants
     typedef enum { UART_RX, UART_TX } uart_direction_t;
     typedef enum { AXI_WRITE, AXI_READ } axi_trans_type_t;
-    typedef enum { AXI_OKAY, AXI_EXOKAY, AXI_SLVERR, AXI_DECERR } axi_response_t;
+    typedef enum logic [1:0] { AXI_OKAY = 2'b00, AXI_EXOKAY = 2'b01, AXI_SLVERR = 2'b10, AXI_DECERR = 2'b11 } axi_response_t;
     
     // DUT Transaction Types  
     typedef enum {
@@ -334,19 +334,19 @@ package uart_axi4_test_pkg;
         dut_transaction_type_t transaction_type;
         logic [31:0] data_value;
         logic [31:0] address;
-        logic [1:0] response;
+        axi_response_t response;
         string state_info;
-        string internal_state;  // DUT internal state info
-        logic [7:0] fifo_level; // FIFO level info
+        logic [7:0] internal_state;  // Encoded DUT internal state (matches scoreboard expectations)
+        logic [7:0] fifo_level;      // FIFO level info
         realtime timestamp;
         
         `uvm_object_utils_begin(dut_internal_transaction)
             `uvm_field_enum(dut_transaction_type_t, transaction_type, UVM_ALL_ON)
             `uvm_field_int(data_value, UVM_ALL_ON)
             `uvm_field_int(address, UVM_ALL_ON) 
-            `uvm_field_int(response, UVM_ALL_ON)
+            `uvm_field_enum(axi_response_t, response, UVM_ALL_ON)
             `uvm_field_string(state_info, UVM_ALL_ON)
-            `uvm_field_string(internal_state, UVM_ALL_ON)
+            `uvm_field_int(internal_state, UVM_ALL_ON)
             `uvm_field_int(fifo_level, UVM_ALL_ON)
             `uvm_field_real(timestamp, UVM_ALL_ON)
         `uvm_object_utils_end
