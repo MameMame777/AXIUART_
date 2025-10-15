@@ -28,6 +28,19 @@ python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
 python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test
 ```
 
+#### ✅ Always execute DSIM via MCP client (two-step flow)
+
+All Copilot Agent and manual runs **must** follow this exact sequence using the absolute workspace path:
+
+```pwsh
+python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode compile --verbosity UVM_LOW --timeout 180
+python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode run --verbosity UVM_MEDIUM --waves --timeout 300
+```
+
+- Compile first to refresh `compiled_image`, then run with the generated image.
+- The VS Code tasks `DSIM: Run Basic Test (Compile Only - MCP)` and `DSIM: Run Basic Test (Full Simulation - MCP)` already wrap these commands; prefer them in the GUI.
+- Avoid legacy scripts (`run_uvm_simulation.py`, PowerShell wrappers) as they bypass the production FastMCP flow.
+
 ### 🏆 **Enhanced Features - Phase 1 Improvements: 98% Compliance**
 
 **🎯 New FastMCP Capabilities**:

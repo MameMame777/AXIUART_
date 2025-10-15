@@ -31,6 +31,19 @@ python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
 python mcp_server/mcp_client.py --workspace . --tool compile_design_only --test-name <test_name>
 ```
 
+### ✅ Mandatory DSIM Execution Flow (VS Code + Copilot Agent)
+- Always invoke DSIM through the MCP client with the absolute workspace path.
+- **Two-step sequence is required**: compile first, then run using the pre-built image.
+- This applies to Copilot Agent, manual terminals, and VS Code task automation.
+
+```pwsh
+python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode compile --verbosity UVM_LOW --timeout 180
+python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode run --verbosity UVM_MEDIUM --waves --timeout 300
+```
+
+- Prefer the pre-configured VS Code tasks (e.g. `DSIM: Run Basic Test (Compile Only - MCP)` followed by `DSIM: Run Basic Test (Full Simulation - MCP)`) when operating through the GUI. These tasks internally call the same MCP client commands above.
+- Do **not** call legacy scripts (`run_uvm_simulation.py`, PowerShell wrappers, etc.).
+
 ## **Production FastMCP Environment Features**
 - ✅ **VS Code MCP Integration**: Full VS Code integration via .vscode/mcp.json
 - ✅ **FastMCP 2.12.4**: Latest production release with type-safe tools

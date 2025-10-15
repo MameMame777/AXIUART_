@@ -11,18 +11,25 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
     
     virtual task body();
         uart_frame_transaction req;
-        
+
         `uvm_info("DEBUG_WRITE_SEQ_2023", "Starting SINGLE write transaction debug", UVM_MEDIUM)
-        
-        // Create exactly one write transaction
+
+        // Create exactly one write transaction aligned with protocol encoding
         `uvm_create(req)
-        
-        // Set exact values - no randomization
-        req.cmd = 8'h01;  // Write, 1 byte, no increment
-        req.addr = 32'h1000;  // Base address (REG_CONTROL)
+
+        req.is_write       = 1'b1;
+        req.auto_increment = 1'b0;
+        req.size           = 2'b00;   // 8-bit access
+        req.length         = 4'h0;    // length=0 encodes one beat
+        req.expect_error   = 1'b0;
+        req.addr           = 32'h0000_1000;  // Base address (REG_CONTROL)
+
         req.data = new[1];
-        req.data[0] = 8'h42;  // Predictable data
-        
+        req.data[0] = 8'h42;          // Predictable data payload
+
+        req.build_cmd();
+        req.calculate_crc();
+
         `uvm_send(req)
         
         `uvm_info("DEBUG_WRITE_SEQ_2023", $sformatf("Sent: CMD=0x%02X, ADDR=0x%08X, DATA=0x%02X", 

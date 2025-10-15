@@ -94,10 +94,10 @@ module uart_axi4_tb_top;
         end
     endgenerate
     
-    // Clock generation (50MHz)
+    // Clock generation (matches DUT parameter: 125MHz)
     initial begin
         clk = 1'b0;
-        forever #10ns clk = ~clk; // 50MHz clock
+        forever #4ns clk = ~clk; // 125MHz clock
     end
     
     // Reset generation - EXTENDED RESET for stability

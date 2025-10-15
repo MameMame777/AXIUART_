@@ -66,26 +66,48 @@ MAX_LOG_FILES = 50  # keep the most recent DSIM log files to control disk usage
 def setup_dsim_environment():
     """Auto-setup DSIM environment with enhanced error reporting."""
     global dsim_home
-    
+
     dsim_home = os.environ.get('DSIM_HOME')
     if not dsim_home:
-        logger.warning("DSIM_HOME not set in environment")
+        logger.info("DSIM_HOME not set - invoking setup_dsim_env helper")
+        try:
+            from setup_dsim_env import setup_dsim_environment as helper_setup
+        except ImportError as exc:
+            logger.warning("Failed to import setup_dsim_env helper: %s", exc)
+            return False
+
+        helper_success = helper_setup()
+        if not helper_success:
+            logger.warning("setup_dsim_env helper did not complete successfully")
+            return False
+
+        dsim_home = os.environ.get('DSIM_HOME')
+        if not dsim_home:
+            logger.warning("setup_dsim_env helper failed to configure DSIM_HOME")
+            return False
+
+    dsim_path = Path(dsim_home)
+    if not dsim_path.exists():
+        logger.warning("Configured DSIM_HOME does not exist: %s", dsim_home)
         return False
-        
+
+    os.environ.setdefault('DSIM_ROOT', dsim_home)
+    os.environ.setdefault('DSIM_LIB_PATH', str(dsim_path / "lib"))
+
     # Auto-configure DSIM_LICENSE if not set
     if not os.environ.get('DSIM_LICENSE') and dsim_home:
         license_locations = [
             Path(dsim_home).parent / "dsim-license.json",
-            Path(dsim_home) / "dsim-license.json", 
+            Path(dsim_home) / "dsim-license.json",
             Path("C:/Users/Nautilus/AppData/Local/metrics-ca/dsim-license.json")
         ]
-        
+
         for license_path in license_locations:
             if license_path.exists():
                 os.environ['DSIM_LICENSE'] = str(license_path)
                 logger.info(f"Auto-configured DSIM_LICENSE: {license_path}")
                 break
-                
+
     return True
 
 class DSIMError(Exception):

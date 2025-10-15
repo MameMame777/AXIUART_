@@ -18,6 +18,9 @@ interface bridge_status_if (
     logic [6:0] tx_fifo_depth;
 
     // Bridge status and error reporting
+    logic        bridge_busy;
+    logic [7:0]  bridge_error;
+    logic        system_ready;
     logic [7:0] bridge_state;
     logic [31:0] error_status;
     // Helper method to decode the frame parser state into a readable string
@@ -47,6 +50,9 @@ interface bridge_status_if (
         rx_fifo_depth = 7'h40;
         tx_fifo_count = 7'h00;
         tx_fifo_depth = 7'h40;
+        bridge_busy = 1'b0;
+        bridge_error = 8'h00;
+        system_ready = 1'b0;
         bridge_state = 8'h00;
         error_status = 32'h0;
     end
@@ -62,6 +68,9 @@ interface bridge_status_if (
         input rx_fifo_depth,
         input tx_fifo_count,
         input tx_fifo_depth,
+        input bridge_busy,
+        input bridge_error,
+        input system_ready,
         input bridge_state,
         input error_status,
         import get_frame_parser_state_name
@@ -78,6 +87,9 @@ interface bridge_status_if (
         output rx_fifo_depth,
         output tx_fifo_count,
         output tx_fifo_depth,
+        output bridge_busy,
+        output bridge_error,
+        output system_ready,
         output bridge_state,
         output error_status
     );
