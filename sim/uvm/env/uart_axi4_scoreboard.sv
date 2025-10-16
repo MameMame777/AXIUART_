@@ -52,9 +52,16 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     uart_axi4_env_config cfg;
     
     // Queues for matching transactions
+    typedef struct {
+        bit expect_error;
+        logic [7:0] cmd;
+        logic [31:0] addr;
+    } response_expectation_info_t;
+
     uart_axi4_expected_transaction uart_expectations[$];
     axi4_lite_transaction axi_queue[$];
     uart_frame_transaction uart_expected_queue[$];
+    response_expectation_info_t response_expectation_queue[$];
 
     // Register map boundaries for automatic reserved-address classification
     localparam logic [31:0] REG_BASE_ADDR = 32'h0000_1000;
@@ -105,6 +112,30 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             `uvm_fatal("SCOREBOARD", "Failed to get configuration object")
         end
     endfunction
+
+    protected function void scoreboard_metadata_log(string id, string message, int default_verbosity = UVM_HIGH);
+        int level;
+
+        if (cfg == null || !cfg.enable_scoreboard_metadata_logs) begin
+            return;
+        end
+
+        level = (cfg.scoreboard_metadata_verbosity != 0) ?
+                cfg.scoreboard_metadata_verbosity : default_verbosity;
+        `uvm_info(id, message, level)
+    endfunction
+
+    protected function void scoreboard_runtime_log(string id, string message, int default_verbosity = UVM_MEDIUM);
+        int level;
+
+        if (cfg == null || !cfg.enable_scoreboard_runtime_logs) begin
+            return;
+        end
+
+        level = (cfg.scoreboard_runtime_verbosity != 0) ?
+                cfg.scoreboard_runtime_verbosity : default_verbosity;
+        `uvm_info(id, message, level)
+    endfunction
     
     virtual function void write_uart_expected(uart_frame_transaction tr);
         uart_frame_transaction queued_tr;
@@ -112,10 +143,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         $cast(queued_tr, tr.clone());
         uart_expected_queue.push_back(queued_tr);
 
-        `uvm_info("SCOREBOARD",
+        scoreboard_metadata_log("SCOREBOARD_METADATA_QUEUE",
             $sformatf("Queued UART request metadata: CMD=0x%02X ADDR=0x%08X expect_error=%0b queue_depth=%0d",
-                      queued_tr.cmd, queued_tr.addr, queued_tr.expect_error, uart_expected_queue.size()),
-            UVM_HIGH)
+                      queued_tr.cmd, queued_tr.addr, queued_tr.expect_error, uart_expected_queue.size()));
     endfunction
 
     function bit is_addr_reserved(logic [31:0] addr);
@@ -123,22 +153,22 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         
         if (addr < REG_BASE_ADDR) begin
             result = 1'b1;
-            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
                 $sformatf("Address check: 0x%08X (BELOW_BASE) offset=0x%02X -> reserved=%0b",
                           addr, (addr - REG_BASE_ADDR), result),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
         end else if (addr > REG_LAST_VALID_ADDR) begin
             result = 1'b1;
-            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
                 $sformatf("Address check: 0x%08X (ABOVE_LAST) offset=0x%02X -> reserved=%0b",
                           addr, (addr - REG_BASE_ADDR), result),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
         end else begin
             result = 1'b0;
-            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
                 $sformatf("Address check: 0x%08X (VALID) offset=0x%02X -> reserved=%0b",
                           addr, (addr - REG_BASE_ADDR), result),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
         end
         
         return result;
@@ -149,10 +179,18 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
 
         if (uart_expected_queue.size() == 0) begin
             `uvm_warning("SCOREBOARD",
-                $sformatf("No pre-drive metadata available for UART frame CMD=0x%02X ADDR=0x%08X",
-                          uart_tr.cmd, uart_tr.addr))
+                $sformatf("No pre-drive metadata available for UART frame CMD=0x%02X ADDR=0x%08X at %0t",
+                          uart_tr.cmd, uart_tr.addr, $realtime))
             return;
         end
+
+        scoreboard_metadata_log("SCOREBOARD_METADATA",
+            $sformatf("Applying metadata: queue_depth=%0d head_CMD=0x%02X head_ADDR=0x%08X time=%0t",
+                      uart_expected_queue.size(),
+                      uart_expected_queue[0].cmd,
+                      uart_expected_queue[0].addr,
+                      $realtime),
+            UVM_MEDIUM);
 
         queued_tr = uart_expected_queue.pop_front();
 
@@ -182,10 +220,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         $cast(uart_tr, tr.clone());
 
         if (uart_tr.direction != UART_RX) begin
-            `uvm_info("SCOREBOARD",
+            scoreboard_runtime_log("SCOREBOARD",
                 $sformatf("Ignoring UART frame CMD=0x%02X (direction=%s)",
                           uart_tr.cmd, uart_tr.direction.name()),
-                UVM_HIGH)
+                UVM_HIGH);
             return;
         end
 
@@ -196,10 +234,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (uart_tr.error_inject || uart_tr.force_crc_error || uart_tr.force_timeout ||
             uart_tr.corrupt_frame_format || uart_tr.truncate_frame || uart_tr.wrong_sof) begin
             error_frame_count++;
-            `uvm_info("SCOREBOARD",
+            scoreboard_runtime_log("SCOREBOARD",
                 $sformatf("Ignoring expected error-injected UART frame CMD=0x%02X ADDR=0x%08X (inject flags active)",
                           uart_tr.cmd, uart_tr.addr),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
             return;
         end
 
@@ -216,9 +254,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         // Phase 3: Register UART transaction with correlation engine
         correlation_engine.add_uart_frame(uart_tr);
 
-        `uvm_info("SCOREBOARD",
+        scoreboard_runtime_log("SCOREBOARD",
             $sformatf("Received UART transaction: CMD=0x%02X, ADDR=0x%08X, beats=%0d, creation_time=%0t",
-                      uart_tr.cmd, uart_tr.addr, expectation.beats_total, expectation.creation_time), UVM_DEBUG)
+                      uart_tr.cmd, uart_tr.addr, expectation.beats_total, expectation.creation_time),
+            UVM_DEBUG);
 
         // Immediate match check first to catch any pending AXI transactions
         check_for_matches();
@@ -243,8 +282,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         // Phase 3: Register AXI transaction with correlation engine
         correlation_engine.add_axi_transaction(axi_tr);
         
-        `uvm_info("SCOREBOARD", $sformatf("Received AXI transaction: ADDR=0x%08X, WDATA=0x%08X, WSTRB=0x%X", 
-                  axi_tr.addr, axi_tr.wdata, axi_tr.wstrb), UVM_DEBUG)
+        scoreboard_runtime_log("SCOREBOARD",
+            $sformatf("Received AXI transaction: ADDR=0x%08X, WDATA=0x%08X, WSTRB=0x%X",
+                      axi_tr.addr, axi_tr.wdata, axi_tr.wstrb),
+            UVM_DEBUG);
         
         // Immediate match check first to catch any ready expectations
         check_for_matches();
@@ -301,10 +342,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                                                  (axi_tr.addr - expected_addr) : 
                                                  (expected_addr - axi_tr.addr);
                         if (addr_diff <= 32) begin
-                            `uvm_info("SCOREBOARD_NEAR_MATCH",
+                            scoreboard_runtime_log("SCOREBOARD_NEAR_MATCH",
                                 $sformatf("Near-match detected: expected=0x%08X actual=0x%08X diff=%0d beat=%0d",
                                          expected_addr, axi_tr.addr, addr_diff, beat_index + 1),
-                                UVM_MEDIUM)
+                                UVM_MEDIUM);
                         end
                         continue;
                     end
@@ -334,20 +375,25 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                     if (match_result == 1) begin
                         // Successful match
                         match_count++;
-                        `uvm_info("SCOREBOARD",
+                        scoreboard_runtime_log("SCOREBOARD",
                             $sformatf("Matched beat %0d/%0d for CMD=0x%02X ADDR=0x%08X (exp_time=%0t)",
                                       beat_index + 1, best_expectation.beats_total,
                                       best_expectation.uart_tr.cmd, expected_addr, newest_time),
-                            UVM_MEDIUM)
+                            UVM_MEDIUM);
 
                         axi_queue.delete(axi_idx);
                         best_expectation.next_index++;
 
                         if (best_expectation.next_index == best_expectation.beats_total) begin
-                            `uvm_info("SCOREBOARD",
+                            response_expectation_info_t response_info;
+                            response_info.expect_error = best_expectation.expect_error;
+                            response_info.cmd = best_expectation.uart_tr.cmd;
+                            response_info.addr = best_expectation.uart_tr.addr;
+                            response_expectation_queue.push_back(response_info);
+                            scoreboard_runtime_log("SCOREBOARD",
                                 $sformatf("Completed UART command CMD=0x%02X ADDR=0x%08X",
                                           best_expectation.uart_tr.cmd, best_expectation.uart_tr.addr),
-                                UVM_LOW)
+                                UVM_LOW);
                             uart_expectations.delete(best_exp_idx);
                         end
 
@@ -355,10 +401,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                         break; // Process next AXI transaction
                     end else if (match_result == -1) begin
                         // Transaction deferred due to bridge state - continue checking other transactions
-                        `uvm_info("SCOREBOARD_BRIDGE_STATE",
+                        scoreboard_runtime_log("SCOREBOARD_BRIDGE_STATE",
                             $sformatf("Transaction deferred: CMD=0x%02X ADDR=0x%08X beat=%0d",
                                       best_expectation.uart_tr.cmd, expected_addr, beat_index + 1),
-                            UVM_HIGH)
+                            UVM_HIGH);
                         break; // Try other AXI transactions
                     end else begin
                         // Actual mismatch (match_result == 0) - demote to warning for gradual improvement
@@ -368,12 +414,12 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                                       beat_index + 1, best_expectation.uart_tr.cmd, expected_addr))
 
                         // Enhanced mismatch debugging with command analysis
-                        `uvm_info("SCOREBOARD_MISMATCH_DETAIL",
+                        scoreboard_runtime_log("SCOREBOARD_MISMATCH_DETAIL",
                             $sformatf("Expected: CMD=0x%02X(%s) ADDR=0x%08X(+0x%02X) beat=%0d | AXI: ADDR=0x%08X(%s)",
                                       best_expectation.uart_tr.cmd, (best_expectation.uart_tr.cmd[7]) ? "READ" : "WRITE", 
                                       expected_addr, (expected_addr - REG_BASE_ADDR), beat_index + 1,
                                       axi_tr.addr, (axi_tr.is_write) ? "WRITE" : "READ"),
-                            UVM_MEDIUM)
+                            UVM_MEDIUM);
 
                         uart_expectations.delete(best_exp_idx);
                         axi_queue.delete(axi_idx);
@@ -398,11 +444,11 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         bit reserved_addr;
 
         // Enhanced debug logging for scoreboard repair
-        `uvm_info("SCOREBOARD_VERIFY",
+        scoreboard_runtime_log("SCOREBOARD_VERIFY",
             $sformatf("Verifying match: ADDR=0x%08X beat=%0d CMD=0x%02X AXI_%s vs UART_expect_error=%0b",
                       axi_tr.addr, beat_index + 1, expectation.uart_tr.cmd,
                       axi_tr.is_write ? "WRITE" : "READ", expectation.expect_error),
-            UVM_HIGH)
+            UVM_HIGH);
 
         is_write = expectation.is_write;
         if (expectation.is_write) begin
@@ -413,10 +459,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         expect_error = expectation.expect_error;
         // Bridge enable functionality removed
         
-        `uvm_info("SCOREBOARD_VERIFY",
-            $sformatf("Verifying transaction at ADDR=0x%08X beat=%0d is_write=%0b", 
+        scoreboard_runtime_log("SCOREBOARD_VERIFY",
+            $sformatf("Verifying transaction at ADDR=0x%08X beat=%0d is_write=%0b",
                       expectation.beat_addr[beat_index], beat_index, is_write),
-            UVM_HIGH)
+            UVM_HIGH);
         
         reserved_addr = is_addr_reserved(expectation.beat_addr[beat_index]);
 
@@ -425,15 +471,15 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (!expect_error && reserved_addr) begin
             expect_error = 1'b1;
             expectation.expect_error = 1'b1;
-            `uvm_info("SCOREBOARD_RESERVED_FIX",
+            scoreboard_runtime_log("SCOREBOARD_RESERVED_FIX",
                 $sformatf("Auto-classifying reserved address 0x%08X as expected error (was expect_error=%0b)",
                           expectation.beat_addr[beat_index], expect_error),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
         end else if (reserved_addr) begin
-            `uvm_info("SCOREBOARD_RESERVED_ALREADY",
+            scoreboard_runtime_log("SCOREBOARD_RESERVED_ALREADY",
                 $sformatf("Reserved address 0x%08X already has expect_error=%0b",
                           expectation.beat_addr[beat_index], expect_error),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
         end
 
         allow_error = expect_error; // bridge always enabled
@@ -442,10 +488,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         // Bridge state validation removed - bridge always enabled
 
         // Enhanced logging for error expectation logic
-        `uvm_info("SCOREBOARD_VERIFY",
+        scoreboard_runtime_log("SCOREBOARD_VERIFY",
             $sformatf("Error logic: reserved_addr=%0b expect_error=%0b allow_error=%0b require_error=%0b",
                       reserved_addr, expect_error, allow_error, require_error),
-            UVM_HIGH)
+            UVM_HIGH);
 
         if (axi_tr.is_write != is_write) begin
             `uvm_warning("SCOREBOARD", "TRANSACTION_TYPE_TOLERANCE: Read/write type variation detected")
@@ -466,10 +512,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                 end
 
                 expected_error_count++;
-                `uvm_info("SCOREBOARD",
+                scoreboard_runtime_log("SCOREBOARD",
                     $sformatf("Expected error write observed: ADDR=0x%08X BRESP=0x%0X (expect_error=%0b)",
                               axi_tr.addr, bresp, expect_error),
-                    UVM_MEDIUM)
+                    UVM_MEDIUM);
                 return 1;
             end
 
@@ -505,10 +551,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                 end
 
                 expected_error_count++;
-                `uvm_info("SCOREBOARD",
+                scoreboard_runtime_log("SCOREBOARD",
                     $sformatf("Expected error read observed: ADDR=0x%08X RRESP=0x%0X (expect_error=%0b)",
                               axi_tr.addr, rresp, expect_error),
-                    UVM_MEDIUM)
+                    UVM_MEDIUM);
                 return 1;
             end
 
@@ -549,18 +595,19 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             `uvm_warning("SCOREBOARD",
                 $sformatf("DATA_MISMATCH_TOLERANCE: Write data mismatch at beat %0d: expected 0x%08X, got 0x%08X (mask 0x%08X)", 
                           beat_index + 1, expected_wdata, axi_tr.wdata, wstrb_mask))
-            `uvm_info("SCOREBOARD",
+            scoreboard_runtime_log("SCOREBOARD",
                 $sformatf("Debug: CMD=0x%02X ADDR=0x%08X beat_index=%0d data.size()=%0d",
                           expectation.uart_tr.cmd, expectation.uart_tr.addr, beat_index, expectation.uart_tr.data.size()),
-                UVM_MEDIUM)
+                UVM_MEDIUM);
             if (expectation.uart_tr.data.size() > 0) begin
                 string data_str = "";
                 for (int i = 0; i < expectation.uart_tr.data.size() && i < 8; i++) begin
                     data_str = {data_str, $sformatf("0x%02X ", expectation.uart_tr.data[i])};
                 end
-                `uvm_info("SCOREBOARD", $sformatf("Debug: UART data[0..%0d]: %s", 
-                           expectation.uart_tr.data.size()-1 < 7 ? expectation.uart_tr.data.size()-1 : 7, data_str),
-                         UVM_MEDIUM)
+                                scoreboard_runtime_log("SCOREBOARD",
+                                    $sformatf("Debug: UART data[0..%0d]: %s",
+                                              expectation.uart_tr.data.size()-1 < 7 ? expectation.uart_tr.data.size()-1 : 7, data_str),
+                                    UVM_MEDIUM);
             end
             return 0;
         end
@@ -710,6 +757,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     endfunction
 
     virtual function void handle_uart_response(uart_frame_transaction tr);
+        bit expect_error_hint;
+        response_expectation_info_t response_context;
+
         if (tr.parse_error_kind != PARSE_ERROR_NONE) begin
             `uvm_warning("SCOREBOARD",
                 $sformatf("Skipping UART_TX frame due to monitor parse error: %s", tr.parse_error_kind.name()))
@@ -722,6 +772,26 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             uart_status_error_count++;
             `uvm_warning("SCOREBOARD", "UART response without status payload detected")
             return;
+        end
+
+        expect_error_hint = tr.expect_error;
+
+        if (response_expectation_queue.size() > 0) begin
+            response_context = response_expectation_queue.pop_front();
+            expect_error_hint = response_context.expect_error;
+            scoreboard_runtime_log("SCOREBOARD_RESPONSE_METADATA",
+                $sformatf("Applying response metadata: CMD=0x%02X expected_error=%0b time=%0t",
+                          response_context.cmd, expect_error_hint, $realtime),
+                UVM_HIGH);
+        end else begin
+            scoreboard_runtime_log("SCOREBOARD_RESPONSE_METADATA",
+                $sformatf("No queued response metadata available for CMD=0x%02X (monitor expect_error=%0b)",
+                          tr.cmd, tr.expect_error),
+                UVM_HIGH);
+        end
+
+        if (expect_error_hint) begin
+            tr.expect_error = 1'b1;
         end
 
         case (tr.response_status)
@@ -739,8 +809,19 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             end
             default: begin
                 uart_status_error_count++;
-                `uvm_warning("SCOREBOARD",
-                    $sformatf("UART response error status=0x%02X for CMD=0x%02X", tr.response_status, tr.cmd))
+                if (tr.expect_error) begin
+                    scoreboard_runtime_log("SCOREBOARD_EXPECTED_ERROR",
+                        $sformatf("Expected UART error response observed: status=0x%02X CMD=0x%02X",
+                                  tr.response_status, tr.cmd),
+                        UVM_MEDIUM);
+                    `uvm_info("SCOREBOARD",
+                        $sformatf("UART response expected error status=0x%02X for CMD=0x%02X",
+                                  tr.response_status, tr.cmd),
+                        UVM_MEDIUM)
+                end else begin
+                    `uvm_warning("SCOREBOARD",
+                        $sformatf("UART response error status=0x%02X for CMD=0x%02X", tr.response_status, tr.cmd))
+                end
             end
         endcase
 

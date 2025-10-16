@@ -31,8 +31,8 @@ module uart_axi4_tb_top;
     // Optional internal loopback control (disabled by default)
     localparam bit ENABLE_UART_LOOPBACK = 1'b0;
 
-    // Derived simulation guard to accommodate full register campaigns at 115200 baud
-    localparam time SIM_TIMEOUT = 5ms;  // Reduced from 10ms to 5ms for faster debug simulation
+    // Derived simulation guard sized for extended coverage campaigns at 115200 baud
+    localparam time DEFAULT_SIM_TIMEOUT = 200ms; // Default guard; override via +SIM_TIMEOUT_MS=<value>
 
     // Ensure the RX line idles high until the driver starts toggling it
     initial begin
@@ -135,8 +135,18 @@ module uart_axi4_tb_top;
     
     // Timeout mechanism - extended for comprehensive tests
     initial begin
-        #(SIM_TIMEOUT);
-        `uvm_error("TB_TOP", $sformatf("Test timeout - simulation exceeded %0t", SIM_TIMEOUT))
+        time sim_timeout_value;
+        int timeout_ms;
+
+        if ($value$plusargs("SIM_TIMEOUT_MS=%d", timeout_ms)) begin
+            sim_timeout_value = timeout_ms * 1ms;
+            `uvm_info("TB_TOP", $sformatf("SIM_TIMEOUT_MS plusarg applied: %0d ms", timeout_ms), UVM_MEDIUM)
+        end else begin
+            sim_timeout_value = DEFAULT_SIM_TIMEOUT;
+        end
+
+        #(sim_timeout_value);
+        `uvm_error("TB_TOP", $sformatf("Test timeout - simulation exceeded %0t", sim_timeout_value))
         $finish;
     end
     

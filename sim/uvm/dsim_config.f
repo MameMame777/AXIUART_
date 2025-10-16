@@ -51,6 +51,7 @@ interfaces/bridge_status_if.sv
 
 # Frame Parser Assertions (bind statement approach)
 ../../rtl/Frame_Parser_Assertions.sv
+../../rtl/Frame_Parser_CRC_Status_Assertions.sv
 ../../rtl/Frame_Parser_Assertions_Bind.sv
 
 # Emergency diagnostic assertions (corrected path)
@@ -76,8 +77,6 @@ sequences/uart_axi4_error_protocol_sequence.sv
 sequences/uart_axi4_bridge_control_sequence.sv
 
 # Critical test files - required for UVM test registry
-tests/uart_axi4_base_test.sv
-tests/enhanced_uart_axi4_base_test.sv
 tests/uart_basic_test.sv
 
 # QA-1.3 Quality Assurance test files

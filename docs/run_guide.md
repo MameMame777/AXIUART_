@@ -202,8 +202,8 @@ $jobs | Remove-Job
 # Create regression script
 $regression_tests = @{
     "smoke" = @("uart_axi4_basic_test")
-    "functional" = @("uart_axi4_basic_test", "uart_axi4_error_paths_test")
-    "full" = @("uart_axi4_basic_test", "uart_axi4_error_paths_test", "uart_axi4_burst_perf_test")
+    "functional" = @("uart_axi4_basic_test", "uart_axi4_dual_write_test", "uart_axi4_metadata_read_test")
+    "full" = @("uart_axi4_basic_test", "uart_axi4_dual_write_test", "uart_axi4_metadata_read_test", "uart_axi4_metadata_expected_error_test", "uart_axi4_error_paths_test", "uart_axi4_burst_perf_test")
 }
 
 function Run-Regression {
@@ -233,6 +233,8 @@ function Run-Regression {
 # Run regression
 Run-Regression -Suite "functional"
 ```
+
+The metadata-focused tests (`uart_axi4_metadata_read_test`, `uart_axi4_metadata_expected_error_test`) rely on the runtime switches described in the logging matrix. They automatically enable metadata logging while keeping runtime verbosity low so regression output remains concise, and their coverage contributions feed into the shared `metrics.db` database when `-Coverage on` is used.
 
 ## Result Analysis
 
@@ -325,9 +327,31 @@ $metrics
 
 ### Common Issues and Solutions
 
+### Logging Configuration Matrix
+
+These environment switches control how much the driver and scoreboard emit during regressions. The fields live in `uart_axi4_env_config` and every test may override them in its `build_phase`.
+
+| Scenario | enable_driver_runtime_logs | enable_driver_debug_logs | enable_scoreboard_runtime_logs | enable_scoreboard_metadata_logs | Notes |
+|----------|---------------------------|---------------------------|--------------------------------|----------------------------------|-------|
+| Smoke / sanity (default) | `0` | `0` | `0` | `0` | Keeps console quiet for quick health checks. |
+| Metadata diagnostics (e.g., `uart_axi4_dual_write_test`) | `1` | `0` | `1` | `1` | Focuses on queue correlation without deep driver traces. |
+| Driver deep debug | `1` | `1` | `1` | `0/1` | Enables both runtime and debug messages; toggle metadata logs if queue tracing is required. |
+| Scoreboard forensic run | `0/1` | `0` | `1` | `1` | Use when investigating expectation alignment; driver can stay quiet. |
+
+#### Toggling at Runtime
+
+```systemverilog
+cfg.enable_driver_runtime_logs = 1;
+cfg.enable_driver_debug_logs   = 0;
+cfg.driver_runtime_verbosity   = UVM_MEDIUM; // Optional override
+```
+
+For ad-hoc adjustments, set these flags before the environment is constructed (inside the test `build_phase`). The environment transparently honors both runtime and metadata switches, so regression owners can standardise configurations per suite.
+
 #### Issue 1: Compilation Errors
 
 **Symptoms:**
+
 - Error messages during compilation phase
 - "File not found" errors
 - SystemVerilog syntax errors
@@ -349,6 +373,7 @@ Get-Content "dsim_config.f" | Where-Object { $_ -notmatch "^#" -and $_ -notmatch
 #### Issue 2: Test Hangs/Timeouts
 
 **Symptoms:**
+
 - Test runs indefinitely
 - No progress messages
 - Timeout errors
@@ -366,6 +391,7 @@ Get-Content "dsim_config.f" | Where-Object { $_ -notmatch "^#" -and $_ -notmatch
 #### Issue 3: UVM Errors
 
 **Symptoms:**
+
 - UVM_ERROR or UVM_FATAL messages
 - Transaction mismatches
 - Protocol violations
@@ -395,18 +421,21 @@ Select-String -Path "*.log" -Pattern "SCOREBOARD|MISMATCH|COMPARE"
 #### Key Signal Groups
 
 **UART Protocol Signals:**
+
 - `tb.uart_if_inst.uart_rx` - Receive data
 - `tb.uart_if_inst.uart_tx` - Transmit data  
 - `tb.dut.frame_parser_inst.state` - Parser state machine
 - `tb.dut.frame_parser_inst.frame_complete` - Frame completion
 
 **AXI4-Lite Signals:**
+
 - `tb.axi_if_inst.awaddr` / `tb.axi_if_inst.awvalid` - Write address
 - `tb.axi_if_inst.wdata` / `tb.axi_if_inst.wvalid` - Write data
 - `tb.axi_if_inst.araddr` / `tb.axi_if_inst.arvalid` - Read address
 - `tb.axi_if_inst.rdata` / `tb.axi_if_inst.rvalid` - Read data
 
 **Internal State Machines:**
+
 - `tb.dut.bridge_state` - Main bridge state
 - `tb.dut.axi_master_inst.state` - AXI master state
 - FIFO levels and status flags
@@ -580,6 +609,17 @@ Get-ChildItem "*coverage*.log" | ForEach-Object {
 $coverage_history | Format-Table -AutoSize
 ```
 
+### RTL Coverage ≥95% Checklist
+
+- [ ] **Frame Parser Corner Cases**: Run `uart_axi4_dual_write_test`; extend sequences for start/stop bit combos, parity flip, and inter-frame gap bins; review `Frame_Parser_Assertions.sv` coverage report.
+- [ ] **UART Error Injection Sweep**: Execute `uart_axi4_metadata_expected_error_test` with `--coverage`; add CRC flip, reserved opcode, and misaligned address vectors until each scoreboard error bucket toggles.
+- [ ] **AXI Access Matrix**: Use `uart_axi4_metadata_read_test` plus burst/perf suites to touch all decoded addresses (`0x00000FF0`, `0x00001100`, control page); confirm AXI coverage bins marked hit.
+- [ ] **FIFO Depth Stress**: Create stimulus that fills and drains `fifo_sync` to full/empty; monitor overflow/underflow assertions and update coverage items before sign-off.
+- [ ] **Reset and Recovery Paths**: Insert sequences asserting synchronous reset mid-transfer; verify post-reset transactions complete and reset transition bins cross 95%.
+- [ ] **Bridge Status Monitor Hooks**: Enable `enable_system_status_monitoring`; capture IDLE→ACTIVE→ERROR→RECOVERED transitions and backfill missing coverage bins with directed tests if needed.
+- [ ] **Assertion Binding Review**: Inspect reports for `Frame_Parser_Assertions_Bind.sv` and `DUT_Diagnostic_Assertions.sv`; ensure no binds disabled and all cover properties reach nonvacuous hits.
+- [ ] **Coverage Convergence Tracking**: After each MCP regression, export `metrics.db` summary, log total percentage, and raise action items for suites below 95% or record waiver rationale.
+
 ## Advanced Usage
 
 ### Custom Test Development
@@ -587,30 +627,33 @@ $coverage_history | Format-Table -AutoSize
 #### Creating New Test Classes
 
 1. **Copy base test template:**
-```powershell
-Copy-Item "tests\uart_axi4_base_test.sv" "tests\my_custom_test.sv"
-```
 
-2. **Modify test class:**
-```systemverilog
-class my_custom_test extends uart_axi4_base_test;
-    `uvm_component_utils(my_custom_test)
-    
-    function new(string name = "my_custom_test", uvm_component parent = null);
-        super.new(name, parent);
-    endfunction
-    
-    virtual task run_phase(uvm_phase phase);
-        // Custom test implementation
-    endtask
-endclass
-```
+   ```powershell
+   Copy-Item "tests\uart_axi4_base_test.sv" "tests\my_custom_test.sv"
+   ```
 
-3. **Register in package:**
-```systemverilog
-// In uart_axi4_test_pkg.sv
-`include "my_custom_test.sv"
-```
+1. **Modify test class:**
+
+   ```systemverilog
+   class my_custom_test extends uart_axi4_base_test;
+       `uvm_component_utils(my_custom_test)
+       
+       function new(string name = "my_custom_test", uvm_component parent = null);
+           super.new(name, parent);
+       endfunction
+       
+       virtual task run_phase(uvm_phase phase);
+           // Custom test implementation
+       endtask
+   endclass
+   ```
+
+1. **Register in package:**
+
+   ```systemverilog
+   // In uart_axi4_test_pkg.sv
+   `include "my_custom_test.sv"
+   ```
 
 #### Creating Custom Sequences
 
@@ -862,6 +905,40 @@ Check-CodeQuality
 
 This comprehensive run guide should enable efficient operation of the UART-AXI4 Bridge verification environment. For additional support, refer to the other documentation files in the `docs/` directory.
 
-**Document Version**: 1.0  
-**Last Updated**: January 27, 2025  
+### MCP Coverage Regression Workflow (2025-10-16)
+
+Use the MCP client to drive coverage-focused regressions. The following sequence was validated on October 16, 2025 and provides the baseline metrics captured in `sim/exec/logs`.
+
+```powershell
+# Navigate to project root before invoking the MCP client
+cd E:\Nautilus\workspace\fpgawork\AXIUART_
+
+# 1. Dual-write stimulus to exercise frame parser corner cases
+python mcp_server\mcp_client.py --workspace . --tool run_uvm_simulation \
+    --test-name uart_axi4_dual_write_test --mode run --verbosity UVM_MEDIUM \
+    --coverage --timeout 300
+
+# 2. Metadata read matrix for AXI address coverage
+python mcp_server\mcp_client.py --workspace . --tool run_uvm_simulation \
+    --test-name uart_axi4_metadata_read_test --mode run --verbosity UVM_MEDIUM \
+    --coverage --timeout 300
+
+# 3. Expected-error sequence to light up error-handling bins
+python mcp_server\mcp_client.py --workspace . --tool run_uvm_simulation \
+    --test-name uart_axi4_metadata_expected_error_test --mode run \
+    --verbosity UVM_MEDIUM --coverage --timeout 300
+```
+
+Each invocation stores metrics in `sim\uvm\metrics.db` and drops a timestamped log under `sim/exec/logs`. The October 16, 2025 run produced the following coverage snapshot (all values represent total coverage from DSIM’s summary):
+
+| Test | Coverage (%) | Notes |
+|------|---------------|-------|
+| `uart_axi4_dual_write_test` | 33.79 | Dual write correlation, two UART↔AXI transactions, no UVM errors. |
+| `uart_axi4_metadata_read_test` | 33.36 | Metadata focus, AXI read sweeps across control space. |
+| `uart_axi4_metadata_expected_error_test` | 47.45 | Expected-error paths, scoreboard tolerance warnings only. |
+
+After completing the three steps above, continue with the RTL ≥95% checklist to target remaining gaps (FIFO depth stress, reset recovery, extended AXI matrices, etc.). Update `docs/diary_time.md` with findings whenever new directed stimulus is introduced.
+
+**Document Version**: 1.1  
+**Last Updated**: October 16, 2025  
 **Maintained By**: Verification Team

@@ -46,6 +46,74 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogEntry
 }
 
+function Invoke-MCPRegressionTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$TestName,
+        [string]$Workspace = (Resolve-Path "..\..").Path,
+        [string]$Verbosity = "UVM_MEDIUM",
+        [int]$TimeoutSec = 300,
+        [switch]$EnableWaves,
+        [switch]$EnableCoverage = $true
+    )
+
+    try {
+        $pythonCmd = (Get-Command python -ErrorAction Stop).Source
+    } catch {
+        throw "Python executable not found in PATH."
+    }
+
+    $clientPath = Join-Path -Path $Workspace -ChildPath "mcp_server\mcp_client.py"
+    if (-not (Test-Path $clientPath)) {
+        throw "MCP client not found at $clientPath"
+    }
+
+    $arguments = @(
+        $clientPath,
+        "--workspace", $Workspace,
+        "--tool", "run_uvm_simulation",
+        "--test-name", $TestName,
+        "--mode", "run",
+        "--verbosity", $Verbosity,
+        "--timeout", $TimeoutSec.ToString()
+    )
+
+    if ($EnableWaves.IsPresent) {
+        $arguments += "--waves"
+    }
+
+    if ($EnableCoverage.IsPresent) {
+        $arguments += "--coverage"
+    }
+
+    $commandOutput = & $pythonCmd @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+
+    $joinedOutput = ($commandOutput | Out-String)
+    $jsonText = $null
+    if (-not [string]::IsNullOrWhiteSpace($joinedOutput)) {
+        $jsonStart = $joinedOutput.IndexOf('{')
+        if ($jsonStart -ge 0) {
+            $jsonText = $joinedOutput.Substring($jsonStart).Trim()
+        }
+    }
+
+    $parsed = $null
+    if ($jsonText) {
+        try {
+            $parsed = $jsonText | ConvertFrom-Json
+        } catch {
+            $parsed = $null
+        }
+    }
+
+    return @{
+        ExitCode = $exitCode
+        Output = $commandOutput
+        Parsed = $parsed
+        RawJson = $jsonText
+    }
+}
+
 # Test execution tracker
 $TestResults = @{
     "Phase_4_1_Environment_Self_Test" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
@@ -53,6 +121,8 @@ $TestResults = @{
     "Phase_4_3_Coverage_Completeness" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
     "UVM_Base_Functionality" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
     "RTL_Integration_Test" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
+    "Metadata_Read_Test" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
+    "Metadata_Expected_Error_Test" = @{ Status = "PENDING"; StartTime = $null; EndTime = $null; Details = "" }
 }
 
 Write-Log "Starting automated regression test suite execution" "INFO"
@@ -130,6 +200,52 @@ try {
     $TestResults["RTL_Integration_Test"]["EndTime"] = Get-Date
     Write-Log "RTL Integration Test PASSED" "SUCCESS"
     
+    # Metadata-focused regression tests (actual DSIM execution via MCP)
+    $workspaceResolved = (Resolve-Path "..\..").Path
+    $metadataSuite = @(
+        @{ Key = "Metadata_Read_Test"; Name = "uart_axi4_metadata_read_test"; Friendly = "UART Metadata Read Test" },
+        @{ Key = "Metadata_Expected_Error_Test"; Name = "uart_axi4_metadata_expected_error_test"; Friendly = "UART Metadata Expected-Error Test" }
+    )
+
+    foreach ($meta in $metadataSuite) {
+        Write-Host "Executing $($meta.Friendly)" -ForegroundColor Yellow
+        $TestResults[$meta.Key]["StartTime"] = Get-Date
+
+        try {
+            $mcpResult = Invoke-MCPRegressionTest -TestName $meta.Name -Workspace $workspaceResolved -Verbosity "UVM_MEDIUM" -TimeoutSec 300 -EnableCoverage
+        } catch {
+            $TestResults[$meta.Key]["Status"] = "FAIL"
+            $TestResults[$meta.Key]["Details"] = $_.Exception.Message
+            $TestResults[$meta.Key]["EndTime"] = Get-Date
+            Write-Log "$($meta.Friendly) FAILED: $($_.Exception.Message)" "ERROR"
+            continue
+        }
+
+        $TestResults[$meta.Key]["EndTime"] = Get-Date
+
+        if ($mcpResult.ExitCode -eq 0) {
+            $TestResults[$meta.Key]["Status"] = "PASS"
+            $coverageValue = $null
+            if ($mcpResult.Parsed -and $null -ne $mcpResult.Parsed.coverage_percent) {
+                try {
+                    $coverageValue = [double]$mcpResult.Parsed.coverage_percent
+                } catch {
+                    $coverageValue = $null
+                }
+            }
+
+            $coverageText = if ($coverageValue -ne $null) { "{0:F2}%" -f $coverageValue } else { "n/a" }
+            $logPathText = if ($mcpResult.Parsed -and $mcpResult.Parsed.log_path) { $mcpResult.Parsed.log_path } else { "n/a" }
+            $TestResults[$meta.Key]["Details"] = "Coverage: $coverageText; Log: $logPathText"
+            Write-Log "$($meta.Friendly) PASSED (Coverage: $coverageText)" "SUCCESS"
+        } else {
+            $TestResults[$meta.Key]["Status"] = "FAIL"
+            $failureDetail = if ($mcpResult.RawJson) { $mcpResult.RawJson } else { ($mcpResult.Output | Out-String) }
+            $TestResults[$meta.Key]["Details"] = $failureDetail
+            Write-Log "$($meta.Friendly) FAILED with exit code $($mcpResult.ExitCode)" "ERROR"
+        }
+    }
+
 } catch {
     Write-Log "Critical error during regression execution: $($_.Exception.Message)" "ERROR"
     exit 1

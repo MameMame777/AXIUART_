@@ -50,6 +50,7 @@ async def main():
     parser.add_argument("--waves", action="store_true", help="Generate waveforms")
     parser.add_argument("--coverage", action="store_true", help="Collect coverage")
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds")
+    parser.add_argument("--plusarg", action="append", default=[], help="DSIM plus-argument (e.g. SIM_TIMEOUT_MS=60000). Repeat for multiple values")
     
     args = parser.parse_args()
     
@@ -101,6 +102,8 @@ async def main():
                         "coverage": args.coverage,
                         "timeout": args.timeout
                     }
+                    if args.plusarg:
+                        tool_args["plusargs"] = args.plusarg
                 elif args.tool == "compile_design" or args.tool == "compile_design_only":
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",

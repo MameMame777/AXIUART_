@@ -8,6 +8,50 @@ import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
 `include "uvm_macros.svh"
 
+// Helper to configure a transaction with consistent payload and metadata
+function automatic void configure_uart_transaction(
+    uart_frame_transaction req,
+    bit is_write,
+    bit auto_increment,
+    logic [1:0] size_field,
+    logic [3:0] length_field,
+    logic [31:0] addr_value,
+    bit expect_error = 1'b0,
+    bit error_inject = 1'b0
+);
+    int bytes_per_beat;
+    int beat_count;
+
+    req.is_write       = is_write;
+    req.auto_increment = auto_increment;
+    req.size           = size_field;
+    req.length         = length_field;
+    req.addr           = addr_value;
+    req.expect_error   = expect_error;
+    req.error_inject   = error_inject;
+    req.data_randomization = 1'b0;
+    req.sof            = SOF_HOST_TO_DEVICE;
+
+    if (is_write) begin
+        case (size_field)
+            2'b00: bytes_per_beat = 1;
+            2'b01: bytes_per_beat = 2;
+            2'b10: bytes_per_beat = 4;
+            default: bytes_per_beat = 1;
+        endcase
+
+        beat_count = length_field + 1;
+        req.data = new[beat_count * bytes_per_beat];
+        for (int i = 0; i < req.data.size(); i++) begin
+            req.data[i] = 8'(i + addr_value[3:0]);
+        end
+    end else begin
+        req.data = new[0];
+    end
+
+    req.post_randomize();
+endfunction
+
 //===============================================
 // Coverage Corner Cases Sequence
 //===============================================
@@ -30,8 +74,9 @@ class coverage_corner_cases_sequence extends uvm_sequence #(uart_frame_transacti
             req = uart_frame_transaction::type_id::create("req");
             start_item(req);
             
+            req.addr = 32'h00001000;
+
             if (!req.randomize() with {
-                addr == 32'h00001000;
                 is_write == 1'b1;
                 size == 2'b00; // 8-bit
                 length == 4'h0; // Single byte
@@ -52,14 +97,15 @@ class coverage_corner_cases_sequence extends uvm_sequence #(uart_frame_transacti
                         req = uart_frame_transaction::type_id::create("req");
                         start_item(req);
                         
+                        req.addr = 32'h00001000; // Safe address
+                        req.error_inject = 1'b0;
+                        req.data_randomization = 1'b1;
+
                         if (!req.randomize() with {
                             is_write == rw;
                             auto_increment == inc;
                             size == sz;
                             length == len;
-                            addr == 32'h00001000; // Safe address
-                            error_inject == 1'b0;
-                            data_randomization == 1'b1;
                         }) begin
                             `uvm_error("COV_CORNER", "Randomization failed for command combination")
                         end
@@ -95,23 +141,25 @@ class coverage_error_injection_sequence extends uvm_sequence #(uart_frame_transa
             req = uart_frame_transaction::type_id::create("req");
             start_item(req);
             
+            req.addr = 32'h00001000;
+            req.error_inject = 1'b1;
+            req.data_randomization = 1'b1;
+
             if (!req.randomize() with {
-                error_inject == 1'b1;
                 is_write == 1'b1;
-                addr == 32'h00001000;
                 size inside {2'b00, 2'b01, 2'b10};
                 length inside {4'h0, 4'h7, 4'hF};
-                data_randomization == 1'b1;
             }) begin
                 `uvm_error("COV_ERROR", "Randomization failed for CRC error test")
             end
             
             // Manually corrupt CRC after randomization
             req.crc = req.crc ^ 8'hFF; // Flip all bits to ensure CRC error
+                req.expect_error = 1'b1; // CRCエラー注入時は必ずエラー期待フラグを立てる
             
             finish_item(req);
-            `uvm_info("COV_ERROR", $sformatf("CRC error injection: original_crc=0x%02X, corrupted_crc=0x%02X", 
-                     req.crc ^ 8'hFF, req.crc), UVM_HIGH)
+            `uvm_info("COV_ERROR", $sformatf("CRC error injection: original_crc=0x%02X, corrupted_crc=0x%02X, expect_error=%0b", 
+                     req.crc ^ 8'hFF, req.crc, req.expect_error), UVM_HIGH)
         end
         
         // Test 2: Invalid SOF patterns
@@ -119,12 +167,13 @@ class coverage_error_injection_sequence extends uvm_sequence #(uart_frame_transa
             req = uart_frame_transaction::type_id::create("req");
             start_item(req);
             
+            req.addr = 32'h00001000;
+            req.error_inject = 1'b0;
+            req.data_randomization = 1'b0;
+
             if (!req.randomize() with {
                 sof inside {8'h00, 8'hFF, 8'hA5, 8'h3C}; // Invalid SOF values
                 is_write == 1'b1;
-                addr == 32'h00001000;
-                error_inject == 1'b0;
-                data_randomization == 1'b0;
             }) begin
                 `uvm_error("COV_ERROR", "Randomization failed for invalid SOF test")
             end
@@ -138,12 +187,13 @@ class coverage_error_injection_sequence extends uvm_sequence #(uart_frame_transa
             req = uart_frame_transaction::type_id::create("req");
             start_item(req);
             
+            req.addr = 32'h00001000;
+            req.error_inject = 1'b0;
+            req.data_randomization = 1'b1;
+
             if (!req.randomize() with {
                 size == 2'b11; // Invalid size field
                 is_write == 1'b1;
-                addr == 32'h00001000;
-                error_inject == 1'b0;
-                data_randomization == 1'b1;
             }) begin
                 `uvm_error("COV_ERROR", "Randomization failed for invalid command test")
             end
@@ -184,13 +234,14 @@ class coverage_boundary_values_sequence extends uvm_sequence #(uart_frame_transa
                     req = uart_frame_transaction::type_id::create("req");
                     start_item(req);
                     
+                    req.addr = boundary_addresses[i];
+                    req.error_inject = 1'b0;
+                    req.data_randomization = 1'b1;
+
                     if (!req.randomize() with {
-                        addr == boundary_addresses[i];
                         size == sz;
                         is_write == rw;
                         length inside {4'h0, 4'h1, 4'hE, 4'hF};
-                        error_inject == 1'b0;
-                        data_randomization == 1'b1;
                     }) begin
                         `uvm_error("COV_BOUNDARY", "Randomization failed for boundary test")
                     end
@@ -219,22 +270,28 @@ class coverage_state_transitions_sequence extends uvm_sequence #(uart_frame_tran
     
     task body();
         uart_frame_transaction req;
+        logic [31:0] state_addrs[3];
         
         `uvm_info("COV_STATE", "Starting state transitions coverage sequence", UVM_MEDIUM)
         
+        state_addrs[0] = 32'h00001000;
+        state_addrs[1] = 32'h00001004;
+        state_addrs[2] = 32'h00001008;
+
         // Test rapid state transitions
         for (int i = 0; i < 20; i++) begin
             // Send valid transaction
             req = uart_frame_transaction::type_id::create("req");
             start_item(req);
             
+            req.addr = state_addrs[i % 3];
+            req.error_inject = 1'b0;
+            req.data_randomization = 1'b1;
+
             if (!req.randomize() with {
-                addr inside {32'h00001000, 32'h00001004, 32'h00001008};
                 is_write dist {1'b0 := 50, 1'b1 := 50};
                 size inside {2'b00, 2'b01, 2'b10};
                 length inside {4'h0, 4'h3, 4'h7, 4'hF};
-                error_inject == 1'b0;
-                data_randomization == 1'b1;
             }) begin
                 `uvm_error("COV_STATE", "Randomization failed for state transition test")
             end
@@ -272,13 +329,14 @@ class coverage_fifo_stress_sequence extends uvm_sequence #(uart_frame_transactio
                 req_array[i] = uart_frame_transaction::type_id::create($sformatf("req_%0d", i));
                 start_item(req_array[i]);
                 
+                req_array[i].addr = 32'h00001000 + (i * 4);
+                req_array[i].error_inject = 1'b0;
+                req_array[i].data_randomization = 1'b1;
+
                 if (!req_array[i].randomize() with {
-                    addr == 32'h00001000 + (i * 4);
                     is_write == 1'b1;
                     size == 2'b10; // 32-bit for maximum data
                     length == 4'hF; // Maximum length
-                    error_inject == 1'b0;
-                    data_randomization == 1'b1;
                 }) begin
                     `uvm_error("COV_FIFO", $sformatf("Randomization failed for FIFO stress test %0d", i))
                 end
@@ -319,13 +377,14 @@ class coverage_timing_variations_sequence extends uvm_sequence #(uart_frame_tran
                 req = uart_frame_transaction::type_id::create("req");
                 start_item(req);
                 
+                req.addr = 32'h00001000 + (j * 4);
+                req.error_inject = 1'b0;
+                req.data_randomization = 1'b1;
+
                 if (!req.randomize() with {
-                    addr == 32'h00001000 + (j * 4);
                     is_write dist {1'b0 := 30, 1'b1 := 70};
                     size inside {2'b00, 2'b01, 2'b10};
                     length inside {4'h0, 4'h7, 4'hF};
-                    error_inject == 1'b0;
-                    data_randomization == 1'b1;
                 }) begin
                     `uvm_error("COV_TIMING", "Randomization failed for timing variation test")
                 end
@@ -369,11 +428,12 @@ class uart_tx_coverage_sequence extends uvm_sequence #(uart_frame_transaction);
             tx_req = uart_frame_transaction::type_id::create("tx_req");
             start_item(tx_req);
             
+            tx_req.addr = 32'h00001000 + (i * 4);
+
             if (!tx_req.randomize() with {
                 length == i;
                 is_write == 1'b1; // Write operation to trigger TX
                 auto_increment == 1'b1; // Increment address
-                addr == 32'h00001000 + (i * 4);
                 size == 2'b00; // Byte access
             }) begin
                 `uvm_error("UART_TX_COV", "Failed to randomize TX request")
@@ -432,10 +492,11 @@ class uart_config_change_sequence extends uvm_sequence #(uart_frame_transaction)
             config_req.data[0] = baud_div_values[i][7:0];
             config_req.data[1] = baud_div_values[i][15:8];
             
+            config_req.addr = 32'h00001004; // Baud configuration register
+
             if (!config_req.randomize() with {
                 length == 6; // SOF + CMD + ADDR(4) + DATA(2) + CRC
                 is_write == 1'b1; // Write operation
-                addr == 32'h00001004; // Baud configuration register
                 size == 2'b01; // Half-word access
             }) begin
                 `uvm_error("CONFIG_CHANGE", "Failed to randomize baud config")
@@ -447,14 +508,15 @@ class uart_config_change_sequence extends uvm_sequence #(uart_frame_transaction)
                      i, baud_div_values[i]), UVM_HIGH)
             
             // Test with new baud rate
-            repeat (10) begin
+            for (int j = 0; j < 10; j++) begin
                 config_req = uart_frame_transaction::type_id::create("test_req");
                 start_item(config_req);
                 
+                config_req.addr = 32'h00001000 + ((j % 9) * 4);
+                config_req.is_write = 1'b1;
+
                 if (!config_req.randomize() with {
                     length inside {[1:4]};
-                    is_write == 1'b1;
-                    addr inside {[32'h00001000:32'h00001020]};
                 }) begin
                     `uvm_warning("CONFIG_CHANGE", "Randomization failed for test request")
                 end

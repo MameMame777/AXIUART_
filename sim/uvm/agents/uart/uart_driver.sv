@@ -42,6 +42,28 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             `uvm_info("UART_DRIVER", "Using monitor response FIFO for DUT replies", UVM_LOW);
         end
     endfunction
+
+    protected function void driver_debug_log(string id, string message, int default_verbosity = UVM_HIGH);
+        int level;
+
+        if (cfg == null || !cfg.enable_driver_debug_logs) begin
+            return;
+        end
+
+        level = (cfg.driver_debug_verbosity != 0) ? cfg.driver_debug_verbosity : default_verbosity;
+        `uvm_info(id, message, level)
+    endfunction
+
+    protected function void driver_runtime_log(string id, string message, int default_verbosity = UVM_MEDIUM);
+        int level;
+
+        if (cfg == null || !cfg.enable_driver_runtime_logs) begin
+            return;
+        end
+
+        level = (cfg.driver_runtime_verbosity != 0) ? cfg.driver_runtime_verbosity : default_verbosity;
+        `uvm_info(id, message, level)
+    endfunction
     
     virtual task run_phase(uvm_phase phase);
         uart_frame_transaction req;
@@ -53,13 +75,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         forever begin
             seq_item_port.get_next_item(req);
             
-            `uvm_info("UART_DRIVER", $sformatf("Driving transaction: CMD=0x%02X, ADDR=0x%08X", 
-                      req.cmd, req.addr), UVM_MEDIUM);
+            driver_runtime_log("UART_DRIVER",
+                $sformatf("Driving transaction: CMD=0x%02X, ADDR=0x%08X", req.cmd, req.addr));
 
             if (tx_request_ap != null) begin
                 uart_frame_transaction req_copy;
                 $cast(req_copy, req.clone());
                 tx_request_ap.write(req_copy);
+                driver_debug_log("UART_DRIVER_METADATA",
+                    $sformatf("Published metadata: CMD=0x%02X ADDR=0x%08X expect_error=%0b time=%0t",
+                              req_copy.cmd, req_copy.addr, req_copy.expect_error, $realtime));
             end
 
             if (tx_response_fifo != null) begin
@@ -90,8 +115,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         logic [7:0] crc_data_fixed[5];
         int byte_count;
         
-        `uvm_info("UART_DRIVER", $sformatf("Starting frame transmission: SOF=0x%02X, CMD=0x%02X, ADDR=0x%08X", 
-                  SOF_HOST_TO_DEVICE, tr.cmd, tr.addr), UVM_LOW);
+        driver_runtime_log("UART_DRIVER",
+            $sformatf("Starting frame transmission: SOF=0x%02X, CMD=0x%02X, ADDR=0x%08X",
+                      SOF_HOST_TO_DEVICE, tr.cmd, tr.addr), UVM_LOW);
         
         // Build complete frame
         if (tr.cmd[7]) begin // Read command
@@ -111,8 +137,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             crc_data_fixed[4] = frame_bytes[5];
             calculated_crc = calculate_crc(crc_data_fixed, 5);
             frame_bytes[6] = calculated_crc;
-            `uvm_info("UART_DRIVER", $sformatf("Read CRC: data=[%02X,%02X,%02X,%02X,%02X] -> CRC=0x%02X", 
-                      frame_bytes[1], frame_bytes[2], frame_bytes[3], frame_bytes[4], frame_bytes[5], calculated_crc), UVM_MEDIUM);
+            driver_debug_log("UART_DRIVER_CRC",
+                $sformatf("Read CRC: data=[%02X,%02X,%02X,%02X,%02X] -> CRC=0x%02X",
+                          frame_bytes[1], frame_bytes[2], frame_bytes[3], frame_bytes[4], frame_bytes[5], calculated_crc));
         end else begin // Write command
             byte_count = 7 + tr.data.size(); // SOF + CMD + ADDR(4) + DATA + CRC
             frame_bytes = new[byte_count];
@@ -125,7 +152,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             
             for (int i = 0; i < tr.data.size(); i++) begin
                 frame_bytes[6 + i] = tr.data[i];
-                `uvm_info("UART_DRIVER", $sformatf("Data[%0d] = 0x%02X", i, tr.data[i]), UVM_MEDIUM);
+                driver_debug_log("UART_DRIVER_DATA",
+                    $sformatf("Data[%0d] = 0x%02X", i, tr.data[i]));
             end
             // CRC calculation excludes SOF (starts from index 1)
             crc_data = new[byte_count - 2];
@@ -134,8 +162,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             end
             calculated_crc = calculate_crc(crc_data, byte_count - 2);
             frame_bytes[byte_count - 1] = calculated_crc;
-            `uvm_info("UART_DRIVER", $sformatf("Write CRC: byte_count=%0d, crc_len=%0d -> CRC=0x%02X", 
-                      byte_count, byte_count - 2, calculated_crc), UVM_MEDIUM);
+            driver_debug_log("UART_DRIVER_CRC",
+                $sformatf("Write CRC: byte_count=%0d, crc_len=%0d -> CRC=0x%02X",
+                          byte_count, byte_count - 2, calculated_crc));
             
             // Print full frame for debugging
             begin
@@ -143,7 +172,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 for (int i = 0; i < byte_count; i++) begin
                     frame_str = {frame_str, $sformatf("0x%02X ", frame_bytes[i])};
                 end
-                `uvm_info("UART_DRIVER", frame_str, UVM_MEDIUM);
+                driver_debug_log("UART_DRIVER_FRAME", frame_str);
             end
         end
         
@@ -167,9 +196,11 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     
     // Drive a single UART byte (8N1 format)
     virtual task drive_uart_byte(logic [7:0] data);
-        int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
+        int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate ;
         
-    `uvm_info("UART_DRIVER", $sformatf("*** Driving UART byte: 0x%02X ***", data), UVM_LOW);
+        driver_runtime_log("UART_DRIVER_BYTE",
+            $sformatf("Driving UART byte: 0x%02X", data),
+            UVM_LOW);
         
         // Start bit
         vif.uart_rx = 1'b0;
@@ -205,7 +236,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         end
 
         if (dropped > 0) begin
-            `uvm_info("UART_DRIVER", $sformatf("Flushed %0d stale response transaction(s) before driving new frame", dropped), UVM_DEBUG);
+            driver_runtime_log("UART_DRIVER",
+                $sformatf("Flushed %0d stale response transaction(s) before driving new frame", dropped),
+                UVM_DEBUG);
         end
     endtask
 
@@ -221,7 +254,14 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         wait_for_monitor_response(resp, success);
 
         if (!success || resp == null) begin
-            `uvm_error("UART_DRIVER", $sformatf("Timed out waiting for monitor response within %0dns", cfg.frame_timeout_ns));
+            if (tr.expect_error) begin
+                driver_runtime_log("UART_DRIVER",
+                    $sformatf("[expect_error=1] No DUT response within %0dns (CRC error等の意図的エラー)。UVM_ERRORを抑制し警告のみ出力。",
+                              cfg.frame_timeout_ns),
+                    UVM_LOW);
+            end else begin
+                `uvm_error("UART_DRIVER", $sformatf("Timed out waiting for monitor response within %0dns", cfg.frame_timeout_ns));
+            end
             tr.response_received = 0;
             tr.response_status = 8'hFF;
             return;
@@ -276,8 +316,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             return;
         end
 
-        `uvm_info("UART_DRIVER", $sformatf("Monitor FIFO response captured: status=0x%02X, crc_valid=%0d, length=%0d", 
-                  tr.response_status, tr.crc_valid, tr.frame_length), UVM_MEDIUM);
+        driver_runtime_log("UART_DRIVER",
+            $sformatf("Monitor FIFO response captured: status=0x%02X, crc_valid=%0d, length=%0d",
+                      tr.response_status, tr.crc_valid, tr.frame_length));
     endtask
 
     // Wait for monitor-published UART_TX transaction with timeout and filtering
@@ -350,34 +391,39 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         // Determine expected response length based on protocol specification
         if (tr.cmd[7] == 1'b0) begin // Write command
             expected_response_length = 4; // SOF + STATUS + CMD + CRC
-            `uvm_info("UART_DRIVER", "Write command: expecting 4-byte response (SOF + STATUS + CMD + CRC)", UVM_MEDIUM);
+                driver_runtime_log("UART_DRIVER",
+                    "Write command: expecting 4-byte response (SOF + STATUS + CMD + CRC)");
         end else begin // Read command
             expected_response_length = 4; // Minimum for error response
-            `uvm_info("UART_DRIVER", "Read command: expecting variable length response (minimum 4 bytes)", UVM_MEDIUM);
+            driver_runtime_log("UART_DRIVER",
+                "Read command: expecting variable length response (minimum 4 bytes)");
         end
-        
-    `uvm_info("UART_DRIVER", $sformatf("Starting response collection for %s command (CMD=0x%02X)", 
-          (tr.cmd[7] == 1'b1) ? "Read" : "Write", tr.cmd), UVM_MEDIUM);
+
+        driver_runtime_log("UART_DRIVER",
+            $sformatf("Starting response collection for %s command (CMD=0x%02X)",
+                      (tr.cmd[7] == 1'b1) ? "Read" : "Write", tr.cmd));
         
         // Monitor-style immediate response detection (no fork delay)
         // Wait for TX line to go low (response start bit) - immediate detection like Monitor
     wait (vif.uart_tx == 1'b1);
     @(negedge vif.uart_tx);
         response_detected = 1;
-    `uvm_info("UART_DRIVER", $sformatf("Response start detected at time %0t", $realtime), UVM_MEDIUM);
+    driver_runtime_log("UART_DRIVER",
+        $sformatf("Response start detected at time %0t", $realtime));
         
         // Hardware Spec: Collect response bytes using precise timing
         response_bytes = new[20]; // Allocate reasonable size
         byte_count = 0;
         
         begin
-            `uvm_info("UART_DRIVER", "Starting protocol-aware response collection", UVM_MEDIUM);
+            driver_runtime_log("UART_DRIVER", "Starting protocol-aware response collection");
             
             // Hardware Spec: Collect first response byte (should be SOF = 0x5A)
             collect_uart_byte(temp_byte);
             response_bytes[byte_count] = temp_byte;
             byte_count++;
-            `uvm_info("UART_DRIVER", $sformatf("Collected SOF byte: 0x%02X (expected 0x5A)", temp_byte), UVM_MEDIUM);
+            driver_runtime_log("UART_DRIVER",
+                $sformatf("Collected SOF byte: 0x%02X (expected 0x5A)", temp_byte));
             
             // Hardware Spec: For Write commands, collect exactly 4 bytes total
             if (tr.cmd[7] == 1'b0) begin // Write command
@@ -405,10 +451,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                     collect_uart_byte(temp_byte);
                     response_bytes[byte_count] = temp_byte;
                     byte_count++;
-                    `uvm_info("UART_DRIVER", $sformatf("Collected Write response byte %0d: 0x%02X", i, temp_byte), UVM_MEDIUM);
+                    driver_runtime_log("UART_DRIVER",
+                        $sformatf("Collected Write response byte %0d: 0x%02X", i, temp_byte));
                 end
                 
-                `uvm_info("UART_DRIVER", $sformatf("Write response collection complete: %0d bytes", byte_count), UVM_MEDIUM);
+                driver_runtime_log("UART_DRIVER",
+                    $sformatf("Write response collection complete: %0d bytes", byte_count));
                 
             end else begin // Read command - collect variable length
                 // Continue collecting bytes until no more are available
@@ -428,14 +476,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                     disable fork;
                     
                     if (timeout_occurred) begin
-                        `uvm_info("UART_DRIVER", $sformatf("Read response collection complete after %0d bytes", byte_count), UVM_MEDIUM);
+                        driver_runtime_log("UART_DRIVER",
+                            $sformatf("Read response collection complete after %0d bytes", byte_count));
                         break;
                     end
                     
                     collect_uart_byte(temp_byte);
                     response_bytes[byte_count] = temp_byte;
                     byte_count++;
-                    `uvm_info("UART_DRIVER", $sformatf("Collected Read response byte %0d: 0x%02X", byte_count-1, temp_byte), UVM_MEDIUM);
+                    driver_runtime_log("UART_DRIVER",
+                        $sformatf("Collected Read response byte %0d: 0x%02X", byte_count-1, temp_byte));
                 end
             end
         end
@@ -448,8 +498,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             if (response_bytes[0] == SOF_DEVICE_TO_HOST) begin // 0x5A
                 if (byte_count >= 3) begin
                     tr.response_status = response_bytes[1]; // STATUS byte
-                    `uvm_info("UART_DRIVER", $sformatf("Protocol response: SOF=0x%02X STATUS=0x%02X CMD=0x%02X, total_bytes=%0d", 
-                              response_bytes[0], response_bytes[1], response_bytes[2], byte_count), UVM_MEDIUM);
+                    driver_runtime_log("UART_DRIVER",
+                        $sformatf("Protocol response: SOF=0x%02X STATUS=0x%02X CMD=0x%02X, total_bytes=%0d",
+                                  response_bytes[0], response_bytes[1], response_bytes[2], byte_count));
                     
                     // Validate response length according to protocol
                     if (tr.cmd[7] == 1'b0) begin // Write command
@@ -482,10 +533,17 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 for (int i = 0; i < byte_count; i++) begin
                     byte_str = {byte_str, $sformatf("0x%02X ", response_bytes[i])};
                 end
-                `uvm_info("UART_DRIVER", $sformatf("Complete response: %s", byte_str), UVM_MEDIUM);
+                driver_runtime_log("UART_DRIVER",
+                    $sformatf("Complete response: %s", byte_str));
             end
         end else begin
-            `uvm_error("UART_DRIVER", "No response received");
+            if (tr.expect_error) begin
+                driver_runtime_log("UART_DRIVER",
+                    $sformatf("[expect_error=1] No DUT response (CRC error等の意図的エラー)。UVM_ERRORを抑制し警告のみ出力。"),
+                    UVM_LOW);
+            end else begin
+                `uvm_error("UART_DRIVER", "No response received");
+            end
             tr.response_received = 0;
             tr.response_status = 8'hFF; // Error indicator
         end
@@ -518,7 +576,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             `uvm_info("UART_DRIVER", "TX stop bit timing variation detected", UVM_DEBUG);
         end
         
-        `uvm_info("UART_DRIVER", $sformatf("Collected UART byte: 0x%02X", data), UVM_MEDIUM);
+        driver_runtime_log("UART_DRIVER",
+            $sformatf("Collected UART byte: 0x%02X", data));
     endtask
     
     // Simple CRC-8 calculation (polynomial 0x07)

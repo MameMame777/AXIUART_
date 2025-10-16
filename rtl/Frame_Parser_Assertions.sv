@@ -91,20 +91,30 @@ module Frame_Parser_Assertions (
         else $fatal("ASSERTION_FAIL: SOF detection failed - Critical protocol violation at %t", $time);
 
     // A2: CRC Validation Integrity (MOST CRITICAL)
-    property crc_validation_integrity;
+    // Allow the status register one to two cycles to settle after the comparison window
+    property crc_match_status_ok;
         @(posedge clk) disable iff (rst)
-        (state == VALIDATE) |-> 
-        ((received_crc == expected_crc) -> (error_status_reg == STATUS_OK)) and
-        ((received_crc != expected_crc) -> (error_status_reg == STATUS_CRC_ERR));
+        (state == VALIDATE && (received_crc == expected_crc)) |-> ##[0:2]
+        (error_status_reg == STATUS_OK);
     endproperty
-    assert_crc_validation: assert property (crc_validation_integrity)
-        else $fatal("ASSERTION_FAIL: CRC validation integrity violation - received=0x%02X, expected=0x%02X, status=0x%02X at %t", 
+    assert_crc_match_status: assert property (crc_match_status_ok)
+        else $fatal("ASSERTION_FAIL: CRC validation integrity violation (match) - expected STATUS_OK, received=0x%02X, expected=0x%02X, status=0x%02X at %t",
+                    received_crc, expected_crc, error_status_reg, $time);
+
+    property crc_mismatch_status_err;
+        @(posedge clk) disable iff (rst)
+        (state == VALIDATE && (received_crc != expected_crc)) |-> ##[0:2]
+        (error_status_reg == STATUS_CRC_ERR);
+    endproperty
+    assert_crc_mismatch_status: assert property (crc_mismatch_status_err)
+        else $fatal("ASSERTION_FAIL: CRC validation integrity violation (mismatch) - expected STATUS_CRC_ERR, received=0x%02X, expected=0x%02X, status=0x%02X at %t",
                     received_crc, expected_crc, error_status_reg, $time);
 
     // A3: Frame Valid Generation Correctness - CRITICAL FIX for frame_consumed handling
     property frame_valid_generation_correctness;
         @(posedge clk) disable iff (rst)
-        (state == VALIDATE && error_status_reg == STATUS_OK && !frame_consumed) |=> frame_valid;
+        (state == VALIDATE && error_status_reg == STATUS_OK && (received_crc == expected_crc) && !frame_consumed)
+        |=> frame_valid;
     endproperty
     assert_frame_valid: assert property (frame_valid_generation_correctness)
         else $fatal("ASSERTION_FAIL: frame_valid generation failed - Critical system failure at %t", $time);    // A4: Frame Valid Persistence Guarantee

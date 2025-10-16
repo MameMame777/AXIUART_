@@ -52,3 +52,15 @@ bind Frame_Parser Frame_Parser_Assertions FP_assertions_inst (
     .data_byte_count(data_byte_count),
     .expected_data_bytes(expected_data_bytes)
 );
+
+// Bind the CRC status focused assertions
+bind Frame_Parser Frame_Parser_CRC_Status_Assertions FP_crc_status_assertions_inst (
+    .clk(clk),
+    .rst(rst),
+    .state(state),
+    .frame_valid(frame_valid),
+    .frame_consumed(frame_consumed),
+    .received_crc(received_crc),
+    .expected_crc(expected_crc),
+    .error_status_reg(error_status_reg)
+);

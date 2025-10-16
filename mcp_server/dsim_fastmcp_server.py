@@ -177,6 +177,7 @@ def create_fastmcp_server() -> FastMCP:
         coverage: bool,
         seed: Optional[int],
         timeout: int,
+        plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         effective_seed = seed if seed is not None else 1
 
@@ -189,6 +190,7 @@ def create_fastmcp_server() -> FastMCP:
                 coverage=coverage,
                 seed=effective_seed,
                 timeout=timeout,
+                plusargs=plusargs,
             )
         except DSIMError as exc:  # pragma: no cover - delegated diagnostics
             return {
@@ -212,6 +214,7 @@ def create_fastmcp_server() -> FastMCP:
             "coverage": coverage,
             "seed": effective_seed,
             "timeout": timeout,
+            "plusargs": plusargs or [],
         }
 
     @mcp.tool
@@ -279,6 +282,7 @@ def create_fastmcp_server() -> FastMCP:
         coverage: bool = False,
         seed: Optional[int] = None,
         timeout: int = 300,
+        plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Execute a DSIM UVM simulation via the unified async API."""
         return await _execute_simulation(
@@ -289,6 +293,7 @@ def create_fastmcp_server() -> FastMCP:
             coverage=coverage,
             seed=seed,
             timeout=timeout,
+            plusargs=plusargs,
         )
 
     @mcp.tool

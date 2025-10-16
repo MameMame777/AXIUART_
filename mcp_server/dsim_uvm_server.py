@@ -326,7 +326,8 @@ async def run_uvm_simulation(
     waves: bool = False,
     coverage: bool = True,
     seed: int = 1,
-    timeout: int = 300
+    timeout: int = 300,
+    plusargs: Optional[List[str]] = None
 ) -> str:
     """Execute DSIM UVM simulation with comprehensive options and enhanced error diagnostics.
     
@@ -424,6 +425,21 @@ async def run_uvm_simulation(
         
     if coverage:
         cmd.extend(["+cover+fsm+line+cond+tgl+branch"])
+
+    plusargs_applied: List[str] = []
+    if plusargs:
+        for entry in plusargs:
+            if not entry:
+                continue
+            candidate = entry.strip()
+            if not candidate:
+                continue
+            if candidate.startswith("+"):
+                plusargs_applied.append(candidate)
+            else:
+                plusargs_applied.append(f"+{candidate}")
+        if plusargs_applied:
+            cmd.extend(plusargs_applied)
     
     # Execute with enhanced error handling
     try:
@@ -473,6 +489,7 @@ async def run_uvm_simulation(
             "log_file_absolute": str(log_file_absolute),
             "waves_file": str(waves_file) if waves_file else None,
             "coverage_requested": coverage,
+            "plusargs_requested": plusargs_applied,
             "analysis": {
                 **analysis,
                 "warnings": (analysis.get("warnings", [])[:10] if analysis else []),
@@ -494,6 +511,7 @@ async def run_uvm_simulation(
             "verbosity": verbosity,
             "seed": seed,
             "timeout": timeout,
+            "plusargs": plusargs_applied,
             "error": str(e),
             "log_file": log_file_relative,
         }

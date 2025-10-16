@@ -1,4 +1,4 @@
-﻿`timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 // Advanced Coverage Test for UART-AXI4 Bridge
 // Comprehensive test designed to maximize toggle, functional, and expression coverage
@@ -204,4 +204,5 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
     endtask
     
 endclass
+
 

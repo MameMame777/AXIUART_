@@ -406,6 +406,9 @@ package uart_axi4_test_pkg;
     // Sequence libraries (need transaction classes to be defined first)
     `include "sequences/basic_func_sequence.sv"
     `include "sequences/debug_single_write_sequence.sv"
+    `include "sequences/debug_dual_write_sequence.sv"
+    `include "sequences/metadata_read_sequence_20251015.sv"
+    `include "sequences/metadata_expected_error_sequence_20251015.sv"
     // TEMPORARILY DISABLED - compilation errors blocking all tests:
     // `include "sequences/error_injection_sequence.sv" 
     // `include "sequences/performance_test_sequence.sv"
@@ -430,11 +433,15 @@ package uart_axi4_test_pkg;
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
     `include "tests/uart_axi4_simple_write_test.sv"   // Simple write test
+    `include "tests/uart_axi4_dual_write_test.sv"
+    `include "tests/uart_axi4_metadata_read_test.sv"
+    `include "tests/uart_axi4_metadata_expected_error_test.sv"
     `include "tests/uart_axi4_multi_beat_write_test.sv"
     // `include "tests/register_block_tests.sv"  // TEMPORARILY DISABLED - depends on register_sequences.sv
     // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
     `include "tests/uart_coverage_debug_test.sv"
     `include "tests/uart_axi4_optimized_coverage_test.sv"
+    `include "tests/uart_axi4_advanced_coverage_test.sv"
     `include "tests/uart_axi4_register_block_test.sv"
     `include "tests/uart_axi4_read_protocol_test.sv"         // Read protocol verification test
     `include "tests/uart_flow_control_tests.sv"         // RTS/CTS flow control tests

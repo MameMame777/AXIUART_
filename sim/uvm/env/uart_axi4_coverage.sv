@@ -177,19 +177,28 @@ class uart_axi4_coverage extends uvm_subscriber #(uart_frame_transaction);
     
     // Report coverage statistics
     virtual function void final_phase(uvm_phase phase);
-        real frame_cov = frame_coverage.get_coverage();
-        real burst_cov = burst_coverage.get_coverage();
-        real error_cov = error_coverage.get_coverage();
-        real total_cov = (frame_cov + burst_cov + error_cov) / 3.0;
-        
+        real frame_cov;
+        real burst_cov;
+        real error_cov;
+        real total_cov;
+        real threshold;
+
+        frame_cov = frame_coverage.get_coverage();
+        burst_cov = burst_coverage.get_coverage();
+        error_cov = error_coverage.get_coverage();
+        total_cov = (frame_cov + burst_cov + error_cov) / 3.0;
+
         `uvm_info("COVERAGE", "=== COVERAGE REPORT ===", UVM_LOW)
         `uvm_info("COVERAGE", $sformatf("Frame coverage: %0.2f%%", frame_cov), UVM_LOW)
         `uvm_info("COVERAGE", $sformatf("Burst coverage: %0.2f%%", burst_cov), UVM_LOW)
         `uvm_info("COVERAGE", $sformatf("Error coverage: %0.2f%%", error_cov), UVM_LOW)
         `uvm_info("COVERAGE", $sformatf("Total coverage: %0.2f%%", total_cov), UVM_LOW)
-        
-        if (total_cov < 80.0) begin
-            `uvm_warning("COVERAGE", "Coverage is below 80%")
+        threshold = (cfg != null) ? cfg.coverage_warning_threshold : 80.0;
+
+        if (total_cov < threshold) begin
+            `uvm_warning("COVERAGE",
+                $sformatf("Coverage %0.2f%% is below configured threshold %0.2f%%",
+                          total_cov, threshold))
         end
     endfunction
 

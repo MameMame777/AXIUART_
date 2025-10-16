@@ -86,10 +86,14 @@ class uart_axi4_base_test extends uvm_test;
         cfg.enable_coverage = 1;
         cfg.enable_scoreboard = 1;
         cfg.enable_protocol_checking = 1;
+        cfg.enable_driver_runtime_logs = 1'b0;
+        cfg.enable_scoreboard_runtime_logs = 1'b0;
+        cfg.driver_runtime_verbosity = UVM_LOW;
+        cfg.scoreboard_runtime_verbosity = UVM_LOW;
         
         // System monitoring (AXIUART_Top specific)
-    cfg.enable_system_status_monitoring = 1;
-    cfg.enable_axi_monitor = 1;
+        cfg.enable_system_status_monitoring = 1;
+        cfg.enable_axi_monitor = 1;
         cfg.bridge_status_verbosity = UVM_MEDIUM;
         
         `uvm_info("BASE_TEST", "Test configuration completed", UVM_MEDIUM)

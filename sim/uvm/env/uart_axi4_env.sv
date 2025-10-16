@@ -71,9 +71,29 @@ class uart_axi4_env extends uvm_env;
         super.connect_phase(phase);
         
         // Phase 4.1b: Connect UART/AXI monitors to scoreboard (CORRECT IMPLEMENTATION)
-        if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null && uart_agt.monitor != null) begin
-            uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
-            `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
+        if (cfg.enable_scoreboard || cfg.enable_correlation) begin
+            if (phase3_scoreboard == null) begin
+                `uvm_fatal("ENV", "Scoreboard requested but phase3_scoreboard handle is null")
+            end
+
+            if (uart_agt == null) begin
+                `uvm_fatal("ENV", "UART agent not constructed; cannot connect scoreboard streams")
+            end
+
+            if (uart_agt.monitor != null) begin
+                uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
+                `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
+            end else begin
+                `uvm_fatal("ENV", "UART monitor not available; scoreboard correlation path cannot be established")
+            end
+
+            if (uart_agt.driver == null) begin
+                `uvm_fatal("ENV", "UART driver not constructed; scoreboard cannot receive metadata")
+            end
+
+            // Forward driver-side request metadata so the scoreboard knows the intended behavior
+            uart_agt.driver.tx_request_ap.connect(phase3_scoreboard.uart_expected_analysis_imp);
+            `uvm_info("ENV", "Connected UART driver request port to scoreboard metadata input", UVM_LOW)
         end
 
         // Connect UART agent to coverage

@@ -17,6 +17,15 @@ class uart_axi4_env_config extends uvm_object;
     bit enable_axi_monitor = 1'b1;
     bit enable_error_injection = 1'b0;     // Phase 4: Error injection testing
     bit enable_bridge_control_testing = 1'b0; // Phase 4: Bridge control testing
+    bit enable_driver_runtime_logs = 1'b1;   // Core driver logging (controlled per test)
+    bit enable_driver_debug_logs = 1'b0;    // Detailed driver logging for debug sessions
+    bit enable_scoreboard_runtime_logs = 1'b1; // Core scoreboard logging (controlled per test)
+    bit enable_scoreboard_metadata_logs = 1'b0; // Detailed scoreboard metadata logging
+    int driver_runtime_verbosity = UVM_MEDIUM;   // Driver runtime log level when enabled
+    int driver_debug_verbosity = UVM_HIGH;  // Driver debug log level when enabled
+    int scoreboard_runtime_verbosity = UVM_LOW; // Scoreboard runtime log level when enabled
+    int scoreboard_metadata_verbosity = UVM_HIGH; // Scoreboard metadata log level when enabled
+    real coverage_warning_threshold = 80.0; // Minimum total coverage required before raising a warning
     
     // Agent configurations - Modified for AXIUART_Top
     bit uart_agent_is_active = 1'b1;
@@ -58,16 +67,25 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(enable_axi_monitor, UVM_ALL_ON)
         `uvm_field_int(enable_error_injection, UVM_ALL_ON)       // Phase 4: Error injection
         `uvm_field_int(enable_bridge_control_testing, UVM_ALL_ON) // Phase 4: Bridge control
+    `uvm_field_int(enable_driver_runtime_logs, UVM_ALL_ON)
+    `uvm_field_int(enable_driver_debug_logs, UVM_ALL_ON)
+    `uvm_field_int(enable_scoreboard_runtime_logs, UVM_ALL_ON)
+    `uvm_field_int(enable_scoreboard_metadata_logs, UVM_ALL_ON)
+    `uvm_field_int(driver_runtime_verbosity, UVM_ALL_ON)
+        `uvm_field_int(driver_debug_verbosity, UVM_ALL_ON)
+    `uvm_field_int(scoreboard_runtime_verbosity, UVM_ALL_ON)
+        `uvm_field_int(scoreboard_metadata_verbosity, UVM_ALL_ON)
         `uvm_field_int(uart_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(axi_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(enable_system_status_monitoring, UVM_ALL_ON)
         `uvm_field_int(bridge_status_verbosity, UVM_ALL_ON)
         `uvm_field_int(frame_timeout_ns, UVM_ALL_ON)
-    `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
-    `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
+        `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
+        `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(num_transactions, UVM_ALL_ON)
         `uvm_field_int(min_idle_cycles, UVM_ALL_ON)
-        `uvm_field_int(max_idle_cycles, UVM_ALL_ON)
+    `uvm_field_int(max_idle_cycles, UVM_ALL_ON)
+    `uvm_field_real(coverage_warning_threshold, UVM_ALL_ON)
     `uvm_object_utils_end
     
     function new(string name = "uart_axi4_env_config");
