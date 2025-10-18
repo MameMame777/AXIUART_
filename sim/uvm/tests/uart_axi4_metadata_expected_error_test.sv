@@ -33,14 +33,14 @@ class uart_axi4_metadata_expected_error_test extends enhanced_uart_axi4_base_tes
 
         phase.raise_objection(this, "Metadata expected-error test running");
 
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
 
         `uvm_info("METADATA_ERROR_TEST", "Running metadata expected-error sequence", UVM_MEDIUM)
         error_seq = metadata_expected_error_sequence_20251015::type_id::create("error_seq");
         error_seq.start(env.uart_agt.sequencer);
 
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("METADATA_ERROR_TEST", "Metadata expected-error test completed", UVM_LOW)
 
         phase.drop_objection(this, "Metadata expected-error test completed");

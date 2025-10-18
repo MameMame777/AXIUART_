@@ -54,6 +54,7 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
     localparam [7:0] STATUS_CMD_INV   = 8'h02;
     localparam [7:0] STATUS_ADDR_ALIGN = 8'h03;
     localparam [7:0] STATUS_TIMEOUT   = 8'h04;
+    localparam [7:0] STATUS_AXI_SLVERR = 8'h05;
     localparam [7:0] STATUS_LEN_RANGE = 8'h07;
     
     // AXI蠢懃ｭ斐さ繝ｼ繝・(Register_Block.sv縺九ｉ)
@@ -76,6 +77,11 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
         axi_stats = '{0, 0, 0.0, 0, 0};
         fifo_stats = '{0, 0, 0.0, 0, 0};
         data_stats = '{0, 0, 0.0, 0, 0};
+
+        // Ensure the bridge status virtual interface is available for wait helpers
+        if (!uvm_config_db#(virtual bridge_status_if)::get(this, "", "bridge_status_vif", bridge_status_vif)) begin
+            `uvm_fatal("RTL_ERROR_TEST", "Failed to retrieve bridge_status_vif from config DB")
+        end
     endfunction
     
     virtual task main_phase(uvm_phase phase);
@@ -160,28 +166,18 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
             
             crc_stats.total_injected++;
             error_inject_time = $time;
-            
-            // 繧ｨ繝ｩ繝ｼ豕ｨ蜈･繝医Λ繝ｳ繧ｶ繧ｯ繧ｷ繝ｧ繝ｳ騾∽ｿ｡
+            tr.expect_error = 1'b1;
             env.uart_agt.driver.send_transaction(tr);
-            
-            // RTL Frame_Parser縺ｮ繧ｨ繝ｩ繝ｼ讀懷・蠕・ｩ・
-            fork
-                begin
-                    wait_for_frame_parser_error(STATUS_CRC_ERR);
-                    error_detect_time = $time;
-                    crc_stats.correctly_detected++;
-                    update_detection_time_stats(crc_stats, error_detect_time - error_inject_time);
-                    `uvm_info("RTL_ERROR_TEST", 
-                              $sformatf("CRC Error %s detected in %0t", 
-                                       error_type.name(), error_detect_time - error_inject_time), UVM_HIGH)
-                end
-                begin
-                    #1ms;  // 繧ｿ繧､繝繧｢繧ｦ繝・
-                    `uvm_warning("RTL_ERROR_TEST", 
-                                $sformatf("CRC Error %s detection timeout", error_type.name()))
-                end
-            join_any
-            disable fork;
+
+            if (!record_error_response($sformatf("CRC Error %s", error_type.name()),
+                                       crc_stats,
+                                       tr,
+                                       STATUS_CRC_ERR,
+                                       error_inject_time)) begin
+                `uvm_warning("RTL_ERROR_TEST",
+                             $sformatf("CRC Error %s not detected (status=0x%02X, response_received=%0d)",
+                                       error_type.name(), tr.response_status, tr.response_received))
+            end
             
             #100ns;  // 繝・せ繝磯俣髫・
         end
@@ -614,21 +610,57 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
     //==========================================================================
     // 繧ｨ繝ｩ繝ｼ讀懷・蠕・ｩ溘ち繧ｹ繧ｯ鄒､
     //==========================================================================
+    function automatic virtual bridge_status_if get_bridge_status_vif_handle();
+        if (bridge_status_vif == null) begin
+            `uvm_fatal("RTL_ERROR_TEST", "bridge_status_vif handle is null")
+        end
+        return bridge_status_vif;
+    endfunction
+
     virtual task wait_for_frame_parser_error(logic [7:0] expected_status);
-        // Frame_Parser縺ｮerror_status蜃ｺ蜉帙ｒ逶｣隕・
-        wait (uart_axi4_tb_top.dut.frame_parser.error_status == expected_status);
+        virtual bridge_status_if status_vif = get_bridge_status_vif_handle();
+
+        // Wait until the exported bridge error code reflects the expected status
+        forever begin
+            @(posedge status_vif.clk);
+            if (!status_vif.rst_n) begin
+                continue;
+            end
+
+            if (status_vif.bridge_error == expected_status) begin
+                break;
+            end
+        end
     endtask
     
     virtual task wait_for_sof_discard();
-        // Frame_Parser縺檎┌蜉ｹSOF繧堤ｴ譽・＠縺溘％縺ｨ繧堤｢ｺ隱・
-        wait (uart_axi4_tb_top.dut.frame_parser.state == uart_axi4_tb_top.dut.frame_parser.IDLE);
-        #1us;  // SOF遐ｴ譽・｢ｺ隱肴凾髢・
+        virtual bridge_status_if status_vif = get_bridge_status_vif_handle();
+        int idle_cycles = 0;
+
+        // Wait until the bridge reports it is idle for several consecutive cycles
+        forever begin
+            @(posedge status_vif.clk);
+            if (!status_vif.rst_n) begin
+                idle_cycles = 0;
+                continue;
+            end
+
+            if (!status_vif.bridge_busy) begin
+                idle_cycles++;
+                if (idle_cycles >= 5) begin
+                    break;
+                end
+            end else begin
+                idle_cycles = 0;
+            end
+        end
+
+        #1us;  // Allow additional settling time after returning to idle
     endtask
     
     virtual task wait_for_axi_slave_error();
-        // Register_Block縺軍ESP_SLVERR繧定ｿ斐☆縺薙→繧堤｢ｺ隱・
-        wait (uart_axi4_tb_top.dut.register_block.axi.bresp == RESP_SLVERR ||
-              uart_axi4_tb_top.dut.register_block.axi.rresp == RESP_SLVERR);
+        // AXI error propagation is visible through the exported bridge error field
+        wait_for_frame_parser_error(STATUS_AXI_SLVERR);
     endtask
     
     virtual task wait_for_fifo_underflow_detection();

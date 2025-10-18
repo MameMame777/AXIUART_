@@ -46,8 +46,8 @@ class extended_basic_test extends enhanced_uart_axi4_base_test;
         phase.raise_objection(this, "Extended basic test running");
 
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
         
         // Execute multiple iterations for toggle coverage
         for (int iteration = 0; iteration < 50; iteration++) begin
@@ -57,7 +57,7 @@ class extended_basic_test extends enhanced_uart_axi4_base_test;
             debug_seq.start(env.uart_agt.sequencer);
             
             // Variable wait time to create different timing patterns
-            repeat (50 + (iteration % 100)) @(posedge uart_axi4_tb_top.dut.clk);
+            repeat (50 + (iteration % 100)) @(posedge uart_axi4_tb_top.clk);
             
             if ((iteration + 1) % 10 == 0) begin
                 `uvm_info("EXTENDED_BASIC", $sformatf("Completed %0d iterations", iteration+1), UVM_LOW)
@@ -65,7 +65,7 @@ class extended_basic_test extends enhanced_uart_axi4_base_test;
         end
         
         // Final system stabilization
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("EXTENDED_BASIC", "=== Extended Basic Test Completed ===", UVM_LOW)
 
         phase.drop_objection(this, "Extended basic test completed");

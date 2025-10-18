@@ -33,14 +33,14 @@ class uart_axi4_metadata_read_test extends enhanced_uart_axi4_base_test;
 
         phase.raise_objection(this, "Metadata read test running");
 
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
 
         `uvm_info("METADATA_READ_TEST", "Running metadata-focused read sequence", UVM_MEDIUM)
         read_seq = metadata_read_sequence_20251015::type_id::create("read_seq");
         read_seq.start(env.uart_agt.sequencer);
 
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("METADATA_READ_TEST", "Metadata read test completed", UVM_LOW)
 
         phase.drop_objection(this, "Metadata read test completed");

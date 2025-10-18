@@ -67,6 +67,7 @@ module Register_Block #(
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
     localparam bit [1:0] RESP_SLVERR = 2'b10;
+    localparam bit [7:0] STATUS_CRC_ERR = 8'h01;
     
     // Internal signals
     logic [11:0] addr_offset;
@@ -74,6 +75,7 @@ module Register_Block #(
     logic [1:0]  read_resp;
     logic [1:0]  write_resp;
     logic [31:0] write_addr_reg;   // CRITICAL: Write address tracking
+    logic [7:0]  write_error_code_reg;  // Latches bridge error code at AW handshake
     logic [31:0] read_addr_reg;
     logic [31:0] active_addr;
     
@@ -315,6 +317,7 @@ module Register_Block #(
             
             write_resp <= RESP_OKAY;
             write_addr_reg <= BASE_ADDR;
+            write_error_code_reg <= 8'h00;
             read_addr_reg <= BASE_ADDR;
             reset_stats_pulse <= 1'b0;
         end else begin
@@ -333,6 +336,7 @@ module Register_Block #(
             if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
                 write_resp <= RESP_OKAY;
+                write_error_code_reg <= error_code;
             end
 
             if (ar_handshake) begin
@@ -427,8 +431,13 @@ module Register_Block #(
                         default: begin
                             // Writes to RO registers succeed but have no effect
                         end
-                    endcase
-                    write_resp <= RESP_OKAY;
+                        endcase
+
+                        if (write_error_code_reg == STATUS_CRC_ERR) begin
+                            write_resp <= RESP_SLVERR;
+                        end else begin
+                            write_resp <= RESP_OKAY;
+                        end
                 end else begin
                     write_resp <= RESP_SLVERR;
                 end

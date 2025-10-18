@@ -28,14 +28,14 @@ class uart_axi4_single_read_test extends enhanced_uart_axi4_base_test;
 
         phase.raise_objection(this, "Single read test running");
 
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
 
         `uvm_info("SINGLE_READ_TEST", "Running single read debug sequence", UVM_MEDIUM)
         read_seq = simple_debug_read_sequence_20251015::type_id::create("read_seq");
         read_seq.start(env.uart_agt.sequencer);
 
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("SINGLE_READ_TEST", "Single read test completed", UVM_LOW)
 
         phase.drop_objection(this, "Single read test completed");

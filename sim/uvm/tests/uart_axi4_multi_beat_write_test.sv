@@ -26,14 +26,14 @@ class uart_axi4_multi_beat_write_test extends enhanced_uart_axi4_base_test;
         phase.raise_objection(this, "Running multi-beat write test");
         
         // Wait for DUT reset to complete before starting traffic
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (20) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (20) @(posedge uart_axi4_tb_top.clk);
         
         multi_seq = uart_axi4_multi_beat_write_seq::type_id::create("multi_seq");
         multi_seq.start(env.uart_agt.sequencer);
         
         // Allow time for AXI responses and scoreboard processing
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         
         `uvm_info("MULTI_BEAT_TEST", "=== Multi-beat write test completed ===", UVM_LOW)
         phase.drop_objection(this, "Multi-beat write test finished");

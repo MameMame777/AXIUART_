@@ -133,7 +133,7 @@ class uart_axi4_comprehensive_test extends enhanced_uart_axi4_base_test;
         `uvm_info("COMP_TEST", "========================================", UVM_LOW)
         
         // Print scoreboard summary
-        if (env.scoreboard != null) begin
+        if (env.phase3_scoreboard != null) begin
             `uvm_info("COMP_TEST", "Scoreboard Final Statistics:", UVM_LOW)
             // Scoreboard will print its own detailed report in its report_phase
         end else begin

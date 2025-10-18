@@ -44,8 +44,8 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
         `uvm_info("ADV_COV_TEST", "===========================================", UVM_LOW)
         
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
         
         // Phase 1: Corner Cases Coverage
         run_corner_cases_phase(phase);
@@ -75,7 +75,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
         report_coverage_statistics();
         
         // Wait for system stabilization
-        repeat (1000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (1000) @(posedge uart_axi4_tb_top.clk);
         
         phase.drop_objection(this, "Advanced coverage test completed");
     endtask
@@ -90,7 +90,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             corner_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk); // Phase separation
+        repeat (500) @(posedge uart_axi4_tb_top.clk); // Phase separation
         `uvm_info("ADV_COV_TEST", "Phase 1 completed", UVM_MEDIUM)
     endtask
     
@@ -104,7 +104,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             error_inject_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 2 completed", UVM_MEDIUM)
     endtask
     
@@ -118,7 +118,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             boundary_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 3 completed", UVM_MEDIUM)
     endtask
     
@@ -132,7 +132,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             state_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 4 completed", UVM_MEDIUM)
     endtask
     
@@ -146,7 +146,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             fifo_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 5 completed", UVM_MEDIUM)
     endtask
     
@@ -160,7 +160,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             timing_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 6 completed", UVM_MEDIUM)
     endtask
     
@@ -174,7 +174,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             uart_tx_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 7 completed", UVM_MEDIUM)
     endtask
     
@@ -188,7 +188,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
             config_change_seq.start(env.uart_agt.sequencer);
         join
         
-        repeat (500) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (500) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("ADV_COV_TEST", "Phase 8 completed", UVM_MEDIUM)
     endtask
 

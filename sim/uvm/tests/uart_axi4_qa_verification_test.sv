@@ -30,8 +30,8 @@ class uart_axi4_qa_verification_test extends enhanced_uart_axi4_base_test;
         phase.raise_objection(this, "QA verification test running");
 
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
         
         `uvm_info("QA_VERIFICATION_TEST", "Running verified debug sequence", UVM_MEDIUM)
         
@@ -46,7 +46,7 @@ class uart_axi4_qa_verification_test extends enhanced_uart_axi4_base_test;
         debug_seq.start(env.uart_agt.sequencer);
         
         // システム安定化待ち
-        repeat (2000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (2000) @(posedge uart_axi4_tb_top.clk);
         
         `uvm_info("QA_VERIFICATION_TEST", "=== QA Verification Test Completed ===", UVM_LOW)
         

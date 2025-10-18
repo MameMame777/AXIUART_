@@ -50,8 +50,8 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         `uvm_info("BASIC_TEST", "=== Starting Basic Functional Test ===", UVM_LOW)
         
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
         
         // Run debug single write sequence
         `uvm_info("BASIC_TEST", "Running single write debug sequence", UVM_MEDIUM)
@@ -59,7 +59,7 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         debug_seq.start(env.uart_agt.sequencer);
         
         // Wait for system stabilization
-        repeat (1000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (1000) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("BASIC_TEST", "=== Basic Test Completed Successfully ===", UVM_LOW)
 
         phase.drop_objection(this, "Basic test completed");

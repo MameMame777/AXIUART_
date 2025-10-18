@@ -27,8 +27,8 @@ class uart_frame_parser_debug_test extends enhanced_uart_axi4_base_test;
         `uvm_info("PARSER_DEBUG", "=== Frame Parser Debug Test ===", UVM_LOW)
         
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (20) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (20) @(posedge uart_axi4_tb_top.clk);
         
         // Run basic sequence to trigger Frame_Parser
         debug_seq = uart_axi4_basic_sequence::type_id::create("debug_seq");
@@ -36,7 +36,7 @@ class uart_frame_parser_debug_test extends enhanced_uart_axi4_base_test;
         debug_seq.start(env.uart_agt.sequencer);
         
         // Wait for completion
-        repeat (1000) @(posedge uart_axi4_tb_top.dut.clk);
+        repeat (1000) @(posedge uart_axi4_tb_top.clk);
         
         `uvm_info("PARSER_DEBUG", "=== Frame Parser Debug Completed ===", UVM_LOW)
         

@@ -43,8 +43,8 @@ class simple_register_sweep_test extends enhanced_uart_axi4_base_test;
         `uvm_info("SIMPLE_TOGGLE", "Target: Improve Toggle Coverage 14% 竊・50%+", UVM_LOW)
         
         // Wait for reset to complete
-        wait (uart_axi4_tb_top.dut.rst == 1'b0);
-        repeat (10) @(posedge uart_axi4_tb_top.dut.clk);
+        wait (uart_axi4_tb_top.rst_n == 1'b1);
+        repeat (10) @(posedge uart_axi4_tb_top.clk);
         
         // Execute multiple sequences to generate register activity
         for (int i = 0; i < 25; i++) begin
@@ -53,7 +53,7 @@ class simple_register_sweep_test extends enhanced_uart_axi4_base_test;
             debug_seq.start(env.uart_agt.sequencer);
             
             // Wait between iterations
-            repeat (100) @(posedge uart_axi4_tb_top.dut.clk);
+            repeat (100) @(posedge uart_axi4_tb_top.clk);
         end
         
         // Additional register-focused transactions

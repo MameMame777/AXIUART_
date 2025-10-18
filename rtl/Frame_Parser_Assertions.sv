@@ -70,12 +70,16 @@ module Frame_Parser_Assertions (
     localparam [3:0] ERROR      = 4'h9;
     
     // Protocol constants (must match Frame_Parser.sv)
-    localparam [7:0] SOF_HOST_TO_DEVICE = 8'hAA;
+    localparam [7:0] SOF_HOST_TO_DEVICE = 8'hA5;
     localparam [7:0] STATUS_OK          = 8'h00;
     localparam [7:0] STATUS_CRC_ERR     = 8'h01;
-    localparam [7:0] STATUS_TIMEOUT     = 8'h04;
     localparam [7:0] STATUS_CMD_INV     = 8'h02;
-    localparam [7:0] STATUS_LEN_RANGE   = 8'h03;
+    localparam [7:0] STATUS_ADDR_ALIGN  = 8'h03;
+    localparam [7:0] STATUS_TIMEOUT     = 8'h04;
+    localparam [7:0] STATUS_LEN_RANGE   = 8'h07;
+    // Allow ample cycles between sequential state transitions to account for
+    // UART byte arrival latency (~10.8k clk cycles per byte at 125 MHz / 115200 baud).
+    localparam int STATE_ADVANCE_MAX_CYCLES = 16384;
 
     //==========================================================================
     // CRITICAL PROTOCOL ASSERTIONS
@@ -128,12 +132,12 @@ module Frame_Parser_Assertions (
     // A5: State Machine Sequential Integrity
     property state_machine_sequential_integrity;
         @(posedge clk) disable iff (rst)
-        (state == IDLE && rx_fifo_rd_en && rx_fifo_data == SOF_HOST_TO_DEVICE) |=> 
-        (state == CMD) ##1 
-        (state == ADDR_BYTE0) ##1
-        (state == ADDR_BYTE1) ##1
-        (state == ADDR_BYTE2) ##1
-        (state == ADDR_BYTE3);
+        (state == IDLE && rx_fifo_rd_en && !rx_fifo_empty && rx_fifo_data == SOF_HOST_TO_DEVICE) |=>
+            (state == CMD) ##[1:STATE_ADVANCE_MAX_CYCLES]
+            (state == ADDR_BYTE0 || state == ERROR) ##[1:STATE_ADVANCE_MAX_CYCLES]
+            (state == ADDR_BYTE1 || state == ERROR) ##[1:STATE_ADVANCE_MAX_CYCLES]
+            (state == ADDR_BYTE2 || state == ERROR) ##[1:STATE_ADVANCE_MAX_CYCLES]
+            (state == ADDR_BYTE3 || state == ERROR);
     endproperty
     assert_state_sequence: assert property (state_machine_sequential_integrity)
         else $fatal("ASSERTION_FAIL: State machine sequence violation at %t", $time);

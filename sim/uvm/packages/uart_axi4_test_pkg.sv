@@ -409,9 +409,8 @@ package uart_axi4_test_pkg;
     `include "sequences/debug_dual_write_sequence.sv"
     `include "sequences/metadata_read_sequence_20251015.sv"
     `include "sequences/metadata_expected_error_sequence_20251015.sv"
-    // TEMPORARILY DISABLED - compilation errors blocking all tests:
-    // `include "sequences/error_injection_sequence.sv" 
-    // `include "sequences/performance_test_sequence.sv"
+    `include "sequences/error_injection_sequence.sv"
+    `include "sequences/performance_test_sequence.sv"
     `include "sequences/uart_protocol_active_sequence.sv"
     `include "sequences/uart_axi4_frame_builder_sequence.sv"
     `include "sequences/uart_axi4_register_block_sequence.sv"
@@ -422,6 +421,7 @@ package uart_axi4_test_pkg;
     // `include "sequences/test_register_sequences.sv"  // Test register sequences  
     `include "sequences/coverage_sequences.sv"
     `include "sequences/flow_control_sequences.sv"       // RTS/CTS flow control sequences
+    `include "sequences/simple_test_register_sequence.sv"
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
@@ -436,6 +436,7 @@ package uart_axi4_test_pkg;
     `include "tests/uart_axi4_dual_write_test.sv"
     `include "tests/uart_axi4_metadata_read_test.sv"
     `include "tests/uart_axi4_metadata_expected_error_test.sv"
+    `include "tests/uart_axi4_error_paths_test.sv"
     `include "tests/uart_axi4_multi_beat_write_test.sv"
     // `include "tests/register_block_tests.sv"  // TEMPORARILY DISABLED - depends on register_sequences.sv
     // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
@@ -449,7 +450,7 @@ package uart_axi4_test_pkg;
     
     // TEMPORARILY DISABLED - compilation errors blocking all tests:
     // `include "tests/uart_axi4_comprehensive_test.sv"     // Comprehensive system test
-    // `include "tests/uart_axi4_burst_perf_test.sv"        // Burst performance test
+    `include "tests/uart_axi4_burst_perf_test.sv"        // Burst performance test
     // `include "tests/uart_axi4_rtl_error_injection_test.sv"  // RTL-based error injection test
 
 endpackage
