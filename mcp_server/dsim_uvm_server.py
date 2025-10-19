@@ -191,15 +191,37 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
         )
 
 def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess[bytes]:
-    """Run subprocess synchronously to support Windows event loop limitations."""
-    return subprocess.run(
+    """Run subprocess synchronously with proper process termination handling.
+    
+    Uses Popen for better process control - can detect if process is truly hung
+    vs just slow to complete.
+    """
+    import time
+    
+    proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
-        timeout=timeout,
-        check=False
+        env=os.environ.copy()  # Explicitly pass environment variables
     )
+    
+    start_time = time.time()
+    while proc.poll() is None:
+        elapsed = time.time() - start_time
+        if elapsed > timeout:
+            # Process still running after timeout - force terminate
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        time.sleep(0.1)  # Check every 100ms
+    
+    stdout, stderr = proc.communicate()
+    return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
 async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
@@ -231,6 +253,11 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
             stdout: bytes = completed.stdout
             stderr: bytes = completed.stderr
             return_code = completed.returncode
+            
+            # CRITICAL: Wait for DSIM to flush log file buffers
+            # DSIM writes logs asynchronously, process.returncode=0 doesn't guarantee
+            # log file is complete. Add small delay to ensure all data is written.
+            await asyncio.sleep(0.5)  # 500ms buffer flush time
         else:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -243,6 +270,9 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
                 timeout=timeout
             )
             return_code = process.returncode
+            
+            # CRITICAL: Wait for DSIM to flush log file buffers (non-Windows)
+            await asyncio.sleep(0.5)
         
         stdout_text = stdout.decode('utf-8', errors='replace')
         stderr_text = stderr.decode('utf-8', errors='replace')
