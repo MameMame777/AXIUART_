@@ -1,4 +1,4 @@
-﻿`timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 // Enhanced test suite for comprehensive coverage improvement
 // Integrates register sweep, functional coverage, and error injection
@@ -45,7 +45,7 @@ class axiuart_comprehensive_coverage_test extends enhanced_uart_axi4_base_test;
         end
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         phase.raise_objection(this, "Running comprehensive coverage test");
         
         `uvm_info(get_type_name(), "=== Starting AXIUART Comprehensive Coverage Test ===", UVM_LOW)
@@ -207,7 +207,7 @@ class axiuart_toggle_coverage_test extends enhanced_uart_axi4_base_test;
         super.new(name, parent);
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         phase.raise_objection(this, "Running toggle coverage test");
         
         `uvm_info(get_type_name(), "Starting Toggle Coverage Focused Test", UVM_LOW)
@@ -250,7 +250,7 @@ class axiuart_error_focused_test extends enhanced_uart_axi4_base_test;
         super.new(name, parent);
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         phase.raise_objection(this, "Running error focused test");
         
         `uvm_info(get_type_name(), "Starting Error Injection Focused Test", UVM_LOW)

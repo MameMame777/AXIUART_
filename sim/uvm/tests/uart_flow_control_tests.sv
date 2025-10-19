@@ -14,12 +14,12 @@ class uart_flow_control_test extends enhanced_uart_axi4_base_test;
         super.build_phase(phase);
         configure_test_specific_reporting();
         
-        // Set test-specific configuration
-        uvm_config_db#(uvm_object_wrapper)::set(this, "env.uart_agent.uart_seqr.main_phase", 
+        // Set test-specific configuration for run_phase
+        uvm_config_db#(uvm_object_wrapper)::set(this, "env.uart_agent.uart_seqr.run_phase", 
                                                 "default_sequence", uart_flow_control_stress_sequence::type_id::get());
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         uart_rts_monitor_sequence rts_seq;
         uart_cts_flow_control_sequence cts_seq;
         
@@ -67,7 +67,7 @@ class uart_rts_basic_test extends enhanced_uart_axi4_base_test;
         super.new(name, parent);
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         uart_rts_monitor_sequence rts_seq;
         
         phase.raise_objection(this);
@@ -94,7 +94,7 @@ class uart_cts_stress_test extends enhanced_uart_axi4_base_test;
         super.new(name, parent);
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         uart_flow_control_stress_sequence stress_seq;
         
         phase.raise_objection(this);

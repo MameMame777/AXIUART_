@@ -17,7 +17,7 @@ class uart_axi4_multi_beat_write_test extends enhanced_uart_axi4_base_test;
         cfg.bridge_status_verbosity = UVM_NONE;
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("MULTI_BEAT_TEST", "===============================================", UVM_LOW)
         `uvm_info("MULTI_BEAT_TEST", "     UART-AXI4 MULTI-BEAT WRITE TEST", UVM_LOW)
         `uvm_info("MULTI_BEAT_TEST", "===============================================", UVM_LOW)
@@ -40,5 +40,6 @@ class uart_axi4_multi_beat_write_test extends enhanced_uart_axi4_base_test;
     endtask
     
 endclass
+
 
 

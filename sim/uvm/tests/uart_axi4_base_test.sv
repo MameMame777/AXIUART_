@@ -86,7 +86,7 @@ class uart_axi4_base_test extends uvm_test;
         cfg.enable_coverage = 1;
         cfg.enable_scoreboard = 1;
         cfg.enable_protocol_checking = 1;
-        cfg.enable_driver_runtime_logs = 1'b0;
+        cfg.enable_driver_runtime_logs = 1'b1;  // TEMPORARY: Enable for debugging timeout issue
         cfg.enable_scoreboard_runtime_logs = 1'b0;
         cfg.driver_runtime_verbosity = UVM_LOW;
         cfg.scoreboard_runtime_verbosity = UVM_LOW;
@@ -117,21 +117,28 @@ class uart_axi4_base_test extends uvm_test;
     endfunction
     
     virtual task run_phase(uvm_phase phase);
-        // Default run phase - to be overridden by derived tests
-        phase.raise_objection(this, "Base test run phase");
+        // Base run phase - can be overridden by derived tests
+        // If derived test overrides this, the base implementation won't run
         
         `uvm_info("BASE_TEST", "Base test run phase started", UVM_LOW)
         
-        // Wait for reset to complete
-        wait (uart_axi4_tb_top.rst_n == 1'b1);
-        repeat (10) @(posedge uart_axi4_tb_top.clk);
-        
-        `uvm_info("BASE_TEST", "Reset completed, test ready", UVM_MEDIUM)
-        
-        // Basic test completion
-        repeat (100) @(posedge uart_axi4_tb_top.clk);
-        
-        phase.drop_objection(this, "Base test run phase completed");
+        // Only raise objection if not already raised by derived class
+        if (phase.get_objection().get_objection_count(this) == 0) begin
+            phase.raise_objection(this, "Base test run phase");
+            
+            // Wait for reset to complete
+            wait (uart_axi4_tb_top.rst_n == 1'b1);
+            repeat (10) @(posedge uart_axi4_tb_top.clk);
+            
+            `uvm_info("BASE_TEST", "Reset completed, test ready", UVM_MEDIUM)
+            
+            // Basic test completion
+            repeat (100) @(posedge uart_axi4_tb_top.clk);
+            
+            phase.drop_objection(this, "Base test run phase completed");
+        end else begin
+            `uvm_info("BASE_TEST", "Objection already raised by derived test - skipping base run", UVM_MEDIUM)
+        end
     endtask
     
     virtual function void extract_phase(uvm_phase phase);

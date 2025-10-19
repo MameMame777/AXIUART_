@@ -44,8 +44,22 @@ interface uart_if (
     logic [63:0] current_payload;  // Support up to 8 bytes
     logic [7:0] current_crc;
     
+    // Clocking block for driver synchronization
+    // This provides proper timing alignment for UART signal generation
+    clocking driver_cb @(posedge clk);
+        output uart_rx;
+        output uart_cts_n;
+        input  uart_tx;
+        input  uart_rts_n;
+        input  tx_busy;
+        input  rx_valid;
+        input  rx_data;
+        input  rx_error;
+    endclocking
+    
     // Driver modport - for UVM driver (active agent)
     modport driver (
+        clocking driver_cb,
         output uart_rx,
         input  uart_tx,
         input  uart_rts_n,      // Monitor RTS output from DUT

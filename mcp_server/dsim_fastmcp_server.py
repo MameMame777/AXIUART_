@@ -177,6 +177,7 @@ def create_fastmcp_server() -> FastMCP:
         coverage: bool,
         seed: Optional[int],
         timeout: int,
+        wave_format: Literal["MXD", "VCD"] = "MXD",
         plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         effective_seed = seed if seed is not None else 1
@@ -187,6 +188,7 @@ def create_fastmcp_server() -> FastMCP:
                 mode=mode,
                 verbosity=verbosity,
                 waves=waves,
+                wave_format=wave_format,
                 coverage=coverage,
                 seed=effective_seed,
                 timeout=timeout,
@@ -279,6 +281,7 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_DEBUG",
     ] = "UVM_MEDIUM",
     waves: bool = False,
+        wave_format: Literal["MXD", "VCD"] = "MXD",
         coverage: bool = False,
         seed: Optional[int] = None,
         timeout: int = 300,
@@ -290,6 +293,7 @@ def create_fastmcp_server() -> FastMCP:
             mode=mode,
             verbosity=verbosity,
             waves=waves,
+            wave_format=wave_format,
             coverage=coverage,
             seed=seed,
             timeout=timeout,
@@ -312,6 +316,119 @@ def create_fastmcp_server() -> FastMCP:
             seed=1,
             timeout=timeout,
         )
+
+    @mcp.tool
+    async def run_uvm_simulation_batch(
+        test_name: str,
+        verbosity: Literal[
+            "UVM_NONE",
+            "UVM_LOW",
+            "UVM_MEDIUM",
+            "UVM_HIGH",
+            "UVM_FULL",
+            "UVM_DEBUG",
+        ] = "UVM_MEDIUM",
+        waves: bool = False,
+        wave_format: Literal["MXD", "VCD"] = "MXD",
+        coverage: bool = False,
+        seed: Optional[int] = None,
+        compile_timeout: int = 120,
+        run_timeout: int = 300,
+        plusargs: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        一括実行: コンパイル → 実行を自動的に順次実行
+        
+        Execute DSIM UVM simulation in batch mode (compile then run automatically).
+        This is the recommended method for normal test execution.
+        
+        Args:
+            test_name: UVM test name to execute
+            verbosity: UVM verbosity level (default: UVM_MEDIUM)
+            waves: Enable waveform generation (default: False)
+            wave_format: Waveform format - MXD (binary) or VCD (text) (default: MXD)
+            coverage: Enable coverage collection (default: False)
+            seed: Random seed (default: auto-generated)
+            compile_timeout: Compilation timeout in seconds (default: 120)
+            run_timeout: Simulation timeout in seconds (default: 300)
+            plusargs: Additional plusargs for simulation
+            
+        Returns:
+            Combined results from both compile and run phases
+        """
+        logger.info(f"[BATCH] Starting batch execution for test: {test_name}")
+        
+        # Phase 1: Compile
+        logger.info("[BATCH] Phase 1/2: Compiling...")
+        compile_result = await _execute_simulation(
+            test_name=test_name,
+            mode="compile",
+            verbosity="UVM_LOW",  # Low verbosity for compilation
+            waves=False,
+            coverage=False,
+            seed=seed if seed is not None else 1,
+            timeout=compile_timeout,
+            wave_format=wave_format,
+            plusargs=None,
+        )
+        
+        if compile_result.get("status") != "success":
+            logger.error("[BATCH] Compilation failed, aborting batch execution")
+            return {
+                "status": "error",
+                "phase": "compile",
+                "error_type": "compilation_failed",
+                "message": "Batch execution aborted: compilation failed",
+                "compile_result": compile_result,
+                "run_result": None,
+            }
+        
+        logger.info("[BATCH] Phase 1/2: Compilation successful")
+        
+        # Small delay to ensure license release
+        logger.info("[BATCH] Waiting 2 seconds for license release...")
+        await asyncio.sleep(2)
+        
+        # Phase 2: Run
+        logger.info("[BATCH] Phase 2/2: Running simulation...")
+        run_result = await _execute_simulation(
+            test_name=test_name,
+            mode="run",
+            verbosity=verbosity,
+            waves=waves,
+            wave_format=wave_format,
+            coverage=coverage,
+            seed=seed if seed is not None else 1,
+            timeout=run_timeout,
+            plusargs=plusargs,
+        )
+        
+        if run_result.get("status") != "success":
+            logger.error("[BATCH] Simulation run failed")
+            return {
+                "status": "error",
+                "phase": "run",
+                "error_type": "simulation_failed",
+                "message": "Batch execution completed compilation but simulation failed",
+                "compile_result": compile_result,
+                "run_result": run_result,
+            }
+        
+        logger.info("[BATCH] Phase 2/2: Simulation successful")
+        logger.info("[BATCH] Batch execution completed successfully")
+        
+        return {
+            "status": "success",
+            "phase": "batch_complete",
+            "message": "Batch execution completed: compile + run successful",
+            "compile_result": compile_result,
+            "run_result": run_result,
+            "test_name": test_name,
+            "verbosity": verbosity,
+            "waves": waves,
+            "coverage": coverage,
+            "seed": seed if seed is not None else 1,
+        }
 
     @mcp.tool  
     def get_simulation_logs(log_type: str = "latest") -> Dict[str, Any]:

@@ -1,4 +1,4 @@
-﻿`timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 //==============================================================================
 // RTL Specification-Based Error Injection Test
@@ -84,7 +84,7 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
         end
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         phase.raise_objection(this, "Running RTL-based error injection test");
         
         `uvm_info("RTL_ERROR_TEST", "=== RTL莉墓ｧ俶ｺ匁侠繧ｨ繝ｩ繝ｼ豕ｨ蜈･繝・せ繝磯幕蟋・===", UVM_LOW)
@@ -758,3 +758,4 @@ class uart_axi4_rtl_error_injection_test extends enhanced_uart_axi4_base_test;
     endfunction
     
 endclass
+

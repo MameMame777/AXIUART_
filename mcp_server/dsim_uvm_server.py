@@ -324,6 +324,7 @@ async def run_uvm_simulation(
     mode: Literal["run", "compile", "elaborate"] = "run", 
     verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_MEDIUM",
     waves: bool = False,
+    wave_format: Literal["MXD", "VCD"] = "MXD",
     coverage: bool = True,
     seed: int = 1,
     timeout: int = 300,
@@ -335,10 +336,12 @@ async def run_uvm_simulation(
         test_name: UVM test class name to execute (default: uart_axi4_basic_test)
         mode: Simulation mode - run (full sim), compile (syntax check), elaborate (build only)
         verbosity: UVM verbosity level for detailed debugging output
-        waves: Enable waveform capture (MXD format) for signal analysis
+        waves: Enable waveform capture for signal analysis
+        wave_format: Waveform format - MXD (binary, DSIM native) or VCD (text, portable)
         coverage: Enable coverage collection for verification metrics  
         seed: Random simulation seed for reproducible results
         timeout: Maximum execution time in seconds before timeout
+        plusargs: Additional plusargs for simulation
         
     Returns:
         Detailed simulation results with enhanced error diagnostics
@@ -398,16 +401,19 @@ async def run_uvm_simulation(
     
     # Build command with enhanced options
     # Use relative config file path since we're executing from sim/uvm directory
+    # Note: -uvm must be specified BEFORE mode-specific options (DSIM requirement)
     cmd = [
         str(dsim_exe),
+        "-uvm", "1.2",  # CRITICAL: UVM library version (DSIM official requirement)
         "-f", "dsim_config.f",
+        "-top", "work.uart_axi4_tb_top",  # Top-level module specification
         f"+UVM_TESTNAME={test_name}",
         f"+UVM_VERBOSITY={verbosity}",
         "-sv_seed", str(seed),
         "-l", log_file_relative
     ]
     
-    # Mode-specific options
+    # Mode-specific options (do NOT add -uvm again)
     if mode == "compile":
         cmd.extend(["-genimage", "compiled_image"])
     elif mode == "elaborate": 
@@ -420,11 +426,23 @@ async def run_uvm_simulation(
     if waves:
         waves_dir = workspace_root / "archive" / "waveforms"
         waves_dir.mkdir(parents=True, exist_ok=True)
-        waves_file = waves_dir / f"{test_name}_{timestamp}.mxd"
-        cmd.extend(["-waves", str(waves_file)])
+        
+        # For VCD format, don't use -waves option (use testbench $dumpfile/$dumpvars only)
+        # For MXD format, use -waves option (DSIM native)
+        if wave_format == "VCD":
+            # VCD: No -waves option, testbench will handle via $dumpfile/$dumpvars
+            pass
+        else:
+            # MXD: Use DSIM -waves option
+            waves_file = waves_dir / f"{test_name}_{timestamp}.mxd"
+            cmd.extend(["-waves", str(waves_file)])
         
     if coverage:
         cmd.extend(["+cover+fsm+line+cond+tgl+branch"])
+
+    # Add waveform format selection
+    if waves and wave_format == "VCD":
+        cmd.append("+WAVE_FORMAT=VCD")
 
     plusargs_applied: List[str] = []
     if plusargs:
@@ -443,6 +461,7 @@ async def run_uvm_simulation(
     
     # Execute with enhanced error handling
     try:
+        logger.info(f"[DEBUG] DSIM command: {' '.join(cmd)}")
         result_text = await execute_dsim_command(cmd, timeout)
 
         log_file_absolute = (uvm_dir / log_file_relative).resolve()

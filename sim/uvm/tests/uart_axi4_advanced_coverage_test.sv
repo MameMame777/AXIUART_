@@ -36,7 +36,7 @@ class uart_axi4_advanced_coverage_test extends enhanced_uart_axi4_base_test;
         `uvm_info("ADV_COV_TEST", "Advanced coverage test configuration applied", UVM_MEDIUM)
     endfunction
     
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         phase.raise_objection(this, "Advanced coverage test main phase");
         
         `uvm_info("ADV_COV_TEST", "===========================================", UVM_LOW)

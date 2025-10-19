@@ -1,4 +1,4 @@
-﻿`timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 //=============================================================================
 // Extended Basic Test for Toggle Coverage Enhancement
@@ -35,7 +35,7 @@ class extended_basic_test extends enhanced_uart_axi4_base_test;
     endfunction
     
     // Extended test sequence
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         simple_debug_write_sequence_20250923 debug_seq;
         
         `uvm_info("EXTENDED_BASIC", "================================================", UVM_LOW)

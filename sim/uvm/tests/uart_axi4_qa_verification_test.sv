@@ -24,7 +24,7 @@ class uart_axi4_qa_verification_test extends enhanced_uart_axi4_base_test;
         `uvm_info("QA_VERIFICATION_TEST", "QA verification test configured", UVM_LOW)
     endfunction
 
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("QA_VERIFICATION_TEST", "=== QA Verification Test Starting ===", UVM_LOW)
         
         phase.raise_objection(this, "QA verification test running");

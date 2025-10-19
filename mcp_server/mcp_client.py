@@ -45,11 +45,15 @@ async def main():
     parser.add_argument("--workspace", type=str, default=".", help="Workspace path")
     parser.add_argument("--tool", type=str, required=True, help="Tool name to execute")
     parser.add_argument("--test-name", type=str, help="Test name for simulation")
-    parser.add_argument("--mode", type=str, default="run", choices=["compile", "run"], help="Simulation mode")
+    parser.add_argument("--mode", type=str, default="batch", choices=["compile", "run", "batch"], 
+                       help="Execution mode: compile (compile only), run (run only), batch (compile+run, default)")
     parser.add_argument("--verbosity", type=str, default="UVM_MEDIUM", help="UVM verbosity level")
     parser.add_argument("--waves", action="store_true", help="Generate waveforms")
+    parser.add_argument("--wave-format", type=str, default="MXD", choices=["MXD", "VCD"],
+                       help="Waveform format: MXD (binary, default) or VCD (text, portable)")
     parser.add_argument("--coverage", action="store_true", help="Collect coverage")
-    parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds")
+    parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds (for run phase in batch mode)")
+    parser.add_argument("--compile-timeout", type=int, default=120, help="Compile timeout in seconds (batch mode only)")
     parser.add_argument("--plusarg", action="append", default=[], help="DSIM plus-argument (e.g. SIM_TIMEOUT_MS=60000). Repeat for multiple values")
     
     args = parser.parse_args()
@@ -91,38 +95,78 @@ async def main():
                     logger.error(f"Tool '{args.tool}' not available. Available tools: {available_tools}")
                     sys.exit(1)
 
-                # Prepare arguments based on tool
+                # Prepare arguments based on tool and mode
                 tool_args: dict[str, object]
-                if args.tool == "run_uvm_simulation":
+                
+                # Direct batch tool invocation
+                if args.tool == "run_uvm_simulation_batch":
+                    actual_tool = "run_uvm_simulation_batch"
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",
-                        "mode": args.mode,
                         "verbosity": args.verbosity,
                         "waves": args.waves,
+                        "wave_format": args.wave_format,
+                        "coverage": args.coverage,
+                        "compile_timeout": args.compile_timeout,
+                        "run_timeout": args.timeout
+                    }
+                    if args.plusarg:
+                        tool_args["plusargs"] = args.plusarg
+                    logger.info(f"Using batch tool directly: {actual_tool}")
+                
+                # Batch mode: use run_uvm_simulation_batch tool
+                elif args.mode == "batch" and args.tool == "run_uvm_simulation":
+                    actual_tool = "run_uvm_simulation_batch"
+                    tool_args = {
+                        "test_name": args.test_name or "uart_axi4_basic_test",
+                        "verbosity": args.verbosity,
+                        "waves": args.waves,
+                        "wave_format": args.wave_format,
+                        "coverage": args.coverage,
+                        "compile_timeout": args.compile_timeout,
+                        "run_timeout": args.timeout
+                    }
+                    if args.plusarg:
+                        tool_args["plusargs"] = args.plusarg
+                    logger.info(f"Using batch mode: {actual_tool}")
+                
+                # Compile or run mode: use run_uvm_simulation with mode parameter
+                elif args.tool == "run_uvm_simulation":
+                    actual_tool = args.tool
+                    tool_args = {
+                        "test_name": args.test_name or "uart_axi4_basic_test",
+                        "mode": args.mode if args.mode != "batch" else "run",
+                        "verbosity": args.verbosity,
+                        "waves": args.waves,
+                        "wave_format": args.wave_format,
                         "coverage": args.coverage,
                         "timeout": args.timeout
                     }
                     if args.plusarg:
                         tool_args["plusargs"] = args.plusarg
+                
                 elif args.tool == "compile_design" or args.tool == "compile_design_only":
+                    actual_tool = args.tool
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",
                         "verbosity": args.verbosity,
                         "timeout": args.timeout
                     }
                 elif args.tool == "run_simulation":
+                    actual_tool = args.tool
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",
                         "verbosity": args.verbosity,
                         "timeout": args.timeout
                     }
                 else:
+                    actual_tool = args.tool
                     tool_args = {}
 
-                result = await session.call_tool(args.tool, tool_args)
+                result = await session.call_tool(actual_tool, tool_args)
 
                 print("\n" + "=" * 50)
-                print(f"MCP Tool Result: {args.tool}")
+                print(f"MCP Tool Result: {actual_tool}")
                 print("=" * 50)
 
                 if result.content:

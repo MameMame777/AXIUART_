@@ -124,13 +124,24 @@ module uart_axi4_tb_top;
     uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
         // Phase 4.3: Set AXI monitoring interface for AXI transaction detection
         
-        // Enable waveform dumping
-        $dumpfile("uart_axi4_minimal_test.mxd");
-        $dumpvars(0, uart_axi4_tb_top);
-        `uvm_info("TB_TOP", "Waveform dumping enabled", UVM_MEDIUM)
-        
         // Start UVM test
         run_test();
+    end
+
+    // Defer waveform dumping until after reset release and stability
+    // This prevents large recursive dump registration during reset and
+    // avoids simulator I/O stalls at the moment of reset release.
+    initial begin
+        // Wait for reset to be released
+        wait (rst_n == 1'b1);
+        // Give some extra cycles for UVM/bench to finish initialization
+        repeat (50) @(posedge clk);
+
+        // Scoped waveform dump: only DUT and UART interface to limit header size
+        $dumpfile("uart_axi4_minimal_test.mxd");
+        $dumpvars(0, dut);
+        $dumpvars(0, uart_if_inst);
+        `uvm_info("TB_TOP", "Deferred scoped waveform dumping enabled (dut, uart_if_inst)", UVM_MEDIUM)
     end
     
     // Timeout mechanism - extended for comprehensive tests

@@ -1,4 +1,4 @@
-﻿`timescale 1ns / 1ps
+`timescale 1ns / 1ps
 
 // UVM Test for FPGA Hardware Issue Investigation
 // Simplified test to match the existing structure
@@ -28,7 +28,7 @@ class uart_fpga_issue_debug_test extends enhanced_uart_axi4_base_test;
     endfunction
 
     // Main test sequence
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         simple_debug_write_sequence_20250923 debug_seq;
         fpga_register_read_sequence fpga_seq;
         
@@ -112,3 +112,4 @@ class fpga_register_read_sequence extends uvm_sequence #(uart_axi4_transaction);
     endtask
     
 endclass
+

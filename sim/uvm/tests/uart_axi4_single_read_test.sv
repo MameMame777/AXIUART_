@@ -21,7 +21,7 @@ class uart_axi4_single_read_test extends enhanced_uart_axi4_base_test;
         `uvm_info("TEST_SINGLE_READ_CONFIG", "Single read test configured with scoreboard enabled", UVM_LOW)
     endfunction
 
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("SINGLE_READ_TEST", "===============================================", UVM_LOW)
         `uvm_info("SINGLE_READ_TEST", "     UART-AXI4 SINGLE READ FUNCTIONAL TEST", UVM_LOW)
         `uvm_info("SINGLE_READ_TEST", "===============================================", UVM_LOW)
@@ -42,3 +42,4 @@ class uart_axi4_single_read_test extends enhanced_uart_axi4_base_test;
     endtask
 
 endclass
+

@@ -90,8 +90,8 @@ tests/uart_axi4_bridge_control_test.sv
 # Testbench top
 tb/uart_axi4_tb_top.sv
 
-# UVM library
--uvm 1.2
+# UVM library - Specified via command line (-uvm 1.2)
+# Note: Do NOT specify -uvm here if using command line option
 
 # Coverage options
 +cover+fsm+line+cond+tgl+branch

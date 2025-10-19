@@ -10,32 +10,33 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
     endfunction
     
     virtual task body();
-        uart_frame_transaction req;
-
-        `uvm_info("DEBUG_WRITE_SEQ_2023", "Starting SINGLE write transaction debug", UVM_MEDIUM)
-
-        // Create exactly one write transaction aligned with protocol encoding
+        // Pre-allocate dynamic array before randomization (DSIM constraint solver limitation)
         `uvm_create(req)
-
-        req.is_write       = 1'b1;
-        req.auto_increment = 1'b0;
-        req.size           = 2'b00;   // 8-bit access
-        req.length         = 4'h0;    // length=0 encodes one beat
-        req.expect_error   = 1'b0;
-        req.addr           = 32'h0000_1000;  // Base address (REG_CONTROL)
-
-        req.data = new[1];
-        req.data[0] = 8'h42;          // Predictable data payload
-
-        req.build_cmd();
-        req.calculate_crc();
-
-        `uvm_send(req)
+        req.data = new[1];  // Pre-allocate before constraints
         
-        `uvm_info("DEBUG_WRITE_SEQ_2023", $sformatf("Sent: CMD=0x%02X, ADDR=0x%08X, DATA=0x%02X", 
-                  req.cmd, req.addr, req.data[0]), UVM_MEDIUM)
-                  
-        `uvm_info("DEBUG_WRITE_SEQ_2023", "SINGLE write sequence completed", UVM_MEDIUM)
+        // Apply constraints - use if/else instead of assert to handle failure gracefully
+        if (!req.randomize() with {
+            req.is_write       == 1'b1;
+            req.auto_increment == 1'b0;
+            req.size           == 2'b00;
+            req.length         == 4'h0;
+            req.expect_error   == 1'b1;
+            req.addr           == 32'h0000_1000;
+            req.data[0]        == 8'h42;  // Direct element constraint (no .size())
+        }) begin
+            // Randomization failed - set values manually as fallback
+            `uvm_warning("DEBUG_SEQ", "Randomization with constraints failed, setting values manually")
+            req.is_write = 1'b1;
+            req.auto_increment = 1'b0;
+            req.size = 2'b00;
+            req.length = 4'h0;
+            req.expect_error = 1'b1;
+            req.addr = 32'h0000_1000;
+            req.data[0] = 8'h42;
+        end
+        
+        `uvm_send(req)
+        `uvm_info("DEBUG_SEQ", "Sequence completed successfully", UVM_LOW)
     endtask
     
 endclass

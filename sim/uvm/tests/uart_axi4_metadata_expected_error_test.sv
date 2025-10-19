@@ -26,7 +26,7 @@ class uart_axi4_metadata_expected_error_test extends enhanced_uart_axi4_base_tes
         `uvm_info("TEST_METADATA_ERROR_CONFIG", "Metadata expected-error test configured with scoreboard metadata logging", UVM_LOW)
     endfunction
 
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("METADATA_ERROR_TEST", "===============================================", UVM_LOW)
         `uvm_info("METADATA_ERROR_TEST", "  UART-AXI4 METADATA EXPECTED ERROR TEST", UVM_LOW)
         `uvm_info("METADATA_ERROR_TEST", "===============================================", UVM_LOW)
@@ -47,3 +47,4 @@ class uart_axi4_metadata_expected_error_test extends enhanced_uart_axi4_base_tes
     endtask
 
 endclass
+

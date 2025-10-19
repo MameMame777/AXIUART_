@@ -26,7 +26,7 @@ class uart_axi4_metadata_read_test extends enhanced_uart_axi4_base_test;
         `uvm_info("TEST_METADATA_READ_CONFIG", "Metadata read test configured with scoreboard metadata logging", UVM_LOW)
     endfunction
 
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("METADATA_READ_TEST", "===============================================", UVM_LOW)
         `uvm_info("METADATA_READ_TEST", "  UART-AXI4 METADATA READ COVERAGE TEST", UVM_LOW)
         `uvm_info("METADATA_READ_TEST", "===============================================", UVM_LOW)
@@ -47,3 +47,4 @@ class uart_axi4_metadata_read_test extends enhanced_uart_axi4_base_test;
     endtask
 
 endclass
+

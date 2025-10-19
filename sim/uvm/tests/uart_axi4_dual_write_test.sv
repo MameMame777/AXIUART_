@@ -28,7 +28,7 @@ class uart_axi4_dual_write_test extends enhanced_uart_axi4_base_test;
         `uvm_info("TEST_DUAL_WRITE_CONFIG", "Dual write test configured with scoreboard enabled", UVM_LOW)
     endfunction
 
-    virtual task main_phase(uvm_phase phase);
+    virtual task run_phase(uvm_phase phase);
         `uvm_info("DUAL_WRITE_TEST", "===============================================", UVM_LOW)
         `uvm_info("DUAL_WRITE_TEST", "     UART-AXI4 DUAL WRITE FUNCTIONAL TEST", UVM_LOW)
         `uvm_info("DUAL_WRITE_TEST", "===============================================", UVM_LOW)
