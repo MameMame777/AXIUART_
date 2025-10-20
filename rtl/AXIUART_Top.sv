@@ -70,10 +70,13 @@ module AXIUART_Top #(
         end
     end
     
+    // Use accelerated baud rate in simulation to reduce runtime
+    localparam int EFFECTIVE_BAUD_RATE = `ifdef DEFINE_SIM 1_152_000 `else BAUD_RATE `endif;
+
     // UART-AXI4 Bridge instantiation
     Uart_Axi4_Bridge #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
-        .BAUD_RATE(BAUD_RATE),
+        .BAUD_RATE(EFFECTIVE_BAUD_RATE),
         .AXI_TIMEOUT(AXI_TIMEOUT),
         .UART_OVERSAMPLE(UART_OVERSAMPLE),
         .RX_FIFO_DEPTH(RX_FIFO_DEPTH),

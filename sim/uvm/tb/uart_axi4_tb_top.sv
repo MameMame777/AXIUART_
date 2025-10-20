@@ -2,6 +2,8 @@
 
 // Enable simulation-only system status signals
 `define DEFINE_SIM
+// Fast simulation baud define - used by base test and TB to accelerate UART timing
+`define SIM_FAST_BAUD 1_152_000
 
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;
@@ -31,6 +33,14 @@ module uart_axi4_tb_top;
     // Optional internal loopback control (disabled by default)
     localparam bit ENABLE_UART_LOOPBACK = 1'b0;
 
+    // Allow compile-time baud-rate override for accelerated simulations.
+    localparam int DEFAULT_BAUD_RATE = 115_200;
+`ifdef SIM_FAST_BAUD
+    localparam int TB_BAUD_RATE = `SIM_FAST_BAUD;
+`else
+    localparam int TB_BAUD_RATE = DEFAULT_BAUD_RATE;
+`endif
+
     // Derived simulation guard sized for extended coverage campaigns at 115200 baud
     localparam time DEFAULT_SIM_TIMEOUT = 200ms; // Default guard; override via +SIM_TIMEOUT_MS=<value>
 
@@ -42,7 +52,7 @@ module uart_axi4_tb_top;
     // DUT instance - Using complete AXIUART_Top system
     AXIUART_Top #(
         .CLK_FREQ_HZ(125_000_000),
-        .BAUD_RATE(115200),
+    .BAUD_RATE(TB_BAUD_RATE),
         .AXI_TIMEOUT(1000),
         .UART_OVERSAMPLE(16),
         .RX_FIFO_DEPTH(64),

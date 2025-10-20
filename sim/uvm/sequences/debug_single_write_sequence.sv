@@ -10,29 +10,69 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
     endfunction
     
     virtual task body();
+        uart_frame_transaction req_local;
+
+        uvm_sequencer_base seq_handle;
+
         `uvm_info("DEBUG_SEQ", "Sequence body() started", UVM_LOW)
-        
-        // UVM Best Practice Pattern (from reference/uvm_original/sequences)
-        // Direct field assignment - no randomization with inline constraints
-        `uvm_info("DEBUG_SEQ", "Creating transaction with uvm_create", UVM_LOW)
-        `uvm_create(req)
-        `uvm_info("DEBUG_SEQ", "Transaction created successfully", UVM_LOW)
-        
+
+        seq_handle = get_sequencer();
+        if (seq_handle == null) begin
+            `uvm_fatal("DEBUG_SEQ", "get_sequencer() returned NULL during body()")
+        end
+
+        // Create transaction explicitly so we can instrument the handshake path
+        req_local = uart_frame_transaction::type_id::create("req_local");
+        if (req_local == null) begin
+            `uvm_fatal("DEBUG_SEQ", "Failed to allocate uart_frame_transaction")
+        end
+    req_local.set_item_context(this, seq_handle);
+        `uvm_info("DEBUG_SEQ", $sformatf("Transaction object allocated at time=%0t", $time), UVM_LOW)
+
+        // Dump sequencer state before starting the handshake (for queue visibility)
+        `uvm_info("DEBUG_SEQ_HANDSHAKE",
+            $sformatf("Sequencer state dump for %s at time=%0t", seq_handle.get_full_name(), $time),
+            UVM_LOW)
+        seq_handle.print();
+
+        // Engage sequencer-driver handshake explicitly for visibility
+        `uvm_info("DEBUG_SEQ_HANDSHAKE",
+            $sformatf("start_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
+            UVM_LOW)
+        start_item(req_local);
+        `uvm_info("DEBUG_SEQ_HANDSHAKE",
+            $sformatf("start_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
+            UVM_LOW)
+
         // Set transaction fields directly (avoids DSIM constraint solver limitations)
-        req.is_write       = 1'b1;
-        req.auto_increment = 1'b0;
-        req.size           = 2'b00;
-        req.length         = 4'h0;
-        req.expect_error   = 1'b1;
-        req.addr           = 32'h0000_1000;
-        
+        req_local.is_write       = 1'b1;
+        req_local.auto_increment = 1'b0;
+        req_local.size           = 2'b00;
+        req_local.length         = 4'h0;
+        req_local.expect_error   = 1'b0;
+        req_local.addr           = 32'h0000_1000;
+
         // Allocate and initialize data array
-        req.data = new[1];
-        req.data[0] = 8'h42;
-        
-        `uvm_info("DEBUG_SEQ", "Transaction configured, calling uvm_send", UVM_LOW)
-        `uvm_send(req)
-        `uvm_info("DEBUG_SEQ", "uvm_send completed, sequence finished", UVM_LOW)
+        req_local.data = new[1];
+        req_local.data[0] = 8'h42;
+
+        // Rebuild protocol fields to match the configured payload
+        req_local.build_cmd();
+        req_local.calculate_crc();
+
+        `uvm_info("DEBUG_SEQ_HANDSHAKE",
+            $sformatf("finish_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
+            UVM_LOW)
+        finish_item(req_local);
+        `uvm_info("DEBUG_SEQ_HANDSHAKE",
+            $sformatf("finish_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
+            UVM_LOW)
+
+        if (!req_local.expect_error && (!req_local.response_received || req_local.response_status == STATUS_TIMEOUT)) begin
+            `uvm_fatal("DEBUG_SEQ_TIMEOUT",
+                $sformatf("DUT response missing or timed out: status=0x%02X timeout_flag=%0b",
+                          req_local.response_status, req_local.timeout_error))
+        end
     endtask
     
 endclass

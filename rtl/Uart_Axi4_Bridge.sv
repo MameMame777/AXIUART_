@@ -657,4 +657,54 @@ module Uart_Axi4_Bridge #(
     assign debug_captured_cmd = captured_cmd;
     assign debug_captured_addr = captured_addr;
 
+    // -----------------------------------------------------------------------------
+    // Temporary handshake instrumentation for simulation debug only
+    // -----------------------------------------------------------------------------
+    logic parser_frame_valid_q;
+    logic axi_start_transaction_q;
+    logic axi_transaction_done_q;
+    logic builder_response_complete_q;
+    integer parser_frame_valid_count;
+    integer axi_start_transaction_count;
+    integer axi_transaction_done_count;
+    integer builder_response_complete_count;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            parser_frame_valid_q <= 1'b0;
+            axi_start_transaction_q <= 1'b0;
+            axi_transaction_done_q <= 1'b0;
+            builder_response_complete_q <= 1'b0;
+            parser_frame_valid_count <= 0;
+            axi_start_transaction_count <= 0;
+            axi_transaction_done_count <= 0;
+            builder_response_complete_count <= 0;
+        end else begin
+            parser_frame_valid_q <= parser_frame_valid;
+            axi_start_transaction_q <= axi_start_transaction;
+            axi_transaction_done_q <= axi_transaction_done;
+            builder_response_complete_q <= builder_response_complete;
+
+            if (parser_frame_valid && !parser_frame_valid_q) begin
+                parser_frame_valid_count <= parser_frame_valid_count + 1;
+                $display("[%0t][BRIDGE_DEBUG] parser_frame_valid pulse #%0d", $time, parser_frame_valid_count);
+            end
+
+            if (axi_start_transaction && !axi_start_transaction_q) begin
+                axi_start_transaction_count <= axi_start_transaction_count + 1;
+                $display("[%0t][BRIDGE_DEBUG] axi_start_transaction pulse #%0d", $time, axi_start_transaction_count);
+            end
+
+            if (axi_transaction_done && !axi_transaction_done_q) begin
+                axi_transaction_done_count <= axi_transaction_done_count + 1;
+                $display("[%0t][BRIDGE_DEBUG] axi_transaction_done pulse #%0d", $time, axi_transaction_done_count);
+            end
+
+            if (builder_response_complete && !builder_response_complete_q) begin
+                builder_response_complete_count <= builder_response_complete_count + 1;
+                $display("[%0t][BRIDGE_DEBUG] builder_response_complete pulse #%0d", $time, builder_response_complete_count);
+            end
+        end
+    end
+
 endmodule

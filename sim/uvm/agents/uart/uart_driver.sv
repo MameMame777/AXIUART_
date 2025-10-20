@@ -64,6 +64,21 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         level = (cfg.driver_runtime_verbosity != 0) ? cfg.driver_runtime_verbosity : default_verbosity;
         `uvm_info(id, message, level)
     endfunction
+
+    protected function void apply_timeout_result(uart_frame_transaction tr);
+        if (tr == null) begin
+            return;
+        end
+
+        tr.response_received = 0;
+        tr.response_status = STATUS_TIMEOUT;
+        tr.crc_valid = 0;
+        tr.monitor_recovered = 0;
+        tr.response_data = new[0];
+        tr.frame_data = new[0];
+        tr.frame_length = 0;
+        tr.timeout_error = 1;
+    endfunction
     
     virtual task run_phase(uvm_phase phase);
         uart_frame_transaction req;
@@ -85,12 +100,19 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         `uvm_info("UART_DRIVER_DEBUG", "Entering forever loop - ready to receive transactions", UVM_LOW)
         
         forever begin
+            // Handshake trace to confirm sequencer requests reach the driver.
+            `uvm_info("UART_DRIVER_HANDSHAKE", $sformatf("Issuing get_next_item() at time=%0t", $time), UVM_LOW)
             `uvm_info("UART_DRIVER_DEBUG", "Calling get_next_item() - waiting for sequence", UVM_LOW)
             seq_item_port.get_next_item(req);
+            `uvm_info("UART_DRIVER_HANDSHAKE",
+                $sformatf("get_next_item() returned %s at time=%0t", (req == null) ? "NULL" : "VALID", $time),
+                UVM_LOW)
             `uvm_info("UART_DRIVER_DEBUG", "get_next_item() returned - transaction received", UVM_LOW)
             
             driver_runtime_log("UART_DRIVER",
                 $sformatf("Driving transaction: CMD=0x%02X, ADDR=0x%08X", req.cmd, req.addr));
+
+            req.timeout_error = 0;
 
             if (tx_request_ap != null) begin
                 uart_frame_transaction req_copy;
@@ -102,8 +124,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             end
 
             if (tx_response_fifo != null) begin
+                int pre_drive_depth;
+                pre_drive_depth = (tx_response_fifo != null) ? tx_response_fifo.used() : 0;
+                driver_debug_log("UART_DRIVER_FIFO",
+                    $sformatf("Entering monitored response path: fifo_depth=%0d", pre_drive_depth),
+                    UVM_HIGH);
                 flush_monitor_responses();
                 drive_frame(req);
+                driver_runtime_log("UART_DRIVER",
+                    "Invoking collect_response_from_fifo() after frame transmission",
+                    UVM_LOW);
                 collect_response_from_fifo(req);
             end else begin
                 // Legacy direct sampling path - kept as fallback
@@ -121,6 +151,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 "Transaction processing complete, calling item_done()",
                 UVM_LOW);
             seq_item_port.item_done();
+            `uvm_info("UART_DRIVER_HANDSHAKE",
+                $sformatf("item_done() called for transaction %s at time=%0t", (req == null) ? "NULL" : "VALID", $time),
+                UVM_LOW)
         end
     endtask
     
@@ -265,8 +298,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
     // Collect response using monitor-published transactions
     virtual task collect_response_from_fifo(uart_frame_transaction tr);
-        uart_frame_transaction resp;
-        bit success;
+    uart_frame_transaction resp;
+    bit success;
+    time wait_time_ns;
+    bit wait_task_completed;
+    time guard_timeout_ns;
+    bit guard_fired;
 
         if (tx_response_fifo == null) begin
             return;
@@ -275,27 +312,87 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         driver_runtime_log("UART_DRIVER",
             $sformatf("Entering collect_response_from_fifo, expect_error=%0b", tr.expect_error),
             UVM_LOW);
+        if (tx_response_fifo != null) begin
+            driver_debug_log("UART_DRIVER_FIFO",
+                $sformatf("Initial FIFO depth=%0d", tx_response_fifo.used()),
+                UVM_HIGH);
+        end
 
-        wait_for_monitor_response(resp, success);
+        resp = null;
+        success = 0;
+        wait_time_ns = 0;
+        wait_task_completed = 0;
+        guard_fired = 0;
+        guard_timeout_ns = (cfg.frame_timeout_ns > 0) ? time'(cfg.frame_timeout_ns) : 1_000_000;
+
+        fork
+            begin : wait_for_response_thread
+                wait_for_monitor_response(resp, success, wait_time_ns);
+                wait_task_completed = 1;
+            end
+            begin : guard_timeout_thread
+                #(guard_timeout_ns);
+                if (!wait_task_completed) begin
+                    #0; // Allow wait thread to update completion flag before enforcing timeout
+                    if (!wait_task_completed) begin
+                        guard_fired = 1;
+                        driver_runtime_log("UART_DRIVER",
+                            $sformatf("Guard timeout fired after %0dns (expect_error=%0b)",
+                                      guard_timeout_ns, tr.expect_error),
+                            UVM_LOW);
+                        apply_timeout_result(tr);
+
+                        if (tr.expect_error) begin
+                            driver_runtime_log("UART_DRIVER",
+                                $sformatf("[expect_error=1] Guard timeout fired after %0dns without DUT response", guard_timeout_ns),
+                                UVM_LOW);
+                        end
+                    end
+                end
+            end
+        join_any
+        disable fork;
+        if (!wait_task_completed) begin
+            if (guard_fired && !tr.expect_error) begin
+                `uvm_fatal("UART_DRIVER_TIMEOUT",
+                    $sformatf("Guard timeout fired after %0dns waiting for monitor response", guard_timeout_ns));
+            end
+            return;
+        end
 
         driver_runtime_log("UART_DRIVER",
-            $sformatf("wait_for_monitor_response returned: success=%0b, resp=%s", 
-                      success, (resp == null) ? "NULL" : "VALID"),
+            $sformatf("wait_for_monitor_response returned: success=%0b, resp=%s, wait=%0dns",
+                      success, (resp == null) ? "NULL" : "VALID", wait_time_ns),
             UVM_LOW);
+        if (tx_response_fifo != null) begin
+            driver_debug_log("UART_DRIVER_FIFO",
+                $sformatf("FIFO depth after wait=%0d", tx_response_fifo.used()),
+                UVM_HIGH);
+        end
+
+        if (guard_fired) begin
+            if (!tr.expect_error) begin
+                `uvm_fatal("UART_DRIVER_TIMEOUT",
+                    $sformatf("Guard timeout fired after %0dns waiting for monitor response", guard_timeout_ns));
+            end
+            return;
+        end
 
         if (!success || resp == null) begin
+            apply_timeout_result(tr);
+
             if (tr.expect_error) begin
                 driver_runtime_log("UART_DRIVER",
                     $sformatf("[expect_error=1] No DUT response within %0dns (CRC error等の意図的エラー)。UVM_ERRORを抑制し警告のみ出力。",
-                              cfg.frame_timeout_ns),
+                              wait_time_ns),
                     UVM_LOW);
             end else begin
-                `uvm_error("UART_DRIVER", $sformatf("Timed out waiting for monitor response within %0dns", cfg.frame_timeout_ns));
+                `uvm_fatal("UART_DRIVER_TIMEOUT", $sformatf("Timed out waiting for monitor response within %0dns", wait_time_ns));
             end
-            tr.response_received = 0;
-            tr.response_status = 8'hFF;
             return;
         end
+
+        tr.timeout_error = 0;
 
         // Copy response fields back to the active request
         tr.response_received = resp.response_received;
@@ -352,80 +449,73 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     endtask
 
     // Wait for monitor-published UART_TX transaction with timeout and filtering
-    virtual task wait_for_monitor_response(output uart_frame_transaction resp, output bit success);
-        bit got_response;
-        bit timeout_hit;
+    virtual task wait_for_monitor_response(output uart_frame_transaction resp,
+                                           output bit success,
+                                           output time waited_ns);
         time timeout_ns;
+        time poll_interval_ns;
+        time start_time;
+        uart_frame_transaction item;
 
         success = 0;
         resp = null;
+        waited_ns = 0;
 
         if (tx_response_fifo == null) begin
             return;
         end
 
-        got_response = 0;
-        timeout_hit = 0;
-        timeout_ns = (cfg.frame_timeout_ns > 0) ? cfg.frame_timeout_ns : 1_000_000; // default 1ms
-        
-        driver_runtime_log("UART_DRIVER_WAIT",
-            $sformatf("Entering wait_for_monitor_response, timeout=%0dns", timeout_ns),
-            UVM_LOW);
+        timeout_ns = (cfg.frame_timeout_ns > 0) ? time'(cfg.frame_timeout_ns) : 1_000_000;
+        poll_interval_ns = (cfg.byte_time_ns > 0) ? time'(cfg.byte_time_ns) : 10_000;
 
-        fork
-            begin : fifo_get_block
-                uart_frame_transaction item;
-                driver_runtime_log("UART_DRIVER_WAIT",
-                    "Starting FIFO get block",
-                    UVM_LOW);
-                forever begin
-                    driver_runtime_log("UART_DRIVER_WAIT",
-                        "Calling tx_response_fifo.get() - will block if empty",
-                        UVM_LOW);
-                    tx_response_fifo.get(item);
-                    driver_runtime_log("UART_DRIVER_WAIT",
-                        $sformatf("Got item from FIFO: %s", (item == null) ? "NULL" : "VALID"),
-                        UVM_LOW);
-                    if (item == null) begin
-                        continue;
-                    end
-                    if (item.direction != UART_TX) begin
-                        `uvm_info("UART_DRIVER", "Discarding non TX-direction transaction from monitor FIFO", UVM_DEBUG);
-                        continue;
-                    end
-                    resp = item;
-                    got_response = 1;
-                    success = 1;
-                    driver_runtime_log("UART_DRIVER_WAIT",
-                        "Valid response received, disabling timeout",
-                        UVM_LOW);
-                    disable fifo_timeout_block;
-                    break;
-                end
-            end
-            begin : fifo_timeout_block
-                driver_runtime_log("UART_DRIVER_WAIT",
-                    $sformatf("Starting timeout block: waiting %0dns", timeout_ns),
-                    UVM_LOW);
-                #(timeout_ns);
-                driver_runtime_log("UART_DRIVER_WAIT",
-                    "TIMEOUT EXPIRED! Disabling FIFO get",
-                    UVM_LOW);
-                timeout_hit = 1;
-                disable fifo_get_block;
-            end
-        join
-
-        driver_runtime_log("UART_DRIVER_WAIT",
-            $sformatf("Fork-join completed: got_response=%0b, timeout_hit=%0b", got_response, timeout_hit),
-            UVM_LOW);
-
-        if (!got_response) begin
-            success = 0;
-            if (!timeout_hit) begin
-                `uvm_warning("UART_DRIVER", "Monitor FIFO ended without providing UART_TX response");
-            end
+        if (poll_interval_ns > timeout_ns / 16 && timeout_ns > 16) begin
+            poll_interval_ns = timeout_ns / 16;
         end
+
+        if (poll_interval_ns < 1) begin
+            poll_interval_ns = 1;
+        end
+
+        driver_runtime_log("UART_DRIVER_WAIT",
+            $sformatf("Entering wait_for_monitor_response, timeout=%0dns, poll=%0dns",
+                      timeout_ns, poll_interval_ns),
+            UVM_LOW);
+
+        start_time = $time;
+        while (($time - start_time) < timeout_ns) begin
+            if (tx_response_fifo.try_get(item)) begin
+                driver_runtime_log("UART_DRIVER_WAIT",
+                    $sformatf("FIFO returned item: %s", (item == null) ? "NULL" : "VALID"),
+                    UVM_LOW);
+
+                if (item == null) begin
+                    continue;
+                end
+
+                if (item.direction != UART_TX) begin
+                    `uvm_info("UART_DRIVER", "Discarding non TX-direction transaction from monitor FIFO", UVM_DEBUG);
+                    continue;
+                end
+
+                resp = item;
+                success = 1;
+                waited_ns = $time - start_time;
+                driver_runtime_log("UART_DRIVER_WAIT",
+                    $sformatf("Valid response observed after %0dns", waited_ns),
+                    UVM_LOW);
+                return;
+            end
+
+            #(poll_interval_ns);
+        end
+
+        waited_ns = timeout_ns;
+        success = 0;
+        resp = null;
+
+        driver_runtime_log("UART_DRIVER_WAIT",
+            $sformatf("Monitor response timeout expired after %0dns", waited_ns),
+            UVM_LOW);
     endtask
 
     // Collect response from DUT - Hardware Specification Based Implementation

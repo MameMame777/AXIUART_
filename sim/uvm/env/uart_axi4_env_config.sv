@@ -5,9 +5,11 @@ class uart_axi4_env_config extends uvm_object;
     
     // Clock and timing parameters
     int clk_freq_hz = 125_000_000;
-    int baud_rate = 115200;
-    int bit_time_ns = 8680; // 1/115200 * 1e9
-    int byte_time_ns = 86800; // bit_time_ns * 10
+    // Debug acceleration: temporarily increase baud_rate to speed simulation
+    // Reset to 115200 for final runs
+    int baud_rate = 10000000; // 10 MHz (fast mode for debug)
+    int bit_time_ns = 100; // approx 1e9 / 10e6
+    int byte_time_ns = 1000; // bit_time_ns * 10
     
     // Test control parameters
     bit enable_coverage = 1'b1;

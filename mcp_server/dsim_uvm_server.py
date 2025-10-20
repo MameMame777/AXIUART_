@@ -191,36 +191,27 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
         )
 
 def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess[bytes]:
-    """Run subprocess synchronously with proper process termination handling.
-    
-    Uses Popen for better process control - can detect if process is truly hung
-    vs just slow to complete.
-    """
-    import time
-    
+    """Run subprocess and drain its pipes to avoid deadlocks on large DSIM output."""
+
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
-        env=os.environ.copy()  # Explicitly pass environment variables
+        env=os.environ.copy()
     )
-    
-    start_time = time.time()
-    while proc.poll() is None:
-        elapsed = time.time() - start_time
-        if elapsed > timeout:
-            # Process still running after timeout - force terminate
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
-            raise subprocess.TimeoutExpired(cmd, timeout)
-        time.sleep(0.1)  # Check every 100ms
-    
-    stdout, stderr = proc.communicate()
+
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        proc.terminate()
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            stdout, stderr = proc.communicate()
+        raise subprocess.TimeoutExpired(exc.cmd, exc.timeout, output=stdout, stderr=stderr)
+
     return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
