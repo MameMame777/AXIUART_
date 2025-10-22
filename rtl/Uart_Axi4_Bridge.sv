@@ -45,6 +45,17 @@ module Uart_Axi4_Bridge #(
     output logic [7:0] debug_builder_status,
     output logic [3:0] debug_parser_state,
     output logic [3:0] debug_builder_state,
+
+    // Additional instrumentation outputs (control-flow visibility)
+    output logic [2:0] debug_main_state,              // Main bridge state
+    output logic       debug_builder_build_response,  // Builder trigger request
+    output logic       debug_builder_start_issued,    // Builder start issued flag
+    output logic       debug_axi_start_issued,        // AXI start issued flag
+    output logic       debug_axi_transaction_done,    // AXI transaction done
+    output logic       debug_parser_frame_valid,      // Parser frame valid
+    output logic       debug_parser_frame_error,      // Parser frame error
+    output logic [7:0] debug_captured_cmd_out,        // Captured CMD for bridge
+    output logic [7:0] debug_axi_status_out,          // AXI status visibility
     
     // Statistics reset input
     input  logic        reset_statistics       // Pulse to reset counters
@@ -57,6 +68,12 @@ module Uart_Axi4_Bridge #(
     // Debug signals for FPGA debugging - Phase 3 & 4 (ref: fpga_debug_work_plan.md)
     logic [7:0] debug_uart_tx_data;      // UART TX data cross-check
     logic       debug_uart_tx_valid;     // UART TX byte start marker
+    // Builder debug pulses
+    logic       debug_builder_start;
+    logic       debug_builder_done;
+    // TX FIFO/Start debug
+    logic       debug_tx_fifo_wr;
+    logic [7:0] debug_tx_fifo_data;
     logic [7:0] debug_uart_rx_data;      // UART RX data validation
     logic       debug_uart_rx_valid;     // UART RX parser timing
     logic [31:0] debug_axi_awaddr;       // AXI write address tracking
@@ -66,7 +83,6 @@ module Uart_Axi4_Bridge #(
     logic [1:0]  debug_axi_rresp;        // AXI read response validation
     logic [3:0]  debug_axi_state;        // AXI transaction FSM state
     logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
-    logic [7:0]  debug_axi_status_out;   // STATUS from AXI Master to Bridge
     logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
     logic [3:0]  debug_bridge_state;     // Bridge main FSM state
     
@@ -133,13 +149,23 @@ module Uart_Axi4_Bridge #(
     // Main control state machine
     typedef enum logic [2:0] {
         MAIN_IDLE,
-        MAIN_AXI_TRANSACTION,
-        MAIN_BUILD_RESPONSE,
+        MAIN_AXI_TRANSACTION,        MAIN_BUILD_RESPONSE,
         MAIN_WAIT_RESPONSE,
         MAIN_DISABLED_RESPONSE
     } main_state_t;
     
     main_state_t main_state, main_state_next;
+
+    function automatic string main_state_to_string(main_state_t state);
+        case (state)
+            MAIN_IDLE:             return "MAIN_IDLE";
+            MAIN_AXI_TRANSACTION:  return "MAIN_AXI_TRANSACTION";
+            MAIN_BUILD_RESPONSE:   return "MAIN_BUILD_RESPONSE";
+            MAIN_WAIT_RESPONSE:    return "MAIN_WAIT_RESPONSE";
+            MAIN_DISABLED_RESPONSE:return "MAIN_DISABLED_RESPONSE";
+            default:               return "UNKNOWN";
+        endcase
+    endfunction
 
     // CMD保持用レジスタ - Frame_Parserの出力が消える前にキャプチャ
     logic [7:0] captured_cmd;
@@ -285,7 +311,9 @@ module Uart_Axi4_Bridge #(
         .response_complete(builder_response_complete),
         .debug_cmd_echo(debug_builder_cmd_echo),
         .debug_cmd_out(debug_builder_cmd_out),
-        .debug_state(debug_builder_state)
+        .debug_state(debug_builder_state),
+        .builder_start_pulse(debug_builder_start),
+        .builder_response_done_pulse(debug_builder_done)
     );
     
     // RX FIFO write control
@@ -440,23 +468,21 @@ module Uart_Axi4_Bridge #(
         
         case (main_state)
             MAIN_IDLE: begin
-                // 無条件デバッグ出力 - parser_frame_validの変化を確実に検出
                 if (parser_frame_valid) begin
-                    // BRIDGE DETECTED parser_frame_valid=1, transitioning to AXI_TRANSACTION
-                end
-                
-                `ifdef ENABLE_DEBUG
-                    // 詳細なframe_valid検出デバッグ
-                    if ($time % 20000 == 0) begin // 20ns毎にサンプリング  
-                        // BRIDGE MAIN_IDLE: parser_frame_valid monitoring
-                    end
-                `endif
-                
-                if (parser_frame_valid) begin
-                    // Bridge state transition IDLE->AXI_TRANSACTION
                     main_state_next = MAIN_AXI_TRANSACTION;
+                    $display("[%0t][BRIDGE_DEBUG] MAIN_IDLE -> %s (parser_frame_valid=1 error=%0b busy=%0b cmd=0x%02h addr=0x%08h)",
+                             $time,
+                             main_state_to_string(main_state_next),
+                             parser_frame_error,
+                             parser_busy,
+                             parser_cmd,
+                             parser_addr);
                 end else if (parser_frame_error) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
+                end
+
+                if (parser_frame_valid && main_state_next == MAIN_IDLE) begin
+                    $display("[%0t][BRIDGE_DEBUG] MAIN_IDLE WARNING: parser_frame_valid observed but next state stuck in IDLE", $time);
                 end
             end
             
@@ -566,6 +592,16 @@ module Uart_Axi4_Bridge #(
             @(posedge clk) disable iff (rst)
             axi_start_transaction |-> ##[1:5000] axi_transaction_done
         ) else $error("UART_Bridge: AXI transaction never completes");
+
+        // If parser reports a valid frame while bridge is in MAIN_IDLE, ensure
+        // the combinational next state leaves IDLE on the very next cycle.
+        property p_parser_frame_advances;
+            @(posedge clk) disable iff (rst)
+                (main_state == MAIN_IDLE && parser_frame_valid) |=> (main_state_next != MAIN_IDLE);
+        endproperty
+
+        assert_parser_frame_advances: assert property (p_parser_frame_advances)
+            else $error("UART_Bridge: parser_frame_valid observed in MAIN_IDLE but next state remains IDLE");
     `endif
 
     // Statistics counters
@@ -638,6 +674,8 @@ module Uart_Axi4_Bridge #(
     // Debug signal assignments - Phase 3 & 4 (UART and AXI visibility)
     assign debug_uart_tx_data = tx_data;           // TX data from FIFO to UART
     assign debug_uart_tx_valid = tx_start;         // TX byte start marker
+    assign debug_tx_fifo_wr = tx_fifo_wr_en;
+    assign debug_tx_fifo_data = tx_fifo_data;
     assign debug_uart_rx_data = rx_data;           // RX data from UART
     assign debug_uart_rx_valid = rx_valid;         // RX data valid timing
     assign debug_axi_awaddr = axi.awaddr;          // AXI write address
@@ -657,6 +695,21 @@ module Uart_Axi4_Bridge #(
     assign debug_captured_cmd = captured_cmd;
     assign debug_captured_addr = captured_addr;
 
+    // -------------------------------------------------------------------------
+    // Map internal control signals to top-level debug outputs
+    // These provide visibility into the bridge FSM and gating conditions
+    // and are intended for simulation-only instrumentation.
+    // -------------------------------------------------------------------------
+    assign debug_main_state                = main_state;               // 3-bit enum -> 3-bit output
+    assign debug_builder_build_response    = builder_build_response;   // Builder request signal
+    assign debug_builder_start_issued      = builder_start_issued;     // Builder start issued flag
+    assign debug_axi_start_issued          = axi_start_issued;         // AXI start issued flag
+    assign debug_axi_transaction_done      = axi_transaction_done;     // AXI transaction complete
+    assign debug_parser_frame_valid        = parser_frame_valid;       // Parser indicates a valid frame
+    assign debug_parser_frame_error        = parser_frame_error;       // Parser reported an error
+    assign debug_captured_cmd_out          = captured_cmd;             // Captured CMD latched by bridge
+    assign debug_axi_status_out            = axi_status;               // AXI transaction status
+
     // -----------------------------------------------------------------------------
     // Temporary handshake instrumentation for simulation debug only
     // -----------------------------------------------------------------------------
@@ -664,10 +717,22 @@ module Uart_Axi4_Bridge #(
     logic axi_start_transaction_q;
     logic axi_transaction_done_q;
     logic builder_response_complete_q;
+    logic rx_valid_q;
+    logic rx_fifo_wr_en_q;
+    logic rx_fifo_rd_en_q;
+    logic rx_error_q;
     integer parser_frame_valid_count;
     integer axi_start_transaction_count;
     integer axi_transaction_done_count;
     integer builder_response_complete_count;
+    integer rx_valid_count;
+    integer rx_fifo_write_count;
+    integer rx_fifo_read_count;
+    integer rx_error_count;
+
+    main_state_t main_state_q;
+    logic builder_build_response_q;
+    logic builder_start_issued_q;
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -675,35 +740,139 @@ module Uart_Axi4_Bridge #(
             axi_start_transaction_q <= 1'b0;
             axi_transaction_done_q <= 1'b0;
             builder_response_complete_q <= 1'b0;
+            rx_valid_q <= 1'b0;
+            rx_fifo_wr_en_q <= 1'b0;
+            rx_fifo_rd_en_q <= 1'b0;
+            rx_error_q <= 1'b0;
             parser_frame_valid_count <= 0;
             axi_start_transaction_count <= 0;
             axi_transaction_done_count <= 0;
             builder_response_complete_count <= 0;
+            rx_valid_count <= 0;
+            rx_fifo_write_count <= 0;
+            rx_fifo_read_count <= 0;
+            rx_error_count <= 0;
+            main_state_q <= MAIN_IDLE;
+            builder_build_response_q <= 1'b0;
+            builder_start_issued_q <= 1'b0;
         end else begin
             parser_frame_valid_q <= parser_frame_valid;
             axi_start_transaction_q <= axi_start_transaction;
             axi_transaction_done_q <= axi_transaction_done;
             builder_response_complete_q <= builder_response_complete;
+            builder_build_response_q <= builder_build_response;
+            builder_start_issued_q <= builder_start_issued;
+            rx_valid_q <= rx_valid;
+            rx_fifo_wr_en_q <= rx_fifo_wr_en;
+            rx_fifo_rd_en_q <= rx_fifo_rd_en;
+            rx_error_q <= rx_error;
+
+            if (main_state != main_state_q) begin
+                $display("[%0t][BRIDGE_DEBUG] main_state %s -> %s (frame_valid=%0b error=%0b axi_done=%0b builder_done=%0b)",
+                         $time,
+                         main_state_to_string(main_state_q),
+                         main_state_to_string(main_state),
+                         parser_frame_valid,
+                         parser_frame_error,
+                         axi_transaction_done,
+                         builder_response_complete);
+            end
 
             if (parser_frame_valid && !parser_frame_valid_q) begin
                 parser_frame_valid_count <= parser_frame_valid_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] parser_frame_valid pulse #%0d", $time, parser_frame_valid_count);
+                $display("[%0t][BRIDGE_DEBUG] parser_frame_valid pulse #%0d cmd=0x%02h addr=0x%08h main_state=%s",
+                         $time,
+                         parser_frame_valid_count,
+                         captured_cmd,
+                         captured_addr,
+                         main_state_to_string(main_state));
+                if (main_state == MAIN_IDLE) begin
+                    $display("[%0t][BRIDGE_DEBUG][WARNING] Parser reported a valid frame while MAIN_IDLE persists", $time);
+                end
+            end
+
+            if (rx_valid && !rx_valid_q) begin
+                rx_valid_count <= rx_valid_count + 1;
+                if (rx_valid_count < 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_valid #%0d data=0x%02h error=%0b fifo_full=%0b fifo_count=%0d busy=%0b",
+                             $time,
+                             rx_valid_count + 1,
+                             rx_data,
+                             rx_error,
+                             rx_fifo_full,
+                             rx_fifo_count,
+                             rx_busy);
+                end else if (rx_valid_count == 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_valid activity exceeds 16 events, further logs suppressed", $time);
+                end
+            end
+
+            if (rx_fifo_wr_en && !rx_fifo_wr_en_q) begin
+                rx_fifo_write_count <= rx_fifo_write_count + 1;
+                if (rx_fifo_write_count < 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_fifo_wr_en #%0d data=0x%02h fifo_count=%0d",
+                             $time,
+                             rx_fifo_write_count + 1,
+                             rx_data,
+                             rx_fifo_count);
+                end else if (rx_fifo_write_count == 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_fifo_wr_en activity exceeds 16 events, further logs suppressed", $time);
+                end
+            end
+
+            if (rx_fifo_rd_en && !rx_fifo_rd_en_q) begin
+                rx_fifo_read_count <= rx_fifo_read_count + 1;
+                if (rx_fifo_read_count < 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_fifo_rd_en #%0d data=0x%02h fifo_count=%0d state=%s",
+                             $time,
+                             rx_fifo_read_count + 1,
+                             rx_fifo_rd_data,
+                             rx_fifo_count,
+                             main_state_to_string(main_state));
+                end else if (rx_fifo_read_count == 16) begin
+                    $display("[%0t][BRIDGE_RX] rx_fifo_rd_en activity exceeds 16 events, further logs suppressed", $time);
+                end
+            end
+
+            if (rx_error && !rx_error_q) begin
+                rx_error_count <= rx_error_count + 1;
+                if (rx_error_count < 8) begin
+                    $display("[%0t][BRIDGE_RX][ERROR] rx_error asserted #%0d data=0x%02h fifo_count=%0d",
+                             $time,
+                             rx_error_count + 1,
+                             rx_data,
+                             rx_fifo_count);
+                end else if (rx_error_count == 8) begin
+                    $display("[%0t][BRIDGE_RX][ERROR] rx_error observed more than 8 times, further logs suppressed", $time);
+                end
             end
 
             if (axi_start_transaction && !axi_start_transaction_q) begin
                 axi_start_transaction_count <= axi_start_transaction_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] axi_start_transaction pulse #%0d", $time, axi_start_transaction_count);
+                $display("[%0t][BRIDGE_DEBUG] axi_start_transaction pulse #%0d cmd=0x%02h addr=0x%08h", $time, axi_start_transaction_count, captured_cmd, captured_addr);
             end
 
             if (axi_transaction_done && !axi_transaction_done_q) begin
                 axi_transaction_done_count <= axi_transaction_done_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] axi_transaction_done pulse #%0d", $time, axi_transaction_done_count);
+                $display("[%0t][BRIDGE_DEBUG] axi_transaction_done pulse #%0d status=0x%02h", $time, axi_transaction_done_count, axi_status);
+            end
+
+            if (builder_build_response && !builder_build_response_q) begin
+                $display("[%0t][BRIDGE_DEBUG] builder_build_response asserted (status=0x%02h cmd_echo=0x%02h start_issued=%0b builder_busy=%0b)",
+                         $time, builder_status_code, builder_cmd_echo, builder_start_issued, builder_busy);
+            end
+
+            if (builder_start_issued && !builder_start_issued_q) begin
+                $display("[%0t][BRIDGE_DEBUG] builder_start_issued asserted (captured_cmd=0x%02h status=0x%02h)",
+                         $time, captured_cmd, builder_status_code);
             end
 
             if (builder_response_complete && !builder_response_complete_q) begin
                 builder_response_complete_count <= builder_response_complete_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] builder_response_complete pulse #%0d", $time, builder_response_complete_count);
+                $display("[%0t][BRIDGE_DEBUG] builder_response_complete pulse #%0d status=0x%02h cmd_echo=0x%02h", $time, builder_response_complete_count, builder_status_code, builder_cmd_echo);
             end
+
+            main_state_q <= main_state;
         end
     end
 

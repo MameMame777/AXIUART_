@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
-// Temporary simulation acceleration: define a fast baud rate for debug runs
-`define SIM_FAST_BAUD 10000000
+// Temporary simulation acceleration: align fast baud rate with DUT simulation overrides
+`define SIM_FAST_BAUD 1_152_000
 
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;  // Import our test package
@@ -14,6 +14,10 @@ class uart_axi4_base_test extends uvm_test;
     // Test environment
     uart_axi4_env env;
     uart_axi4_env_config cfg;
+
+    // Scenario-driven debug configuration
+    string test_scenario = "default";
+    bit scenario_enable_wave_dump = 1'b1;
     
     // Virtual interfaces
     virtual uart_if uart_vif;
@@ -67,6 +71,18 @@ class uart_axi4_base_test extends uvm_test;
         // Create environment - re-enabled
         env = uart_axi4_env::type_id::create("env", this);
         
+        // Fetch scenario controls propagated by the testbench top
+        if (!uvm_config_db#(string)::get(this, "", "test_scenario", test_scenario)) begin
+            test_scenario = "default";
+        end
+        if (!uvm_config_db#(bit)::get(this, "", "scenario_enable_wave_dump", scenario_enable_wave_dump)) begin
+            scenario_enable_wave_dump = 1'b1;
+        end
+
+        `uvm_info("BASE_TEST", $sformatf("Test scenario selected: '%s' (wave dump %s)",
+            test_scenario,
+            scenario_enable_wave_dump ? "enabled" : "disabled"), UVM_MEDIUM)
+
         `uvm_info("BASE_TEST", "Base test build phase completed", UVM_LOW)
     endfunction
     
@@ -138,6 +154,16 @@ class uart_axi4_base_test extends uvm_test;
             repeat (10) @(posedge uart_axi4_tb_top.clk);
             
             `uvm_info("BASE_TEST", "Reset completed, test ready", UVM_MEDIUM)
+
+            if (scenario_enable_wave_dump) begin
+                if (test_scenario == "scenario1") begin
+                    `uvm_info("BASE_TEST", "Scenario1 debug hooks active", UVM_HIGH)
+                end else if (test_scenario == "scenario2") begin
+                    `uvm_info("BASE_TEST", "Scenario2 debug hooks active", UVM_HIGH)
+                end
+            end else begin
+                `uvm_info("BASE_TEST", "Waveform dump disabled for this scenario", UVM_MEDIUM)
+            end
             
             // Basic test completion
             repeat (100) @(posedge uart_axi4_tb_top.clk);

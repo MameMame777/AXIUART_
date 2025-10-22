@@ -22,11 +22,19 @@ class uart_monitor extends uvm_monitor;
     // Internal variables
     bit monitor_enabled = 1;
     localparam int MAX_RX_FRAME_BYTES = 80;
+    int unsigned rx_publish_count = 0;
+    int unsigned tx_publish_count = 0;
+    time last_rx_publish_time = 0;
+    time last_tx_publish_time = 0;
     
     function new(string name = "uart_monitor", uvm_component parent = null);
         super.new(name, parent);
         item_collected_port = new("item_collected_port", this);
         analysis_port = item_collected_port;  // Alias
+        rx_publish_count = 0;
+        tx_publish_count = 0;
+        last_rx_publish_time = 0;
+        last_tx_publish_time = 0;
     endfunction
     
     virtual function void build_phase(uvm_phase phase);
@@ -64,6 +72,7 @@ class uart_monitor extends uvm_monitor;
     int byte_count;
     bit waiting_for_sof = 1; // Always start by waiting for SOF
     int expected_length;
+    time rx_delta;
         
         forever begin
             if (!monitor_enabled) begin
@@ -125,6 +134,14 @@ class uart_monitor extends uvm_monitor;
                                   tr.cmd, tr.addr, expected_length), UVM_MEDIUM)
 
                         // Send to analysis port
+                        rx_publish_count++;
+                        rx_delta = (last_rx_publish_time != 0) ? ($time - last_rx_publish_time) : 0;
+                        `uvm_info("UART_MONITOR",
+                            $sformatf("MONITOR_WRITE RX @%0t (#%0d delta=%0t): dir=RX CMD=0x%02X ADDR=0x%08X len=%0d status=0x%02X parse_err=%s crc_ok=%0b ts=%0t",
+                                $time, rx_publish_count, rx_delta, tr.cmd, tr.addr, expected_length, tr.response_status,
+                                tr.parse_error_kind.name(), tr.crc_valid, tr.timestamp),
+                            UVM_LOW)
+                        last_rx_publish_time = $time;
                         item_collected_port.write(tr);
 
                         // Collect coverage
@@ -160,6 +177,7 @@ class uart_monitor extends uvm_monitor;
     bit collect_more;
     int bit_time_cycles;
     int inter_byte_timeout_cycles;
+    time tx_delta;
         
         forever begin
             if (!monitor_enabled) begin
@@ -251,6 +269,14 @@ class uart_monitor extends uvm_monitor;
             `uvm_info("UART_MONITOR", $sformatf("TX Frame detected: %0d bytes, status=0x%02X", byte_count, tr.response_status), UVM_MEDIUM)
 
             // Send to analysis port for subscribers (driver, scoreboard, coverage)
+            tx_publish_count++;
+            tx_delta = (last_tx_publish_time != 0) ? ($time - last_tx_publish_time) : 0;
+            `uvm_info("UART_MONITOR",
+                $sformatf("MONITOR_WRITE TX @%0t (#%0d delta=%0t): dir=TX CMD=0x%02X ADDR=0x%08X len=%0d status=0x%02X parse_err=%s crc_ok=%0b ts=%0t",
+                    $time, tx_publish_count, tx_delta, tr.cmd, tr.addr, tr.frame_length, tr.response_status,
+                    tr.parse_error_kind.name(), tr.crc_valid, tr.timestamp),
+                UVM_LOW)
+            last_tx_publish_time = $time;
             item_collected_port.write(tr);
             
             // Collect coverage

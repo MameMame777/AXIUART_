@@ -47,8 +47,8 @@ class uart_axi4_env_config extends uvm_object;
     int min_uart_response_delay = 1;
     int max_uart_response_delay = 10;
     
-    // Timeout values
-    int frame_timeout_ns = 1_000_000; // 1ms
+    // Timeout values (increased for extended debug runs)
+    int frame_timeout_ns = 200_000; // 200us (temporary debug increase)
     int system_timeout_cycles = 1000;
     int axi_timeout_cycles = 1000;
     

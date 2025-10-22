@@ -27,6 +27,9 @@ module Frame_Builder (
     // Status
     output logic        builder_busy,
     output logic        response_complete,
+    // Event debug outputs (single-cycle pulses)
+    output logic        builder_start_pulse,
+    output logic        builder_response_done_pulse,
     // Debug signals
     output logic [7:0] debug_cmd_echo,
     output logic [7:0] debug_cmd_out,
@@ -143,6 +146,24 @@ module Frame_Builder (
             // Reset data_index when starting new frame
             if (build_response_edge) begin
                 data_index <= '0;
+                // pulse builder start
+                builder_start_pulse <= 1'b1;
+            end
+            else begin
+                builder_start_pulse <= 1'b0;
+            end
+        end
+    end
+
+    // Generate single-cycle pulse for response done when entering INTER_FRAME_GAP
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            builder_response_done_pulse <= 1'b0;
+        end else begin
+            if (state == DONE && state_next == INTER_FRAME_GAP) begin
+                builder_response_done_pulse <= 1'b1;
+            end else begin
+                builder_response_done_pulse <= 1'b0;
             end
         end
     end
@@ -328,7 +349,9 @@ module Frame_Builder (
             end
             
             DONE: begin
-                state_next = INTER_FRAME_GAP;
+                 state_next = INTER_FRAME_GAP;
+                 // Pulse response done next cycle
+                 // builder_response_done_pulse is asserted in sequential logic
             end
             
             INTER_FRAME_GAP: begin

@@ -24,6 +24,14 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         cfg.enable_coverage = 1;
         cfg.enable_scoreboard = 1;
         cfg.enable_protocol_checking = 1;
+        cfg.enable_driver_runtime_logs = 1;
+        cfg.enable_driver_debug_logs = 1;
+        cfg.enable_scoreboard_runtime_logs = 1;
+        cfg.enable_scoreboard_metadata_logs = 1;
+        cfg.driver_runtime_verbosity = UVM_HIGH;
+        cfg.driver_debug_verbosity = UVM_HIGH;
+        cfg.scoreboard_runtime_verbosity = UVM_MEDIUM;
+        cfg.frame_timeout_ns = 400_000; // Extend driver frame timeout for deep debug windows
         
         uvm_config_db#(uart_axi4_env_config)::set(this, "env", "config", cfg);
         `uvm_info("TEST_BASIC_CONFIG", "Basic functional test configured with enhanced reporting", UVM_LOW)

@@ -596,4 +596,27 @@ module Frame_Parser #(
         $error("[FP_CRITICAL] frame_valid_hold=1 in wrong state=%0d (expected VALIDATE=8) at time=%0t", state, $time);
     `endif
 
+    // Runtime visibility for frame_valid activity
+    logic frame_valid_q;
+    integer frame_valid_count;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            frame_valid_q <= 1'b0;
+            frame_valid_count <= 0;
+        end else begin
+            frame_valid_q <= frame_valid;
+            if (frame_valid && !frame_valid_q) begin
+                frame_valid_count <= frame_valid_count + 1;
+                // Track transitions into VALIDATE to confirm handshake timing
+                $display("[%0t][PARSER_DEBUG] frame_valid pulse #%0d state=%0d error_status=0x%02h frame_error=%0b",
+                         $time,
+                         frame_valid_count,
+                         state,
+                         error_status_reg,
+                         frame_error);
+            end
+        end
+    end
+
 endmodule

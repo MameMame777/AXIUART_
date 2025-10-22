@@ -13,8 +13,9 @@ import asyncio
 import logging
 import sys
 import argparse
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Sequence, cast
 
 # Windows asyncio workaround: use selector event loop to avoid Proactor pipe bugs
 if sys.platform == "win32":
@@ -49,12 +50,14 @@ async def main():
                        help="Execution mode: compile (compile only), run (run only), batch (compile+run, default)")
     parser.add_argument("--verbosity", type=str, default="UVM_MEDIUM", help="UVM verbosity level")
     parser.add_argument("--waves", action="store_true", help="Generate waveforms")
-    parser.add_argument("--wave-format", type=str, default="MXD", choices=["MXD", "VCD"],
-                       help="Waveform format: MXD (binary, default) or VCD (text, portable)")
+    parser.add_argument("--wave-format", type=str, default="VCD", choices=["MXD", "VCD"],
+                       help="Waveform format: MXD (binary) or VCD (text, portable - default)")
     parser.add_argument("--coverage", action="store_true", help="Collect coverage")
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds (for run phase in batch mode)")
     parser.add_argument("--compile-timeout", type=int, default=120, help="Compile timeout in seconds (batch mode only)")
     parser.add_argument("--plusarg", action="append", default=[], help="DSIM plus-argument (e.g. SIM_TIMEOUT_MS=60000). Repeat for multiple values")
+    parser.add_argument("--path", type=str, help="File path for analysis tools")
+    parser.add_argument("--test-scenario", type=str, default="", help="Name of test scenario for waveform/debug configuration")
     
     args = parser.parse_args()
     
@@ -99,6 +102,8 @@ async def main():
                 tool_args: dict[str, object]
                 
                 # Direct batch tool invocation
+                scenario_plusarg = args.test_scenario.strip()
+
                 if args.tool == "run_uvm_simulation_batch":
                     actual_tool = "run_uvm_simulation_batch"
                     tool_args = {
@@ -111,7 +116,7 @@ async def main():
                         "run_timeout": args.timeout
                     }
                     if args.plusarg:
-                        tool_args["plusargs"] = args.plusarg
+                        tool_args["plusargs"] = list(args.plusarg)
                     logger.info(f"Using batch tool directly: {actual_tool}")
                 
                 # Batch mode: use run_uvm_simulation_batch tool
@@ -127,7 +132,7 @@ async def main():
                         "run_timeout": args.timeout
                     }
                     if args.plusarg:
-                        tool_args["plusargs"] = args.plusarg
+                        tool_args["plusargs"] = list(args.plusarg)
                     logger.info(f"Using batch mode: {actual_tool}")
                 
                 # Compile or run mode: use run_uvm_simulation with mode parameter
@@ -143,7 +148,7 @@ async def main():
                         "timeout": args.timeout
                     }
                     if args.plusarg:
-                        tool_args["plusargs"] = args.plusarg
+                        tool_args["plusargs"] = list(args.plusarg)
                 
                 elif args.tool == "compile_design" or args.tool == "compile_design_only":
                     actual_tool = args.tool
@@ -162,6 +167,21 @@ async def main():
                 else:
                     actual_tool = args.tool
                     tool_args = {}
+                    if args.path:
+                        tool_args["path"] = args.path
+
+                if scenario_plusarg:
+                    scenario_entry = f"TEST_SCENARIO={scenario_plusarg}"
+                    plusargs_list: list[str] = []
+                    if "plusargs" in tool_args:
+                        existing_plusargs = tool_args["plusargs"]
+                        if isinstance(existing_plusargs, list):
+                            sequence_value = cast(Sequence[Any], existing_plusargs)
+                            plusargs_list = [str(item) for item in sequence_value]
+                        else:
+                            plusargs_list = [str(existing_plusargs)]
+                    plusargs_list.append(scenario_entry)
+                    tool_args["plusargs"] = plusargs_list
 
                 result = await session.call_tool(actual_tool, tool_args)
 

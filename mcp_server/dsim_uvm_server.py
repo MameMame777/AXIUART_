@@ -143,6 +143,20 @@ def cleanup_old_logs(log_dir: Path, max_logs: int = MAX_LOG_FILES) -> None:
         except OSError as exc:
             logger.warning("Unable to delete DSIM log %s: %s", old_file.name, exc)
 
+
+def remove_existing_logs(log_dir: Path) -> None:
+    """Delete all existing DSIM log files to ensure only the newest run remains."""
+    if not log_dir.exists():
+        return
+
+    for log_file in log_dir.glob("*.log"):
+        try:
+            log_file.unlink()
+            logger.debug("Removed stale DSIM log: %s", log_file.name)
+        except OSError as exc:
+            logger.warning("Unable to delete DSIM log %s: %s", log_file.name, exc)
+
+
 def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
     """Parse DSIM error output and provide specific diagnostics."""
     
@@ -342,10 +356,10 @@ Output:
 @mcp.tool()
 async def run_uvm_simulation(
     test_name: str = "uart_axi4_basic_test",
-    mode: Literal["run", "compile", "elaborate"] = "run", 
+    mode: Literal["run", "compile", "elaborate"] = "run",
     verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_MEDIUM",
     waves: bool = False,
-    wave_format: Literal["MXD", "VCD"] = "MXD",
+    wave_format: Literal["VCD", "MXD"] = "VCD",
     coverage: bool = True,
     seed: int = 1,
     timeout: int = 300,
@@ -412,9 +426,10 @@ async def run_uvm_simulation(
     
     # Create timestamped log directory and prune older entries to limit clutter
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_dir = workspace_root / "sim" / "exec" / "logs"  
+    log_dir = workspace_root / "sim" / "exec" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    cleanup_old_logs(log_dir)
+    # Ensure stale logs do not accumulate – keep only the upcoming run
+    remove_existing_logs(log_dir)
     
     # Use correct relative path from sim/uvm working directory
     # sim/uvm -> ../exec/logs (one level up to sim, then exec/logs)
@@ -444,26 +459,28 @@ async def run_uvm_simulation(
     
     # Enhanced feature options
     waves_file: Optional[Path] = None
+    wave_plusargs: List[str] = []
     if waves:
         waves_dir = workspace_root / "archive" / "waveforms"
         waves_dir.mkdir(parents=True, exist_ok=True)
-        
-        # For VCD format, don't use -waves option (use testbench $dumpfile/$dumpvars only)
-        # For MXD format, use -waves option (DSIM native)
-        if wave_format == "VCD":
-            # VCD: No -waves option, testbench will handle via $dumpfile/$dumpvars
-            pass
-        else:
-            # MXD: Use DSIM -waves option
+
+        if wave_format == "MXD":
             waves_file = waves_dir / f"{test_name}_{timestamp}.mxd"
             cmd.extend(["-waves", str(waves_file)])
+        else:  # VCD default
+            waves_file = waves_dir / f"{test_name}_{timestamp}.vcd"
+            wave_plusargs.append(f"+WAVE_FILE={waves_file.as_posix()}")
+        wave_plusargs.append("+WAVES_ON=1")
         
     if coverage:
         cmd.extend(["+cover+fsm+line+cond+tgl+branch"])
 
-    # Add waveform format selection
-    if waves and wave_format == "VCD":
-        cmd.append("+WAVE_FORMAT=VCD")
+    # Add waveform format selection hint for the testbench
+    if waves:
+        if wave_format == "VCD":
+            cmd.append("+WAVE_FORMAT=VCD")
+        else:
+            cmd.append("+WAVE_FORMAT=MXD")
 
     plusargs_applied: List[str] = []
     if plusargs:
@@ -479,6 +496,9 @@ async def run_uvm_simulation(
                 plusargs_applied.append(f"+{candidate}")
         if plusargs_applied:
             cmd.extend(plusargs_applied)
+
+    if wave_plusargs:
+        cmd.extend(wave_plusargs)
     
     # Execute with enhanced error handling
     try:
@@ -627,6 +647,96 @@ async def analyze_uvm_log(log_path: str, limit: int = 10) -> str:
     }
 
     return json.dumps(response, ensure_ascii=False)
+
+
+@mcp.tool()
+async def analyze_vcd_waveform(
+    wave_path: str,
+    max_lines: int = 1000
+) -> str:
+    """Parse a VCD file header and return variables, timescale, and a small summary.
+
+    This is a lightweight parser that reads the textual VCD header (which is human-readable)
+    and extracts $timescale, $scope/$var declarations, and the initial timestamp.
+    """
+
+    if workspace_root is None:
+        raise DSIMError(
+            "Workspace root not configured",
+            "configuration",
+            "Call setup_workspace before invoking DSIM tools",
+        )
+
+    candidate = Path(wave_path)
+    if not candidate.is_absolute():
+        candidate = workspace_root / candidate
+
+    candidate = candidate.resolve()
+    if not candidate.exists():
+        raise DSIMError(f"VCD file not found: {candidate}", "io", "Verify the path", -1)
+
+    if candidate.suffix.lower() != ".vcd":
+        logger.warning("analyze_vcd_waveform invoked on non-VCD file: %s", candidate)
+
+    variables: List[Dict[str, Any]] = []
+    timescale = None
+    scopes: List[str] = []
+    line_count = 0
+
+    try:
+        with candidate.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line_count += 1
+                if line_count > max_lines:
+                    break
+                stripped = line.strip()
+                if stripped.startswith("$timescale"):
+                    # collect until $end
+                    ts = stripped[len("$timescale"):].strip()
+                    if ts.endswith("$end"):
+                        timescale = ts[:-4].strip()
+                    else:
+                        # read following tokens until $end
+                        parts = [ts]
+                        while True:
+                            l = fh.readline()
+                            line_count += 1
+                            if not l:
+                                break
+                            if l.strip().endswith("$end"):
+                                parts.append(l.strip()[:-4])
+                                break
+                            parts.append(l.strip())
+                        timescale = ' '.join(parts).strip()
+                elif stripped.startswith("$scope"):
+                    # format: $scope module <name> $end
+                    tokens = stripped.split()
+                    if len(tokens) >= 3:
+                        scopes.append(tokens[2])
+                elif stripped.startswith("$var"):
+                    # $var wire 1 ! signal_name [msb:lsb] $end
+                    parts = stripped.split()
+                    if len(parts) >= 4:
+                        vtype = parts[1]
+                        size = parts[2]
+                        code = parts[3]
+                        name = parts[4] if len(parts) > 4 else ""
+                        variables.append({"type": vtype, "size": size, "code": code, "name": name})
+                elif stripped.startswith("$enddefinitions"):
+                    break
+    except OSError as exc:
+        raise DSIMError(f"Failed to read VCD: {exc}", "io", "Check file permissions", -1) from exc
+
+    payload: Dict[str, Any] = {
+        "status": "success",
+        "path": str(candidate),
+        "timescale": timescale,
+        "scope_hierarchy": scopes,
+        "variable_count": len(variables),
+        "variables_sample": variables[:50],
+    }
+
+    return json.dumps(payload, ensure_ascii=False)
 
 @mcp.tool()
 async def check_dsim_environment() -> str:
@@ -822,7 +932,7 @@ async def run_simulation(
 @mcp.tool()
 async def generate_waveforms(
     test_name: str = "uart_axi4_basic_test",
-    format: Literal["mxd", "vcd", "both"] = "mxd",
+    format: Literal["vpd", "mxd", "vcd", "both"] = "vcd",
     depth: Literal["all", "top_level", "selected"] = "all",
     timeout: int = 300
 ) -> str:
@@ -838,40 +948,48 @@ async def generate_waveforms(
         Waveform generation results with file locations
     """
     
-    result = await run_uvm_simulation(
+    format_normalized = format.lower()
+    wave_format = "VCD"
+    if format_normalized == "mxd":
+        wave_format = "MXD"
+    elif format_normalized == "vcd":
+        wave_format = "VCD"
+    elif format_normalized == "both":
+        # Default to VCD for MCP orchestration when both is requested
+        wave_format = "VCD"
+
+    result_json = await run_uvm_simulation(
         test_name=test_name,
         mode="run",
         verbosity="UVM_MEDIUM", 
         waves=True,
         coverage=True,
         seed=1,
-        timeout=timeout
+        timeout=timeout,
+        wave_format=wave_format
     )
-    
-    # Add waveform-specific information
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    if workspace_root is None:
-        raise DSIMError(
-            "Workspace root not configured",
-            "configuration",
-            "Call setup_workspace before invoking DSIM tools",
-        )
-    current_workspace = workspace_root
-    waves_dir = current_workspace / "archive" / "waveforms"
-    expected_file = waves_dir / f"{test_name}_{timestamp}.mxd"
-    
-    waveform_info = f"""
 
-{STATUS_INFO} Waveform Generation Summary:
-- Format: {format.upper()}
-- Depth: {depth}
-- Expected Location: {expected_file}
-- Viewer: Use DSIM waveform viewer or compatible MXD viewer
+    try:
+        parsed = json.loads(result_json)
+    except json.JSONDecodeError:
+        parsed = {"details": result_json}
 
-{result}
-    """.strip()
-    
-    return waveform_info
+    waves_file = parsed.get("waves_file")
+    if waves_file is None and workspace_root is not None:
+        # Fallback when waveform path is not reported (e.g., VCD dump)
+        waves_dir = workspace_root / "archive" / "waveforms"
+        extension = wave_format.lower()
+        waves_file = str(waves_dir / f"{test_name}.{extension}")
+
+    waveform_info: Dict[str, Any] = {
+        "status": parsed.get("status", "unknown"),
+        "format": wave_format,
+        "depth": depth,
+        "waves_file": waves_file,
+        "run_result": parsed,
+    }
+
+    return json.dumps(waveform_info, ensure_ascii=False)
 
 def setup_workspace(workspace_path: str):
     """Setup workspace configuration with validation."""

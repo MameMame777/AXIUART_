@@ -8,7 +8,8 @@ param(
     [bool]$Waves = $true,
     [int]$Seed = 1,
     [bool]$CleanBuild = $false,
-    [bool]$DetailedLog = $false
+    [bool]$DetailedLog = $false,
+    [string]$TestScenario = ""
 )
 
 # Enhanced Environment Validation
@@ -95,17 +96,43 @@ if ($Coverage) {
     Write-Host "Coverage collection disabled" -ForegroundColor Yellow
 }
 
+$waveFile = $null
+
 # Add waves if enabled (with access control for proper signal visibility)
 if ($Waves) {
+    $projectRoot = (Resolve-Path "..\").Path
+    $waveDir = Join-Path $projectRoot "archive\waveforms"
+    if (-not (Test-Path $waveDir)) {
+        New-Item -ItemType Directory -Path $waveDir | Out-Null
+    }
+    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+    if ($TestScenario -and ($TestScenario.Trim().Length -gt 0)) {
+        $sanitizedScenario = ($TestScenario -replace "[^0-9A-Za-z_-]", "_")
+        $waveFile = Join-Path $waveDir "${TestName}_${sanitizedScenario}_${timestamp}.vcd"
+    }
+    if (-not $waveFile) {
+        $waveFile = Join-Path $waveDir "${TestName}_${timestamp}.vcd"
+    }
+    $waveFilePosix = $waveFile -replace "\\", "/"
+
     $dsim_cmd += @(
         "+acc+rwb",
-        "-waves", "$TestName.mxd"
+        "+WAVE_FORMAT=VCD",
+        "+WAVE_FILE=$waveFilePosix",
+        "+WAVES_ON=1"
     )
-    Write-Host "✓ Wave dump enabled: $TestName.mxd" -ForegroundColor Green
+
+    Write-Host "✓ VCD wave dump enabled: $waveFile" -ForegroundColor Green
+} else {
+    Write-Host "Waveforms disabled for this run" -ForegroundColor Yellow
 }
 
 Write-Host "`n=== Starting DSIM Compilation and Simulation ===" -ForegroundColor Cyan
 $startTime = Get-Date
+if ($TestScenario -and ($TestScenario.Trim().Length -gt 0)) {
+    $dsim_cmd += "+TEST_SCENARIO=$TestScenario"
+    Write-Host "Test scenario: $TestScenario" -ForegroundColor Green
+}
 
 # Execute DSIM with error handling
 try {
@@ -195,8 +222,8 @@ Write-Host "Test: $TestName" -ForegroundColor Gray
 Write-Host "Duration: $($duration.ToString('mm\:ss\.ff'))" -ForegroundColor Gray
 Write-Host "Exit Code: $exitCode" -ForegroundColor $(if($exitCode -eq 0){'Green'}else{'Red'})
 
-if ($Waves -and $exitCode -eq 0 -and (Test-Path "$TestName.mxd")) {
-    Write-Host "✓ Waveform file generated: $TestName.mxd" -ForegroundColor Green
+if ($Waves -and $exitCode -eq 0 -and $waveFile -and (Test-Path $waveFile)) {
+    Write-Host "✓ Waveform file generated: $waveFile" -ForegroundColor Green
 }
 
 exit $exitCode

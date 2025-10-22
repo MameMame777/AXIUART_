@@ -16,6 +16,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Literal
+import json
 import argparse
 from datetime import datetime
 
@@ -29,6 +30,7 @@ from dsim_uvm_server import (
     check_dsim_environment as dsim_check_environment_async,
     run_uvm_simulation as dsim_run_uvm_simulation_async,
     DSIMError,
+    analyze_vcd_waveform as dsim_analyze_vcd_waveform_async,
 )
 
 # Configure logging 
@@ -127,7 +129,8 @@ def _analyze_simulation_output(output: str, waves: bool) -> Dict[str, Union[bool
     return {
         "test_passed": passed,
         "uvm_errors_present": has_uvm_errors,
-        "waveform_hint": waves and (".mxd" in output.lower() or "waves" in output.lower()),
+        # DSIM may report MXD or VCD waveforms depending on invocation
+        "waveform_hint": waves and (".mxd" in output.lower() or ".vcd" in output.lower() or "waves" in output.lower()),
     }
 
 # ===============================================================================
@@ -177,7 +180,7 @@ def create_fastmcp_server() -> FastMCP:
         coverage: bool,
         seed: Optional[int],
         timeout: int,
-        wave_format: Literal["MXD", "VCD"] = "MXD",
+    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
         plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         effective_seed = seed if seed is not None else 1
@@ -281,7 +284,7 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_DEBUG",
     ] = "UVM_MEDIUM",
     waves: bool = False,
-        wave_format: Literal["MXD", "VCD"] = "MXD",
+    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
         coverage: bool = False,
         seed: Optional[int] = None,
         timeout: int = 300,
@@ -329,7 +332,7 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_DEBUG",
         ] = "UVM_MEDIUM",
         waves: bool = False,
-        wave_format: Literal["MXD", "VCD"] = "MXD",
+    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
         coverage: bool = False,
         seed: Optional[int] = None,
         compile_timeout: int = 120,
@@ -345,6 +348,7 @@ def create_fastmcp_server() -> FastMCP:
         Args:
             test_name: UVM test name to execute
             verbosity: UVM verbosity level (default: UVM_MEDIUM)
+
             waves: Enable waveform generation (default: False)
             wave_format: Waveform format - MXD (binary) or VCD (text) (default: MXD)
             coverage: Enable coverage collection (default: False)
@@ -429,6 +433,27 @@ def create_fastmcp_server() -> FastMCP:
             "coverage": coverage,
             "seed": seed if seed is not None else 1,
         }
+
+    @mcp.tool
+    async def analyze_vcd_waveform(path: str) -> Dict[str, Any]:
+        """Parse VCD header information for quick diagnostics."""
+        try:
+            result_text = await dsim_analyze_vcd_waveform_async(path)
+        except DSIMError as exc:  # pragma: no cover - delegated diagnostics
+            return {
+                "status": "error",
+                "error_type": exc.error_type,
+                "message": exc.message,
+                "suggestion": exc.suggestion,
+                "exit_code": exc.exit_code if exc.exit_code is not None else -1,
+            }
+
+        try:
+            parsed: Dict[str, Any] = json.loads(result_text)
+        except json.JSONDecodeError:
+            parsed = {"status": "success", "raw": result_text}
+
+        return parsed
 
     @mcp.tool  
     def get_simulation_logs(log_type: str = "latest") -> Dict[str, Any]:

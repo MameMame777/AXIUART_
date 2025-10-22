@@ -30,6 +30,10 @@ module uart_axi4_tb_top;
     // AXI4-Lite interface for monitoring - will connect directly to DUT's internal interface
     // No need for separate interface instance since DUT provides axi_internal interface
 
+    // Scenario control for waveform dumping and debug selection
+    string test_scenario = "default";
+    string selected_uvm_test = "uart_axi4_basic_test";
+
     // Optional internal loopback control (disabled by default)
     localparam bit ENABLE_UART_LOOPBACK = 1'b0;
 
@@ -127,11 +131,30 @@ module uart_axi4_tb_top;
         // Import the test package to ensure all classes are registered
         import uart_axi4_test_pkg::*;
         
-    // Set virtual interfaces in config database
-    uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
-    uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
-    uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
-    uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
+        // Capture UVM test selection and optional scenario plusargs
+        string scenario_arg;
+        string testname_arg;
+        bit scenario_enables_wave;
+        if ($value$plusargs("TEST_SCENARIO=%s", scenario_arg)) begin
+            test_scenario = scenario_arg;
+        end
+        if ($value$plusargs("UVM_TESTNAME=%s", testname_arg)) begin
+            selected_uvm_test = testname_arg;
+        end
+
+        // Set virtual interfaces in config database
+        uvm_config_db#(virtual uart_if)::set(null, "*", "vif", uart_if_inst);
+        uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
+        uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
+        uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
+
+        // Propagate scenario configuration into the UVM config database for tests
+        uvm_config_db#(string)::set(null, "uvm_test_top", "test_scenario", test_scenario);
+        uvm_config_db#(string)::set(null, "uvm_test_top", "selected_test_name", selected_uvm_test);
+
+        // Default policy: enable waveform dumping unless explicitly disabled via scenario name
+        scenario_enables_wave = (test_scenario != "none");
+        uvm_config_db#(bit)::set(null, "uvm_test_top", "scenario_enable_wave_dump", scenario_enables_wave);
         // Phase 4.3: Set AXI monitoring interface for AXI transaction detection
         
         // Start UVM test
@@ -142,16 +165,71 @@ module uart_axi4_tb_top;
     // This prevents large recursive dump registration during reset and
     // avoids simulator I/O stalls at the moment of reset release.
     initial begin
+        string wave_format_arg;
+        string wave_extension;
+        string wave_file;
+        string wave_file_override;
+        int waves_on_flag;
+        bit scenario_enables_wave_dump;
+    bit enable_wave_dump;
+
+        // Determine whether waves were requested via command-line control
+        if (!$value$plusargs("WAVES_ON=%d", waves_on_flag)) begin
+            waves_on_flag = 0;
+        end
+
+        // Obtain scenario-controlled enable flag from config database
+        if (!uvm_config_db#(bit)::get(null, "uvm_test_top", "scenario_enable_wave_dump", scenario_enables_wave_dump)) begin
+            scenario_enables_wave_dump = 1'b1;
+        end
+
         // Wait for reset to be released
         wait (rst_n == 1'b1);
         // Give some extra cycles for UVM/bench to finish initialization
         repeat (50) @(posedge clk);
 
-        // Scoped waveform dump: only DUT and UART interface to limit header size
-        $dumpfile("uart_axi4_minimal_test.mxd");
-        $dumpvars(0, dut);
-        $dumpvars(0, uart_if_inst);
-        `uvm_info("TB_TOP", "Deferred scoped waveform dumping enabled (dut, uart_if_inst)", UVM_MEDIUM)
+        enable_wave_dump = 1'b1;
+
+        if (!waves_on_flag) begin
+            `uvm_info("TB_TOP", "Waveform dumping disabled (WAVES_ON flag not set)", UVM_MEDIUM)
+            enable_wave_dump = 1'b0;
+        end
+
+        if (!scenario_enables_wave_dump) begin
+            `uvm_info("TB_TOP", $sformatf("Waveform dumping skipped for scenario '%s'", test_scenario), UVM_MEDIUM)
+            enable_wave_dump = 1'b0;
+        end
+
+        if (enable_wave_dump) begin
+            if ($value$plusargs("WAVE_FORMAT=%s", wave_format_arg)) begin
+                string wave_format_upper;
+                wave_format_upper = wave_format_arg.toupper();
+
+                case (wave_format_upper)
+                    "VCD": wave_extension = "vcd";
+                    "MXD": wave_extension = "mxd";
+                    default: wave_extension = "vcd";
+                endcase
+            end else begin
+                wave_extension = "vcd";
+            end
+
+            if ($value$plusargs("WAVE_FILE=%s", wave_file_override)) begin
+                wave_file = wave_file_override;
+            end else begin
+                if (test_scenario.len() != 0 && test_scenario != "default") begin
+                    wave_file = $sformatf("../archive/waveforms/%s_%s.%s", selected_uvm_test, test_scenario, wave_extension);
+                end else begin
+                    wave_file = $sformatf("../archive/waveforms/%s.%s", selected_uvm_test, wave_extension);
+                end
+            end
+
+            // Scoped waveform dump: only DUT and UART interface to limit header size
+            $dumpfile(wave_file);
+            $dumpvars(0, dut);
+            $dumpvars(0, uart_if_inst);
+            `uvm_info("TB_TOP", $sformatf("Deferred scoped waveform dumping enabled (dut, uart_if_inst) -> %s", wave_file), UVM_MEDIUM)
+        end
     end
     
     // Timeout mechanism - extended for comprehensive tests

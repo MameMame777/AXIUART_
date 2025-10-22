@@ -4,13 +4,13 @@ UVM Test Execution Wrapper for AXIUART SystemVerilog Verification
 Automates PowerShell run_uvm.ps1 execution with error handling and monitoring
 """
 
-import os
 import json
+import os
 import subprocess
 import time
-from pathlib import Path
-from typing import List, Optional, NamedTuple
 from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Optional, NamedTuple
 
 class TestResult(NamedTuple):
     """Test execution result structure"""
@@ -66,13 +66,18 @@ class UVMTestRunner:
         
         return True
     
+    def validate_environment(self) -> bool:
+        """Public environment validation helper."""
+        return self._validate_environment()
+
     def run_test(self, 
                  test_name: str = "uart_axi4_register_verification_test",
                  seed: Optional[int] = None,
                  verbosity: str = "UVM_MEDIUM",
                  mode: str = "run",
                  coverage: bool = True,
-                 timeout: Optional[int] = None) -> TestResult:
+                 timeout: Optional[int] = None,
+                 test_scenario: Optional[str] = None) -> TestResult:
         """Execute single UVM test with specified parameters"""
         
         if not self._validate_environment():
@@ -80,10 +85,10 @@ class UVMTestRunner:
         
         # Use default seed if not provided
         if seed is None:
-            seed = self.config["test_execution"]["default_seed"]
-        
-        # Ensure seed is an integer
-        actual_seed = int(seed)
+            default_seed_value = self.config["test_execution"]["default_seed"]
+            actual_seed = int(default_seed_value)
+        else:
+            actual_seed = int(seed)
         
         if timeout is None:
             timeout = self.config["test_execution"]["timeout_seconds"]
@@ -105,6 +110,9 @@ class UVMTestRunner:
         
         # Always enable waveforms for debugging
         cmd_args.extend(["-Waves", "on"])
+
+        if test_scenario:
+            cmd_args.extend(["-TestScenario", test_scenario])
         
         print(f"🚀 Starting UVM test: {test_name}")
         print(f"   Seed: {actual_seed}, Verbosity: {verbosity}, Mode: {mode}")
@@ -129,7 +137,8 @@ class UVMTestRunner:
             # Analyze execution results
             success = result.returncode == 0
             log_path = str(self.sim_dir / "dsim.log")
-            waveform_path = str(self.waveform_dir / f"{test_name}.mxd")
+            waveform_candidate = self._find_latest_waveform(test_name)
+            waveform_path = str(waveform_candidate) if waveform_candidate else ""
             coverage_path = str(self.sim_dir / "metrics.db") if coverage else None
             
             # Count errors and warnings from output
@@ -162,11 +171,10 @@ class UVMTestRunner:
                     print(f"   Error output: {result.stderr[:500]}")
             
             return test_result
-            
         except subprocess.TimeoutExpired:
             duration = time.time() - start_time
             print(f"❌ Test {test_name} timed out after {timeout}s")
-            
+
             return TestResult(
                 test_name=test_name,
                 seed=actual_seed,
@@ -178,11 +186,10 @@ class UVMTestRunner:
                 warning_count=0,
                 coverage_path=None
             )
-            
         except Exception as e:
             duration = time.time() - start_time
             print(f"❌ Test {test_name} failed with exception: {e}")
-            
+
             return TestResult(
                 test_name=test_name,
                 seed=actual_seed,
@@ -198,6 +205,19 @@ class UVMTestRunner:
     def _count_pattern(self, text: str, pattern: str) -> int:
         """Count occurrences of pattern in text"""
         return text.upper().count(pattern.upper())
+
+    def _find_latest_waveform(self, test_name: str) -> Optional[Path]:
+        """Locate the most recent VCD waveform generated for a test."""
+        try:
+            candidates = sorted(
+                self.waveform_dir.glob(f"{test_name}*.vcd"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+        except FileNotFoundError:
+            return None
+
+        return candidates[0] if candidates else None
     
     def run_regression(self, 
                       test_list: List[str],
@@ -209,7 +229,7 @@ class UVMTestRunner:
             seed_range = range(self.config["test_execution"]["default_seed"], 
                              self.config["test_execution"]["default_seed"] + 1)
         
-        all_results = []
+        all_results: List[TestResult] = []
         total_tests = len(test_list) * len(seed_range)
         
         print(f"🏃 Starting regression with {total_tests} tests")
@@ -278,7 +298,7 @@ class UVMTestRunner:
             output_path = str(self.project_root / "tools" / "uvm_checker" / f"test_results_{timestamp}.json")
         
         # Convert results to serializable format
-        results_data = {
+        results_data: Dict[str, object] = {
             "timestamp": datetime.now().isoformat(),
             "project_root": str(self.project_root),
             "total_tests": len(self.results_history),
@@ -311,7 +331,7 @@ def main():
         runner = UVMTestRunner()
         
         # Run environment check first
-        if not runner._validate_environment():
+        if not runner.validate_environment():
             print("❌ Environment validation failed")
             return 1
         

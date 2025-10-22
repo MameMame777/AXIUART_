@@ -164,6 +164,10 @@ module Axi4_Lite_Master #(
                 early_busy_sent <= 1'b0;
                 transaction_done_reg <= 1'b0;  // Clear done flag when starting new transaction
                 cmd_reg <= cmd;
+                `ifdef ENABLE_DEBUG
+                    // Simulation-only trace to confirm master sees start_transaction
+                    $display("%0t AXI_MASTER: start_transaction sampled: cmd=0x%0h addr=0x%0h", $time, cmd, addr);
+                `endif
             end
             
             // Update beat counter and address for next beat
@@ -207,6 +211,9 @@ module Axi4_Lite_Master #(
             // Set transaction_done_reg when reaching completion states
             if ((state == DONE) || (state == ERROR)) begin
                 transaction_done_reg <= 1'b1;
+                `ifdef ENABLE_DEBUG
+                    $display("%0t AXI_MASTER: transaction_done state=%s status=0x%0h", $time, axi_master_state_to_string(state), status_reg);
+                `endif
             end
             
             // Clear transaction_done_reg when returning to IDLE state
@@ -341,6 +348,9 @@ module Axi4_Lite_Master #(
             end
         endcase
     end
+                            `ifdef ENABLE_DEBUG
+                                $display("[%0t] AXI_MASTER_DEBUG: start_transaction asserted cmd=0x%0h addr=0x%08h", $time, cmd, addr);
+                            `endif
     
     // AXI4-Lite signal assignments
     always_comb begin
