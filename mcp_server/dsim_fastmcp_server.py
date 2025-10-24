@@ -121,17 +121,45 @@ def _format_test_report(tests_dir: Path, tests: List[Dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
-def _analyze_simulation_output(output: str, waves: bool) -> Dict[str, Union[bool, str]]:
+def _analyze_simulation_output(output: str, waves: bool) -> Dict[str, Union[bool, str, int]]:
     """Extract useful status indicators from DSIM output text."""
-    has_uvm_errors = "UVM_ERROR" in output and "UVM_ERROR: 0" not in output
-    passed = "TEST PASSED" in output or "UVM_ERROR: 0" in output
 
-    return {
-        "test_passed": passed,
-        "uvm_errors_present": has_uvm_errors,
+    error_match = re.search(r"UVM_ERROR\s*:\s*(\d+)", output)
+    fatal_match = re.search(r"UVM_FATAL\s*:\s*(\d+)", output)
+
+    error_count = int(error_match.group(1)) if error_match else None
+    fatal_count = int(fatal_match.group(1)) if fatal_match else None
+
+    has_explicit_error_counts = error_count is not None or fatal_count is not None
+
+    if has_explicit_error_counts:
+        uvm_errors_present = (error_count or 0) > 0 or (fatal_count or 0) > 0
+    else:
+        # Fall back to keyword detection when summary counts are absent
+        uvm_errors_present = "UVM_ERROR" in output or "UVM_FATAL" in output
+
+    test_passed = (
+        "TEST PASSED" in output
+        or (
+            has_explicit_error_counts
+            and (error_count or 0) == 0
+            and (fatal_count or 0) == 0
+        )
+    )
+
+    result: Dict[str, Union[bool, str, int]] = {
+        "test_passed": test_passed,
+        "uvm_errors_present": uvm_errors_present,
         # DSIM may report MXD or VCD waveforms depending on invocation
         "waveform_hint": waves and (".mxd" in output.lower() or ".vcd" in output.lower() or "waves" in output.lower()),
     }
+
+    if error_count is not None:
+        result["uvm_error_count"] = error_count
+    if fatal_count is not None:
+        result["uvm_fatal_count"] = fatal_count
+
+    return result
 
 # ===============================================================================
 # FastMCP Server and Tools Setup
