@@ -49,9 +49,11 @@ async def main():
     parser.add_argument("--mode", type=str, default="batch", choices=["compile", "run", "batch"], 
                        help="Execution mode: compile (compile only), run (run only), batch (compile+run, default)")
     parser.add_argument("--verbosity", type=str, default="UVM_MEDIUM", help="UVM verbosity level")
-    parser.add_argument("--waves", action="store_true", help="Generate waveforms")
-    parser.add_argument("--wave-format", type=str, default="VCD", choices=["MXD", "VCD"],
-                       help="Waveform format: MXD (binary) or VCD (text, portable - default)")
+    parser.add_argument("--waves", dest="waves", action="store_true", help="Enable waveform generation (default)")
+    parser.add_argument("--no-waves", dest="waves", action="store_false", help="Disable waveform generation")
+    parser.set_defaults(waves=True)
+    parser.add_argument("--wave-format", type=str, default="MXD", choices=["MXD", "VCD"],
+                       help="Waveform format: MXD (binary, default) or VCD (text, portable)")
     parser.add_argument("--coverage", action="store_true", help="Collect coverage")
     parser.add_argument("--timeout", type=int, default=300, help="Timeout in seconds (for run phase in batch mode)")
     parser.add_argument("--compile-timeout", type=int, default=120, help="Compile timeout in seconds (batch mode only)")
@@ -138,11 +140,14 @@ async def main():
                 # Compile or run mode: use run_uvm_simulation with mode parameter
                 elif args.tool == "run_uvm_simulation":
                     actual_tool = args.tool
+                    waves_setting = args.waves
+                    if args.mode == "compile":
+                        waves_setting = False
                     tool_args = {
                         "test_name": args.test_name or "uart_axi4_basic_test",
                         "mode": args.mode if args.mode != "batch" else "run",
                         "verbosity": args.verbosity,
-                        "waves": args.waves,
+                        "waves": waves_setting,
                         "wave_format": args.wave_format,
                         "coverage": args.coverage,
                         "timeout": args.timeout

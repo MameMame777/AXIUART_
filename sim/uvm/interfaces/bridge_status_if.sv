@@ -50,9 +50,6 @@ interface bridge_status_if (
         rx_fifo_depth = 7'h40;
         tx_fifo_count = 7'h00;
         tx_fifo_depth = 7'h40;
-        bridge_busy = 1'b0;
-        bridge_error = 8'h00;
-        system_ready = 1'b0;
         bridge_state = 8'h00;
         error_status = 32'h0;
     end

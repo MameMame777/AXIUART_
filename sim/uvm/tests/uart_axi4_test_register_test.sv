@@ -1,4 +1,6 @@
-﻿// Test Register Test Class
+﻿`timescale 1ns / 1ps
+
+// Test Register Test Class
 // Tests for newly added test registers (0x00001020-0x0000102C)
 // Created: 2025-10-05
 

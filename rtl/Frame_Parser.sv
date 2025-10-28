@@ -25,7 +25,7 @@ module Frame_Parser #(
     output logic [7:0]  cmd,
     output logic [31:0] addr,
     output logic [7:0]  data_out [0:63],    // Max 16 x 32-bit = 64 bytes
-    output logic [5:0]  data_count,         // Number of valid data bytes
+    output logic [6:0]  data_count,         // Number of valid data bytes
     output logic        frame_valid,        // Frame is valid and ready
     output logic [7:0]  error_status,       // Error status code
     output logic        frame_error,        // Frame has error
@@ -84,13 +84,29 @@ module Frame_Parser #(
     } parser_state_t;
     
     parser_state_t state, state_next;
+    // Debug helper for readable state printouts during instrumentation runs
+    function automatic string parser_state_to_string(parser_state_t st);
+        case (st)
+            IDLE:       return "IDLE";
+            CMD:        return "CMD";
+            ADDR_BYTE0: return "ADDR_BYTE0";
+            ADDR_BYTE1: return "ADDR_BYTE1";
+            ADDR_BYTE2: return "ADDR_BYTE2";
+            ADDR_BYTE3: return "ADDR_BYTE3";
+            DATA_RX:    return "DATA_RX";
+            CRC_RX:     return "CRC_RX";
+            VALIDATE:   return "VALIDATE";
+            ERROR:      return "ERROR";
+            default:    return "UNKNOWN";
+        endcase
+    endfunction
     
     // Internal registers
     logic [7:0]  cmd_reg;
     logic [7:0]  current_cmd;     // Current command being processed
     logic [31:0] addr_reg;
     logic [7:0]  data_reg [0:63];
-    logic [5:0]  data_byte_count;
+    logic [6:0]  data_byte_count;
     logic [7:0]  expected_crc;
     logic [7:0]  received_crc;
     logic [7:0]  error_status_reg;
@@ -127,7 +143,7 @@ module Frame_Parser #(
     logic inc_bit;
     logic [1:0] size_field;
     logic [3:0] len_field;
-    logic [5:0] expected_data_bytes;  // Now a register (updated in sequential logic)
+    logic [6:0] expected_data_bytes;  // Now a register (updated in sequential logic)
     
     // Debug signals for hardware analysis - CMD parsing
     logic [7:0] debug_rx_cmd_raw;
@@ -136,7 +152,11 @@ module Frame_Parser #(
     logic       debug_rx_inc_bit;
     logic [1:0] debug_rx_size_field;
     logic [3:0] debug_rx_len_field;
-    logic [5:0] debug_rx_expected_bytes;
+    logic [6:0] debug_rx_expected_bytes;
+
+    // Runtime debug trackers to understand parser progress in failing runs
+    integer parser_state_transition_count;
+    integer parser_byte_trace_count;
     
     always_comb begin
         rw_bit = current_cmd[7];
@@ -221,6 +241,8 @@ module Frame_Parser #(
             for (int i = 0; i < 64; i++) begin
                 data_reg[i] <= '0;
             end
+            parser_state_transition_count <= 0;
+            parser_byte_trace_count <= 0;
         end else begin
             state <= state_next;
             
@@ -228,6 +250,19 @@ module Frame_Parser #(
             `ifdef ENABLE_DEBUG
                 // アサーション主体のデバッグに移行 - $display削除済み
             `endif
+
+            if (state != state_next) begin
+                parser_state_transition_count <= parser_state_transition_count + 1;
+                if (parser_state_transition_count < 128) begin
+                    $display("[%0t][PARSER_TRACE] %s -> %s bytes=%0d expected_bytes=%0d crc_recv=0x%02h crc_calc=0x%02h", $time,
+                             parser_state_to_string(state),
+                             parser_state_to_string(state_next),
+                             data_byte_count,
+                             expected_data_bytes,
+                             received_crc,
+                             expected_crc);
+                end
+            end
             
             // FIFO read logic - simplified for direct processing
             if (rx_fifo_rd_en && !rx_fifo_empty) begin
@@ -250,8 +285,13 @@ module Frame_Parser #(
                         addr_reg[31:24] <= rx_fifo_data;
                     end
                     DATA_RX: begin
-                        data_reg[data_byte_count] <= rx_fifo_data;
-                        data_byte_count <= data_byte_count + 1;
+                        if (data_byte_count < 7'd64) begin
+                            data_reg[data_byte_count] <= rx_fifo_data;
+                            data_byte_count <= data_byte_count + 7'd1;
+                        end else begin
+                            data_byte_count <= 7'd64;
+                            $error("[FRAME_PARSER] data_byte_count overflow: frame longer than 64 bytes");
+                        end
                     end
                     CRC_RX: begin
                         // Direct CRC processing - simple bus logic
@@ -265,6 +305,16 @@ module Frame_Parser #(
                         end
                     end
                 endcase
+
+                if (parser_byte_trace_count < 64) begin
+                    parser_byte_trace_count <= parser_byte_trace_count + 1;
+                    $display("[%0t][PARSER_BYTE] state=%s byte#%0d=0x%02h data_count=%0d expected_bytes=%0d", $time,
+                             parser_state_to_string(state),
+                             parser_byte_trace_count,
+                             rx_fifo_data,
+                             data_byte_count,
+                             expected_data_bytes);
+                end
             end
             
             // Reset data byte count at start of new frame
@@ -273,21 +323,31 @@ module Frame_Parser #(
                 error_status_reg <= STATUS_OK;
                 current_cmd <= '0;
                 expected_data_bytes <= '0;  // Reset expected data bytes
+                if (state_next == CMD) begin
+                    parser_byte_trace_count <= 0;
+                end
             end
             
             // Handle expected_data_bytes calculation separately to prevent X-state contamination
             if (state == CMD && rx_fifo_rd_en && !rx_fifo_empty) begin
-                // Calculate expected data bytes based on command fields
+                logic [6:0] bytes_calc;
+
                 if (rx_fifo_data[7] == 1'b1) begin  // READ command (RW bit = 1)
-                    expected_data_bytes <= 6'd0;  // No data bytes for read commands
+                    bytes_calc = 7'd0;  // No data bytes for read commands
                 end else begin  // WRITE command (RW bit = 0)
                     case (rx_fifo_data[5:4])  // SIZE field
-                        2'b00: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 1;  // BYTE (8-bit)
-                        2'b01: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 2;  // HALF (16-bit)
-                        2'b10: expected_data_bytes <= (rx_fifo_data[3:0] + 1) * 4;  // WORD (32-bit)
-                        2'b11: expected_data_bytes <= 6'd0;                         // Invalid size
+                        2'b00: bytes_calc = (rx_fifo_data[3:0] + 7'd1);          // BYTE (8-bit)
+                        2'b01: bytes_calc = (rx_fifo_data[3:0] + 7'd1) * 7'd2;   // HALF (16-bit)
+                        2'b10: bytes_calc = (rx_fifo_data[3:0] + 7'd1) * 7'd4;   // WORD (32-bit)
+                        default: bytes_calc = 7'd0;                              // Invalid size
                     endcase
                 end
+
+                if (bytes_calc > 7'd64) begin
+                    $error("[FRAME_PARSER] expected_data_bytes=%0d exceeds 64", bytes_calc);
+                end
+
+                expected_data_bytes <= bytes_calc;
             end
             
             // Set error status in validation state
@@ -416,7 +476,7 @@ module Frame_Parser #(
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
                     // Safer comparison: check if we've received all expected data bytes
-                    if (data_byte_count + 1 >= expected_data_bytes) begin
+                    if ((data_byte_count + 7'd1) >= expected_data_bytes) begin
                         state_next = CRC_RX;
                     end else begin
                     end
@@ -491,8 +551,10 @@ module Frame_Parser #(
                         // VALIDATE状態でのframe_valid評価
                         if (cmd_valid && (received_crc == expected_crc)) begin
                             frame_valid_hold <= 1'b1;  // 条件満足時のみ有効フレーム
+                            $display("[%0t][PARSER_VALIDATE] cmd=0x%02h addr=0x%08h crc_ok=1 data_bytes=%0d", $time, cmd_reg, addr_reg, data_byte_count);
                         end else begin
                             frame_valid_hold <= 1'b0;  // CRCエラーまたはコマンドエラー時は無効
+                            $display("[%0t][PARSER_VALIDATE] cmd=0x%02h addr=0x%08h crc_ok=0 exp_crc=0x%02h recv_crc=0x%02h", $time, cmd_reg, addr_reg, expected_crc, received_crc);
                         end
                     end
                     IDLE: begin
@@ -568,7 +630,9 @@ module Frame_Parser #(
     end
 
     // Emergency diagnostics instance for assertion-based debugging
-    emergency_frame_parser_diagnostics emergency_frame_parser_diag_internal_inst (
+    emergency_frame_parser_diagnostics #(
+        .MAX_STATE_STABLE_CYCLES(TIMEOUT_CLOCKS)
+    ) emergency_frame_parser_diag_internal_inst (
         .clk(clk),
         .rst(rst),
         .frame_valid_hold(frame_valid_hold),

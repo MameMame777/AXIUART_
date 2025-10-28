@@ -208,7 +208,7 @@ def create_fastmcp_server() -> FastMCP:
         coverage: bool,
         seed: Optional[int],
         timeout: int,
-    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
+    wave_format: Literal["VPD", "MXD", "VCD"] = "MXD",
         plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         effective_seed = seed if seed is not None else 1
@@ -311,8 +311,8 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_FULL",
             "UVM_DEBUG",
     ] = "UVM_MEDIUM",
-    waves: bool = False,
-    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
+    waves: bool = True,
+    wave_format: Literal["VPD", "MXD", "VCD"] = "MXD",
         coverage: bool = False,
         seed: Optional[int] = None,
         timeout: int = 300,
@@ -359,8 +359,8 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_FULL",
             "UVM_DEBUG",
         ] = "UVM_MEDIUM",
-        waves: bool = False,
-    wave_format: Literal["VPD", "MXD", "VCD"] = "VCD",
+        waves: bool = True,
+    wave_format: Literal["VPD", "MXD", "VCD"] = "MXD",
         coverage: bool = False,
         seed: Optional[int] = None,
         compile_timeout: int = 120,
@@ -377,7 +377,7 @@ def create_fastmcp_server() -> FastMCP:
             test_name: UVM test name to execute
             verbosity: UVM verbosity level (default: UVM_MEDIUM)
 
-            waves: Enable waveform generation (default: False)
+            waves: Enable waveform generation (default: True)
             wave_format: Waveform format - MXD (binary) or VCD (text) (default: MXD)
             coverage: Enable coverage collection (default: False)
             seed: Random seed (default: auto-generated)

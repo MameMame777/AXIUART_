@@ -13,8 +13,13 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
         uart_frame_transaction req_local;
 
         uvm_sequencer_base seq_handle;
+    bit verbose_mode;
+    string verbose_arg_matches[$];
+    verbose_mode = (uvm_cmdline_processor::get_inst().get_arg_matches("+UART_BASIC_VERBOSE", verbose_arg_matches) > 0);
 
-        `uvm_info("DEBUG_SEQ", "Sequence body() started", UVM_LOW)
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ", "Sequence body() started", UVM_LOW)
+        end
 
         seq_handle = get_sequencer();
         if (seq_handle == null) begin
@@ -26,23 +31,30 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
         if (req_local == null) begin
             `uvm_fatal("DEBUG_SEQ", "Failed to allocate uart_frame_transaction")
         end
-    req_local.set_item_context(this, seq_handle);
-        `uvm_info("DEBUG_SEQ", $sformatf("Transaction object allocated at time=%0t", $time), UVM_LOW)
+        req_local.set_item_context(this, seq_handle);
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ", $sformatf("Transaction object allocated at time=%0t", $time), UVM_LOW)
+        end
 
-        // Dump sequencer state before starting the handshake (for queue visibility)
-        `uvm_info("DEBUG_SEQ_HANDSHAKE",
-            $sformatf("Sequencer state dump for %s at time=%0t", seq_handle.get_full_name(), $time),
-            UVM_LOW)
-        seq_handle.print();
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ_HANDSHAKE",
+                $sformatf("Sequencer state dump for %s at time=%0t", seq_handle.get_full_name(), $time),
+                UVM_LOW)
+            seq_handle.print();
+        end
 
         // Engage sequencer-driver handshake explicitly for visibility
-        `uvm_info("DEBUG_SEQ_HANDSHAKE",
-            $sformatf("start_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
-            UVM_LOW)
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ_HANDSHAKE",
+                $sformatf("start_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
+                UVM_LOW)
+        end
         start_item(req_local);
-        `uvm_info("DEBUG_SEQ_HANDSHAKE",
-            $sformatf("start_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
-            UVM_LOW)
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ_HANDSHAKE",
+                $sformatf("start_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
+                UVM_LOW)
+        end
 
         // Set transaction fields directly (avoids DSIM constraint solver limitations)
         req_local.is_write       = 1'b1;
@@ -56,17 +68,26 @@ class simple_debug_write_sequence_20250923 extends uvm_sequence #(uart_frame_tra
         req_local.data = new[1];
         req_local.data[0] = 8'h42;
 
+        if (req_local.data.size() != 1) begin
+            `uvm_fatal("DEBUG_SEQ_DATA",
+                $sformatf("Unexpected data payload size=%0d for debug write sequence", req_local.data.size()))
+        end
+
         // Rebuild protocol fields to match the configured payload
         req_local.build_cmd();
         req_local.calculate_crc();
 
-        `uvm_info("DEBUG_SEQ_HANDSHAKE",
-            $sformatf("finish_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
-            UVM_LOW)
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ_HANDSHAKE",
+                $sformatf("finish_item() begin for %s at time=%0t", seq_handle.get_full_name(), $time),
+                UVM_LOW)
+        end
         finish_item(req_local);
-        `uvm_info("DEBUG_SEQ_HANDSHAKE",
-            $sformatf("finish_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
-            UVM_LOW)
+        if (verbose_mode) begin
+            `uvm_info("DEBUG_SEQ_HANDSHAKE",
+                $sformatf("finish_item() returned for %s at time=%0t", seq_handle.get_full_name(), $time),
+                UVM_LOW)
+        end
 
         if (!req_local.expect_error && (!req_local.response_received || req_local.response_status == STATUS_TIMEOUT)) begin
             `uvm_fatal("DEBUG_SEQ_TIMEOUT",

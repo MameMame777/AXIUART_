@@ -31,6 +31,8 @@
 +incdir+tb
 +incdir+../../rtl
 +incdir+../../rtl/interfaces
++incdir+$UVM_HOME/src
++incdir+$uvm_home/src
 
 # RTL interface files (must be compiled first)
 interfaces/bridge_status_if.sv
@@ -54,6 +56,8 @@ interfaces/bridge_status_if.sv
 ../../rtl/Frame_Parser_Assertions.sv
 ../../rtl/Frame_Parser_CRC_Status_Assertions.sv
 ../../rtl/Frame_Parser_Assertions_Bind.sv
+../../rtl/Uart_Axi4_Bridge_Timeout_Assertions.sv
+../../rtl/Uart_Axi4_Bridge_Timeout_Bind.sv
 
 # Emergency diagnostic assertions (corrected path)
 ../emergency_frame_parser_diagnostics.sv

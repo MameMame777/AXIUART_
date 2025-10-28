@@ -14,7 +14,9 @@ module Uart_Axi4_Bridge #(
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
     parameter int TX_FIFO_DEPTH = 64,           // TX FIFO depth
-    parameter int MAX_LEN = 16                  // Maximum LEN field value
+    parameter int MAX_LEN = 16,                 // Maximum LEN field value
+    parameter int PARSER_TIMEOUT_BYTE_TIMES = 10, // Parser byte-time timeout window
+    parameter bit ENABLE_PARSER_TIMEOUT = 1'b1   // Enable parser timeout based recovery
 )(
     // Clock and reset
     input  logic        clk,
@@ -120,7 +122,7 @@ module Uart_Axi4_Bridge #(
     logic [7:0] parser_cmd;
     logic [31:0] parser_addr;
     logic [7:0] parser_data_out [0:63];
-    logic [5:0] parser_data_count;
+    logic [6:0] parser_data_count;
     logic parser_frame_valid;
     logic [7:0] parser_error_status;
     logic parser_frame_error;
@@ -133,14 +135,14 @@ module Uart_Axi4_Bridge #(
     logic axi_transaction_done;
     logic [7:0] axi_status;
     logic [7:0] axi_read_data [0:63];
-    logic [5:0] axi_read_data_count;
+    logic [6:0] axi_read_data_count;
     
     // Frame builder signals
     logic [7:0] builder_status_code;
     logic [7:0] builder_cmd_echo;
     logic [31:0] builder_addr_echo;
     logic [7:0] builder_response_data [0:63];
-    logic [5:0] builder_response_data_count;
+    logic [6:0] builder_response_data_count;
     logic builder_build_response;
     logic builder_is_read_response;
     logic builder_busy;
@@ -177,6 +179,7 @@ module Uart_Axi4_Bridge #(
     
     localparam logic [31:0] CONTROL_ADDR = 32'h0000_1000;
     localparam logic [7:0] STATUS_BUSY_CODE = 8'h06;
+    localparam logic [7:0] STATUS_TIMEOUT_CODE = 8'h04;
     
     // UART RX instance
     Uart_Rx #(
@@ -248,8 +251,8 @@ module Uart_Axi4_Bridge #(
     Frame_Parser #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
         .BAUD_RATE(BAUD_RATE),
-        .TIMEOUT_BYTE_TIMES(10),
-        .ENABLE_TIMEOUT(1'b0)  // Disable timeout for debugging
+        .TIMEOUT_BYTE_TIMES(PARSER_TIMEOUT_BYTE_TIMES),
+        .ENABLE_TIMEOUT(ENABLE_PARSER_TIMEOUT)
     ) frame_parser (
         .clk(clk),
         .rst(rst),
@@ -457,7 +460,7 @@ module Uart_Axi4_Bridge #(
         builder_status_code = 8'h00;
         builder_cmd_echo = 8'h00;
         builder_addr_echo = 32'h00000000;
-        builder_response_data_count = 6'h00;
+    builder_response_data_count = 7'd0;
 
         control_write_cmd = (!parser_cmd[7]) && (parser_addr == CONTROL_ADDR);
         
@@ -517,7 +520,7 @@ module Uart_Axi4_Bridge #(
                     // Error response
                     builder_status_code = parser_error_status;
                     builder_is_read_response = 1'b0;
-                    builder_response_data_count = 6'h00;
+                    builder_response_data_count = 7'd0;
                     `ifdef ENABLE_DEBUG
                         if (!builder_start_issued) begin
                             // Bridge error response
@@ -537,10 +540,10 @@ module Uart_Axi4_Bridge #(
                         if (axi_status == 8'h00) begin  // Success
                             builder_response_data_count = axi_read_data_count;
                         end else begin  // Error
-                            builder_response_data_count = 6'h00;
+                            builder_response_data_count = 7'd0;
                         end
                     end else begin  // Write response
-                        builder_response_data_count = 6'h00;
+                        builder_response_data_count = 7'd0;
                     end
                 end
                 
@@ -567,7 +570,7 @@ module Uart_Axi4_Bridge #(
                 builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
                 builder_status_code = STATUS_BUSY_CODE;
                 builder_is_read_response = captured_cmd[7]; // 修正: parser_cmd[7] → captured_cmd[7]
-                builder_response_data_count = 6'h00;
+                builder_response_data_count = 7'd0;
                 main_state_next = MAIN_WAIT_RESPONSE;
             end
         endcase
@@ -581,11 +584,18 @@ module Uart_Axi4_Bridge #(
             rx_valid && !rx_error |-> !rx_fifo_full
         ) else $warning("UART_Bridge: RX data lost due to FIFO overflow");
 
+        localparam int BIT_TIME_CYCLES = (BAUD_RATE > 0) ? (CLK_FREQ_HZ / BAUD_RATE) : 1;
+        localparam int PARSER_STALL_LIMIT = (BIT_TIME_CYCLES < 1) ? 1 : BIT_TIME_CYCLES * (PARSER_TIMEOUT_BYTE_TIMES + 2) * 12;
+
         // Frame parser should eventually become non-busy
-        assert_parser_eventually_idle: assert property (
-            @(posedge clk) disable iff (rst)
-            parser_busy |-> ##[1:10000] !parser_busy
-        ) else $error("UART_Bridge: Parser stuck in busy state");
+        generate
+            if (ENABLE_PARSER_TIMEOUT) begin : gen_parser_timeout_assert
+                assert_parser_eventually_idle: assert property (
+                    @(posedge clk) disable iff (rst)
+                        parser_busy |-> ##[1:PARSER_STALL_LIMIT] !parser_busy
+                ) else $error("UART_Bridge: Parser stuck in busy state");
+            end
+        endgenerate
 
         // AXI transaction should eventually complete
         assert_axi_eventually_done: assert property (
@@ -714,6 +724,8 @@ module Uart_Axi4_Bridge #(
     // Temporary handshake instrumentation for simulation debug only
     // -----------------------------------------------------------------------------
     logic parser_frame_valid_q;
+    logic parser_frame_error_q;
+    logic parser_busy_q;
     logic axi_start_transaction_q;
     logic axi_transaction_done_q;
     logic builder_response_complete_q;
@@ -722,6 +734,8 @@ module Uart_Axi4_Bridge #(
     logic rx_fifo_rd_en_q;
     logic rx_error_q;
     integer parser_frame_valid_count;
+    integer parser_frame_error_count;
+    integer parser_busy_count;
     integer axi_start_transaction_count;
     integer axi_transaction_done_count;
     integer builder_response_complete_count;
@@ -729,6 +743,8 @@ module Uart_Axi4_Bridge #(
     integer rx_fifo_write_count;
     integer rx_fifo_read_count;
     integer rx_error_count;
+    integer build_state_entry_count;
+    logic build_state_wait_logged;
 
     main_state_t main_state_q;
     logic builder_build_response_q;
@@ -737,6 +753,8 @@ module Uart_Axi4_Bridge #(
     always_ff @(posedge clk) begin
         if (rst) begin
             parser_frame_valid_q <= 1'b0;
+            parser_frame_error_q <= 1'b0;
+            parser_busy_q <= 1'b0;
             axi_start_transaction_q <= 1'b0;
             axi_transaction_done_q <= 1'b0;
             builder_response_complete_q <= 1'b0;
@@ -745,6 +763,8 @@ module Uart_Axi4_Bridge #(
             rx_fifo_rd_en_q <= 1'b0;
             rx_error_q <= 1'b0;
             parser_frame_valid_count <= 0;
+            parser_frame_error_count <= 0;
+            parser_busy_count <= 0;
             axi_start_transaction_count <= 0;
             axi_transaction_done_count <= 0;
             builder_response_complete_count <= 0;
@@ -757,6 +777,8 @@ module Uart_Axi4_Bridge #(
             builder_start_issued_q <= 1'b0;
         end else begin
             parser_frame_valid_q <= parser_frame_valid;
+            parser_frame_error_q <= parser_frame_error;
+            parser_busy_q <= parser_busy;
             axi_start_transaction_q <= axi_start_transaction;
             axi_transaction_done_q <= axi_transaction_done;
             builder_response_complete_q <= builder_response_complete;
@@ -766,6 +788,9 @@ module Uart_Axi4_Bridge #(
             rx_fifo_wr_en_q <= rx_fifo_wr_en;
             rx_fifo_rd_en_q <= rx_fifo_rd_en;
             rx_error_q <= rx_error;
+            if (main_state != MAIN_BUILD_RESPONSE) begin
+                build_state_wait_logged <= 1'b0;
+            end
 
             if (main_state != main_state_q) begin
                 $display("[%0t][BRIDGE_DEBUG] main_state %s -> %s (frame_valid=%0b error=%0b axi_done=%0b builder_done=%0b)",
@@ -776,6 +801,29 @@ module Uart_Axi4_Bridge #(
                          parser_frame_error,
                          axi_transaction_done,
                          builder_response_complete);
+            end
+            if (main_state == MAIN_BUILD_RESPONSE && main_state_q != MAIN_BUILD_RESPONSE) begin
+                build_state_entry_count <= build_state_entry_count + 1;
+                build_state_wait_logged <= 1'b0;
+                $display("[%0t][BRIDGE_DEBUG] MAIN_BUILD_RESPONSE entry #%0d: start_issued=%0b builder_busy=%0b build_req=%0b status=0x%02h cmd=0x%02h frame_err=%0b axi_done=%0b",
+                         $time,
+                         build_state_entry_count + 1,
+                         builder_start_issued,
+                         builder_busy,
+                         builder_build_response,
+                         builder_status_code,
+                         captured_cmd,
+                         parser_frame_error,
+                         axi_transaction_done);
+            end
+
+            if (main_state == MAIN_BUILD_RESPONSE && builder_start_issued && !builder_build_response && !build_state_wait_logged) begin
+                build_state_wait_logged <= 1'b1;
+                $display("[%0t][BRIDGE_DEBUG][WARN] Builder start already issued; build_response held low (cmd=0x%02h status=0x%02h busy=%0b)",
+                         $time,
+                         captured_cmd,
+                         builder_status_code,
+                         builder_busy);
             end
 
             if (parser_frame_valid && !parser_frame_valid_q) begin
@@ -789,6 +837,27 @@ module Uart_Axi4_Bridge #(
                 if (main_state == MAIN_IDLE) begin
                     $display("[%0t][BRIDGE_DEBUG][WARNING] Parser reported a valid frame while MAIN_IDLE persists", $time);
                 end
+            end
+
+            if (parser_frame_error && !parser_frame_error_q) begin
+                parser_frame_error_count <= parser_frame_error_count + 1;
+                $display("[%0t][BRIDGE_DEBUG][ERROR] parser_frame_error pulse #%0d status=0x%02h main_state=%s",
+                         $time,
+                         parser_frame_error_count,
+                         parser_error_status,
+                         main_state_to_string(main_state));
+                if (parser_error_status == STATUS_TIMEOUT_CODE) begin
+                    $display("[%0t][BRIDGE_DEBUG][TIMEOUT] Parser timeout detected; scheduling error response", $time);
+                end
+            end
+
+            if (parser_busy && !parser_busy_q) begin
+                parser_busy_count <= parser_busy_count + 1;
+                $display("[%0t][BRIDGE_DEBUG] parser_busy asserted #%0d main_state=%s", $time, parser_busy_count, main_state_to_string(main_state));
+            end
+
+            if (!parser_busy && parser_busy_q) begin
+                $display("[%0t][BRIDGE_DEBUG] parser_busy deasserted main_state=%s frame_valid=%0b frame_error=%0b", $time, main_state_to_string(main_state), parser_frame_valid, parser_frame_error);
             end
 
             if (rx_valid && !rx_valid_q) begin

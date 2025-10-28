@@ -75,6 +75,7 @@ class uart_monitor extends uvm_monitor;
     time rx_delta;
         
         forever begin
+            `uvm_info("UART_MONITOR_DBG", $sformatf("collect_tx_transactions loop tick at time=%0t monitor_enabled=%0d", $time, monitor_enabled), UVM_HIGH)
             if (!monitor_enabled) begin
                 @(posedge vif.clk);
                 continue;
@@ -189,7 +190,7 @@ class uart_monitor extends uvm_monitor;
             wait (vif.uart_tx == 1'b1);
             @(negedge vif.uart_tx);
             
-            `uvm_info("UART_MONITOR", "TX frame start detected", UVM_DEBUG)
+            `uvm_info("UART_MONITOR_TX", $sformatf("Detected TX start edge at %0t", $time), UVM_LOW)
             
             tr = uart_frame_transaction::type_id::create("uart_tx_tr");
             collected_bytes = new[100]; // Max frame size
@@ -212,7 +213,7 @@ class uart_monitor extends uvm_monitor;
                 byte_count++;
 
                 // Debug: Print each byte received
-                `uvm_info("UART_MONITOR", $sformatf("TX byte[%0d]: 0x%02X", byte_count-1, temp_byte), UVM_DEBUG)
+                `uvm_info("UART_MONITOR_TX", $sformatf("Collected TX byte[%0d]=0x%02X", byte_count-1, temp_byte), UVM_MEDIUM)
 
                 expected_length = calculate_expected_tx_frame_length(collected_bytes, byte_count);
 
@@ -266,18 +267,31 @@ class uart_monitor extends uvm_monitor;
                 tr.response_received = 1;
             end
 
-            `uvm_info("UART_MONITOR", $sformatf("TX Frame detected: %0d bytes, status=0x%02X", byte_count, tr.response_status), UVM_MEDIUM)
+            `uvm_info("UART_MONITOR_TX", $sformatf("TX Frame parsed: len=%0d status=0x%02X parse_err=%s", byte_count, tr.response_status, tr.parse_error_kind.name()), UVM_LOW)
 
             // Send to analysis port for subscribers (driver, scoreboard, coverage)
             tx_publish_count++;
             tx_delta = (last_tx_publish_time != 0) ? ($time - last_tx_publish_time) : 0;
+            // Extra lightweight debug trace to help determine if TX frames reach analysis subscribers
+            `uvm_info("UART_MONITOR_DBG",
+                $sformatf("DBG MONITOR_TX_PUBLISH: @%0t (#%0d delta=%0t) cmd=0x%02X len=%0d status=0x%02X parse_err=%s crc_ok=%0b ts=%0t",
+                    $time, tx_publish_count, tx_delta, tr.cmd, tr.frame_length, tr.response_status,
+                    tr.parse_error_kind.name(), tr.crc_valid, tr.timestamp),
+                UVM_LOW)
             `uvm_info("UART_MONITOR",
                 $sformatf("MONITOR_WRITE TX @%0t (#%0d delta=%0t): dir=TX CMD=0x%02X ADDR=0x%08X len=%0d status=0x%02X parse_err=%s crc_ok=%0b ts=%0t",
                     $time, tx_publish_count, tx_delta, tr.cmd, tr.addr, tr.frame_length, tr.response_status,
                     tr.parse_error_kind.name(), tr.crc_valid, tr.timestamp),
                 UVM_LOW)
+            // Hard log even when verbosity filters are high so DSIM captures the publish event.
+            `uvm_info("UART_MONITOR_TX_PUBLISH",
+                $sformatf("TX publish forced log: time=%0t idx=%0d len=%0d status=0x%02X parse_err=%s subscribers=%0d",
+                    $time, tx_publish_count, tr.frame_length, tr.response_status,
+                    tr.parse_error_kind.name(), item_collected_port.size()),
+                UVM_NONE)
             last_tx_publish_time = $time;
             item_collected_port.write(tr);
+            `uvm_info("UART_MONITOR_DBG", $sformatf("analysis_port.write() done for TX #%0d ts=%0t", tx_publish_count, $time), UVM_LOW)
             
             // Collect coverage
             if (coverage != null) begin

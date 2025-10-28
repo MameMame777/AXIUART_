@@ -1,4 +1,6 @@
-﻿//==============================================================================
+﻿`timescale 1ns / 1ps
+
+//==============================================================================
 // Register Block Detailed Verification Test
 // 
 // Purpose: Comprehensive testing of Register_Block.sv internal logic

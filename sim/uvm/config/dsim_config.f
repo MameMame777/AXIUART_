@@ -33,6 +33,8 @@
 
 # Assertions modules
 ../rtl/uart_axi4_assertions.sv
+../../rtl/Uart_Axi4_Bridge_Timeout_Assertions.sv
+../../rtl/Uart_Axi4_Bridge_Timeout_Bind.sv
 
 # UVM package files (in dependency order)
 ../packages/uart_axi4_test_pkg.sv

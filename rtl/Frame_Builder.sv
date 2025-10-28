@@ -15,7 +15,7 @@ module Frame_Builder (
     input  logic [7:0]  cmd_echo,           // Echo of original command
     input  logic [31:0] addr_echo,          // Echo of address (for read responses)
     input  logic [7:0]  response_data [0:63], // Response data (for read responses)
-    input  logic [5:0]  response_data_count,   // Number of response data bytes
+    input  logic [6:0]  response_data_count,   // Number of response data bytes
     input  logic        build_response,     // Start building response
     input  logic        is_read_response,   // True for read response, false for write
     
@@ -52,7 +52,7 @@ module Frame_Builder (
     logic [7:0] debug_cmd_echo_in;    // CMD_ECHO received from bridge
     logic [7:0] debug_cmd_echo_out;   // CMD_ECHO sent to UART
     logic       debug_response_type;  // Read/Write response type flag
-    logic [5:0] debug_data_count;     // Response data count
+    logic [6:0] debug_data_count;     // Response data count
     
     // State machine
     typedef enum logic [3:0] {
@@ -77,8 +77,8 @@ module Frame_Builder (
     logic [7:0]  cmd_reg;
     logic [31:0] addr_reg;
     logic [7:0]  data_reg [0:63];
-    logic [5:0]  data_count_reg;
-    logic [5:0]  data_index;
+    logic [6:0]  data_count_reg;
+    logic [6:0]  data_index;
     logic        is_read_reg;
     
     // Edge detection for build_response
@@ -125,10 +125,19 @@ module Frame_Builder (
             
             // Load inputs when build_response rising edge detected (single clock edge trigger)
             if (build_response_edge && (state == IDLE)) begin
+                logic [6:0] sanitized_count;
+
                 status_reg <= status_code;
                 cmd_reg <= cmd_echo;
                 addr_reg <= addr_echo;
-                data_count_reg <= response_data_count;
+
+                sanitized_count = response_data_count;
+                if (response_data_count > 7'd64) begin
+                    sanitized_count = 7'd64;
+                    $error("[FRAME_BUILDER] response_data_count exceeds 64 bytes");
+                end
+
+                data_count_reg <= sanitized_count;
                 data_index <= '0;
                 is_read_reg <= is_read_response;
                 
@@ -140,7 +149,12 @@ module Frame_Builder (
             
             // Increment data index when writing data bytes successfully
             if ((state == DATA) && tx_fifo_wr_en && !tx_fifo_full) begin
-                data_index <= data_index + 1;
+                if (data_index < 7'd64) begin
+                    data_index <= data_index + 7'd1;
+                end else begin
+                    data_index <= 7'd64;
+                    $error("[FRAME_BUILDER] data_index overflow detected");
+                end
             end
             
             // Reset data_index when starting new frame
@@ -164,6 +178,60 @@ module Frame_Builder (
                 builder_response_done_pulse <= 1'b1;
             end else begin
                 builder_response_done_pulse <= 1'b0;
+            end
+        end
+    end
+
+    // ---------------------------------------------------------------------
+    // Debug tracing helpers (limited logging to avoid log flood)
+    // ---------------------------------------------------------------------
+    integer debug_build_count;
+    integer debug_tx_write_count;
+    logic response_complete_q;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            debug_build_count <= 0;
+            debug_tx_write_count <= 0;
+            response_complete_q <= 1'b0;
+        end else begin
+            response_complete_q <= response_complete;
+
+            if (build_response_edge && state == IDLE) begin
+                // Track how many times the builder is kicked off
+                debug_build_count <= debug_build_count + 1;
+                $display("[%0t][FRAME_BUILDER_DEBUG] build_response_edge #%0d status=0x%02h cmd=0x%02h read=%0b data_count=%0d fifo_full=%0b",
+                         $time,
+                         debug_build_count + 1,
+                         status_code,
+                         cmd_echo,
+                         is_read_response,
+                         response_data_count,
+                         tx_fifo_full);
+                // Reset byte counter for the new frame
+                debug_tx_write_count <= 0;
+            end
+
+            if (tx_fifo_wr_en && !tx_fifo_full) begin
+                debug_tx_write_count <= debug_tx_write_count + 1;
+                if (debug_tx_write_count <= 16) begin
+                    $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE #%0d state=%0d byte=0x%02h fifo_full=%0b",
+                             $time,
+                             debug_tx_write_count,
+                             state,
+                             tx_fifo_data,
+                             tx_fifo_full);
+                end else if (debug_tx_write_count == 17) begin
+                    $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE limit reached, suppressing additional byte logs",
+                             $time);
+                end
+            end
+
+            if (response_complete && !response_complete_q) begin
+                $display("[%0t][FRAME_BUILDER_DEBUG] response_complete asserted after %0d tx writes (state=%0d)",
+                         $time,
+                         debug_tx_write_count,
+                         state);
             end
         end
     end
@@ -333,7 +401,7 @@ module Frame_Builder (
                     crc_data_in = data_reg[data_index];
                     
                     // Check if this will be the last data byte after incrementing
-                    if ((data_index + 1) == data_count_reg) begin
+                    if ((data_index + 7'd1) == data_count_reg) begin
                         state_next = CRC;
                     end
                     // else stay in DATA state for next byte

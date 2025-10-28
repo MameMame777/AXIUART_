@@ -53,8 +53,8 @@ module Frame_Parser_Assertions (
     
     // Debug signals for enhanced monitoring
     input logic [31:0] addr_reg,
-    input logic [5:0] data_byte_count,
-    input logic [5:0] expected_data_bytes
+    input logic [6:0] data_byte_count,
+    input logic [6:0] expected_data_bytes
 );
 
     // State definitions (must match Frame_Parser.sv)

@@ -17,8 +17,12 @@ module Uart_Rx #(
 );
 
     // Baud rate generator
-    localparam int BAUD_DIV = CLK_FREQ_HZ / (BAUD_RATE * OVERSAMPLE);
-    localparam int BAUD_WIDTH = $clog2(BAUD_DIV);
+    localparam int BAUD_MULT = BAUD_RATE * OVERSAMPLE;
+    localparam int BAUD_DIV_UNCLAMPED = (BAUD_MULT > 0)
+        ? (CLK_FREQ_HZ + (BAUD_MULT / 2)) / BAUD_MULT
+        : 1;
+    localparam int BAUD_DIV = (BAUD_DIV_UNCLAMPED < 1) ? 1 : BAUD_DIV_UNCLAMPED;
+    localparam int BAUD_WIDTH = (BAUD_DIV <= 1) ? 1 : $clog2(BAUD_DIV);
     
     logic [BAUD_WIDTH-1:0] baud_counter;
     logic baud_tick;
@@ -40,6 +44,16 @@ module Uart_Rx #(
     } rx_state_t;
     
     rx_state_t rx_state, rx_state_next;
+
+    function automatic string rx_state_to_string(rx_state_t state);
+        case (state)
+            IDLE:      return "IDLE";
+            START_BIT: return "START_BIT";
+            DATA_BITS: return "DATA_BITS";
+            STOP_BIT:  return "STOP_BIT";
+            default:   return "UNKNOWN";
+        endcase
+    endfunction
     
     // Data shift register
     logic [7:0] rx_shift_reg;
@@ -193,6 +207,14 @@ module Uart_Rx #(
 
     // Assertions for verification
     `ifdef ENABLE_UART_RX_ASSERTIONS
+        localparam int RX_FRAME_BITS = 1 + 8 + 1;  // start + data + stop
+        localparam int RX_MARGIN_BITS = 2;          // guard bits to tolerate jitter/handshake gaps
+        localparam int RX_CYCLES_PER_BIT = (BAUD_RATE > 0)
+            ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
+            : 1;
+        localparam int RX_SAFE_CYCLES_PER_BIT = (RX_CYCLES_PER_BIT < 1) ? 1 : RX_CYCLES_PER_BIT;
+        localparam int RX_MAX_BUSY_CYCLES = RX_SAFE_CYCLES_PER_BIT * (RX_FRAME_BITS + RX_MARGIN_BITS);
+
         // rx_valid should be a single-cycle pulse
         assert_rx_valid_pulse: assert property (
             @(posedge clk) disable iff (rst)
@@ -205,13 +227,84 @@ module Uart_Rx #(
             rx_error |-> rx_valid
         ) else $error("UART_RX: rx_error without rx_valid");
 
-        // State machine should return to IDLE eventually
-        // UART receive requires: 10 bits × 16 oversampling × (CLK_FREQ/BAUD_RATE) cycles
-        // For 100MHz/115200 = ~5400 cycles per byte, using 10000 for safety margin
+        // State machine should return to IDLE within a full frame duration plus guard time
         assert_eventually_idle: assert property (
             @(posedge clk) disable iff (rst)
-            rx_busy |-> ##[1:10000] !rx_busy
+            rx_busy |-> ##[1:RX_MAX_BUSY_CYCLES] !rx_busy
         ) else $error("UART_RX: State machine stuck, not returning to IDLE");
+    `endif
+
+    // Optional debug tracing to capture state transitions and sampling
+    `ifdef ENABLE_UART_RX_DEBUG
+        logic [7:0] debug_event_count;
+        rx_state_t rx_state_prev;
+        logic rx_synced_prev;
+        logic [5:0] stop_bit_debug_count;
+
+        function automatic string rx_debug_state(rx_state_t state);
+            return rx_state_to_string(state);
+        endfunction
+
+        always_ff @(posedge clk) begin
+            if (rst) begin
+                debug_event_count <= '0;
+                rx_state_prev <= IDLE;
+                rx_synced_prev <= 1'b1;
+                stop_bit_debug_count <= '0;
+            end else begin
+                if (rx_synced_prev != rx_synced && debug_event_count < 128) begin
+                    $display(
+                        "[%0t][UART_RX_DEBUG] rx_synced change %0b -> %0b state=%s sample_counter=%0d baud_counter=%0d",
+                        $time,
+                        rx_synced_prev,
+                        rx_synced,
+                        rx_debug_state(rx_state),
+                        sample_counter,
+                        baud_counter
+                    );
+                    debug_event_count <= debug_event_count + 1;
+                end
+                rx_synced_prev <= rx_synced;
+
+                if (rx_state_prev != rx_state) begin
+                    if (debug_event_count < 128) begin
+                        $display(
+                            "[%0t][UART_RX_DEBUG] state %s -> %s rx_synced=%0b sample_counter=%0d baud_counter=%0d",
+                            $time,
+                            rx_debug_state(rx_state_prev),
+                            rx_debug_state(rx_state),
+                            rx_synced,
+                            sample_counter,
+                            baud_counter
+                        );
+                        debug_event_count <= debug_event_count + 1;
+                    end
+                    rx_state_prev <= rx_state;
+                end
+
+                if (sample_tick && (debug_event_count < 128)) begin
+                    $display(
+                        "[%0t][UART_RX_DEBUG] sample_tick state=%s rx_synced=%0b bit_counter=%0d sample_counter=%0d",
+                        $time,
+                        rx_debug_state(rx_state),
+                        rx_synced,
+                        bit_counter,
+                        sample_counter
+                    );
+                    debug_event_count <= debug_event_count + 1;
+                end
+
+                if ((rx_state == STOP_BIT) && baud_tick && (stop_bit_debug_count < 32)) begin
+                    $display(
+                        "[%0t][UART_RX_DEBUG] stop_bit_tracking baud_tick=1 sample_counter=%0d sample_tick=%0b",
+                        $time,
+                        sample_counter,
+                        sample_tick
+                    );
+                    stop_bit_debug_count <= stop_bit_debug_count + 1;
+                end
+            end
+        end
     `endif
 
 endmodule

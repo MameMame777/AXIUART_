@@ -1,7 +1,5 @@
 `timescale 1ns / 1ps
 
-// Temporary simulation acceleration: align fast baud rate with DUT simulation overrides
-`define SIM_FAST_BAUD 1_152_000
 
 import uvm_pkg::*;
 import uart_axi4_test_pkg::*;  // Import our test package
@@ -93,12 +91,10 @@ class uart_axi4_base_test extends uvm_test;
         
         // UART configuration
     cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
-`ifdef SIM_FAST_BAUD
-    cfg.baud_rate = `SIM_FAST_BAUD; // Accelerated baud rate for simulation throughput
-`else
-    cfg.baud_rate = 115_200;        // Default baud rate for hardware alignment
-`endif
-    cfg.byte_time_ns = (1_000_000_000 / cfg.baud_rate) * 10; // 8N1 = 10 bits
+        cfg.baud_rate = 115_200;        // Align with DUT baud rate for stable UART sampling
+
+    // Recompute dependent timing values after updating the baud rate
+    cfg.calculate_timing();
     cfg.frame_timeout_ns = cfg.byte_time_ns * 32;            // Guard for multi-byte frames
         
         // Timing configuration  

@@ -7,6 +7,10 @@ class uart_axi4_env extends uvm_env;
     
     // Configuration
     uart_axi4_env_config cfg;
+    bit scoreboard_active;
+    bit coverage_active;
+    bit axi_monitor_active;
+    bit status_monitor_active;
     
     // Agents - UART only for AXIUART_Top (no external AXI interface)
     uart_agent uart_agt;
@@ -28,11 +32,16 @@ class uart_axi4_env extends uvm_env;
         if (!uvm_config_db#(uart_axi4_env_config)::get(this, "", "cfg", cfg)) begin
             `uvm_fatal("ENV", "Failed to get configuration object")
         end
+
+        scoreboard_active = (cfg.enable_scoreboard || cfg.enable_correlation);
+        coverage_active = cfg.enable_coverage;
+        axi_monitor_active = cfg.enable_axi_monitor;
+        status_monitor_active = cfg.enable_system_status_monitoring;
         
         // Create agents - UART only for AXIUART_Top system
         uart_agt = uart_agent::type_id::create("uart_agt", this);
 
-        if (cfg.enable_axi_monitor) begin
+        if (axi_monitor_active) begin
             if (cfg.axi_vif == null) begin
                 `uvm_fatal("ENV", "AXI monitor enabled but cfg.axi_vif is null")
             end
@@ -48,20 +57,20 @@ class uart_axi4_env extends uvm_env;
         uvm_config_db#(uart_axi4_env_config)::set(this, "uart_agt*", "cfg", cfg);
         
         // Create analysis components
-        if (cfg.enable_scoreboard || cfg.enable_correlation) begin
+        if (scoreboard_active) begin
             phase3_scoreboard = uart_axi4_scoreboard::type_id::create("phase3_scoreboard", this);
             `uvm_info("ENV", "Phase 3 Scoreboard with Correlation Engine created", UVM_MEDIUM)
         end
         
-        if (cfg.enable_coverage) begin
+        if (coverage_active) begin
             coverage = uart_axi4_coverage::type_id::create("coverage", this);
             uvm_config_db#(uart_axi4_env_config)::set(this, "coverage", "cfg", cfg);
-            if (cfg.enable_axi_monitor && axi_monitor != null) begin
+            if (axi_monitor_active && axi_monitor != null) begin
                 uvm_config_db#(uart_axi4_coverage)::set(this, "axi_monitor", "coverage", coverage);
             end
         end
 
-        if (cfg.enable_system_status_monitoring) begin
+        if (status_monitor_active) begin
             bridge_status_mon = bridge_status_monitor::type_id::create("bridge_status_mon", this);
             uvm_config_db#(uart_axi4_env_config)::set(this, "bridge_status_mon", "cfg", cfg);
         end
@@ -70,49 +79,19 @@ class uart_axi4_env extends uvm_env;
     virtual function void connect_phase(uvm_phase phase);
         super.connect_phase(phase);
         
-        // Phase 4.1b: Connect UART/AXI monitors to scoreboard (CORRECT IMPLEMENTATION)
-        if (cfg.enable_scoreboard || cfg.enable_correlation) begin
-            if (phase3_scoreboard == null) begin
-                `uvm_fatal("ENV", "Scoreboard requested but phase3_scoreboard handle is null")
-            end
-
-            if (uart_agt == null) begin
-                `uvm_fatal("ENV", "UART agent not constructed; cannot connect scoreboard streams")
-            end
-
-            if (uart_agt.monitor != null) begin
-                uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
-                `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
-            end else begin
-                `uvm_fatal("ENV", "UART monitor not available; scoreboard correlation path cannot be established")
-            end
-
-            if (uart_agt.driver == null) begin
-                `uvm_fatal("ENV", "UART driver not constructed; scoreboard cannot receive metadata")
-            end
-
-            // Forward driver-side request metadata so the scoreboard knows the intended behavior
-            uart_agt.driver.tx_request_ap.connect(phase3_scoreboard.uart_expected_analysis_imp);
-            `uvm_info("ENV", "Connected UART driver request port to scoreboard metadata input", UVM_LOW)
+        if (scoreboard_active) begin
+            connect_scoreboard_streams();
         end
 
-        // Connect UART agent to coverage
-        if (cfg.enable_coverage && coverage != null && uart_agt.monitor != null) begin
-            uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
-            `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
+        if (coverage_active) begin
+            connect_coverage_streams();
         end
 
-        if (cfg.enable_axi_monitor && axi_monitor != null) begin
-            if ((cfg.enable_scoreboard || cfg.enable_correlation) && phase3_scoreboard != null) begin
-                axi_monitor.analysis_port.connect(phase3_scoreboard.axi_analysis_imp);
-                `uvm_info("ENV", "Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
-            end
+        if (axi_monitor_active) begin
+            connect_axi_streams();
         end
-        
-        // Phase 3: Connect UART transactions to correlation engine
+
         if (cfg.enable_correlation && phase3_scoreboard != null && uart_agt.monitor != null) begin
-            // Note: UART monitor needs to be enhanced to support Phase 3 scoreboard
-            // For now, we'll implement this through transaction forwarding
             `uvm_info("ENV", "Phase 3 Scoreboard ready for UART frame correlation", UVM_MEDIUM)
         end
     endfunction
@@ -121,6 +100,59 @@ class uart_axi4_env extends uvm_env;
     virtual function void report_phase(uvm_phase phase);
         super.report_phase(phase);
         `uvm_info("ENV", "Environment cleanup completed", UVM_LOW)
+    endfunction
+
+    protected function void connect_scoreboard_streams();
+        if (phase3_scoreboard == null) begin
+            `uvm_fatal("ENV", "Scoreboard requested but phase3_scoreboard handle is null")
+        end
+
+        if (uart_agt == null) begin
+            `uvm_fatal("ENV", "UART agent not constructed; cannot connect scoreboard streams")
+        end
+
+        if (uart_agt.monitor == null) begin
+            `uvm_fatal("ENV", "UART monitor not available; scoreboard correlation path cannot be established")
+        end
+
+        uart_agt.monitor.analysis_port.connect(phase3_scoreboard.uart_analysis_imp);
+        `uvm_info("ENV", "Connected UART monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
+
+        if (uart_agt.driver == null) begin
+            `uvm_fatal("ENV", "UART driver not constructed; scoreboard cannot receive metadata")
+        end
+
+        uart_agt.driver.tx_request_ap.connect(phase3_scoreboard.uart_expected_analysis_imp);
+        `uvm_info("ENV", "Connected UART driver request port to scoreboard metadata input", UVM_LOW)
+    endfunction
+
+    protected function void connect_coverage_streams();
+        if (coverage == null) begin
+            `uvm_fatal("ENV", "Coverage requested but coverage component is null")
+        end
+
+        if (uart_agt == null || uart_agt.monitor == null) begin
+            `uvm_fatal("ENV", "UART monitor not available; coverage cannot consume transactions")
+        end
+
+        uart_agt.monitor.analysis_port.connect(coverage.analysis_export);
+        `uvm_info("ENV", "Connected UART monitor to coverage collector", UVM_LOW)
+    endfunction
+
+    protected function void connect_axi_streams();
+        if (axi_monitor == null) begin
+            `uvm_fatal("ENV", "AXI monitor requested but handle is null")
+        end
+
+        if (scoreboard_active && phase3_scoreboard != null) begin
+            axi_monitor.analysis_port.connect(phase3_scoreboard.axi_analysis_imp);
+            `uvm_info("ENV", "Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)", UVM_LOW)
+        end
+
+        if (coverage_active && coverage != null) begin
+            // Coverage registration handled in build via config_db when needed
+            `uvm_info("ENV", "AXI monitor coverage hooks active", UVM_LOW)
+        end
     endfunction
 
 endclass

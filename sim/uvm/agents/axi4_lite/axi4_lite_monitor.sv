@@ -21,6 +21,8 @@ class axi4_lite_monitor extends uvm_monitor;
     
     // Internal variables
     bit monitor_enabled = 1;
+    bit enable_signal_trace = 0;
+    string trace_plusargs[$];
     
     function new(string name = "axi4_lite_monitor", uvm_component parent = null);
         super.new(name, parent);
@@ -48,6 +50,12 @@ class axi4_lite_monitor extends uvm_monitor;
         // Get coverage collector
         if (!uvm_config_db#(uart_axi4_coverage)::get(this, "", "coverage", coverage)) begin
             `uvm_info("AXI4_LITE_MONITOR", "Coverage collector not found - coverage disabled", UVM_LOW)
+        end
+
+        uvm_cmdline_processor::get_inst().get_arg_matches("+AXI_MONITOR_VERBOSE", trace_plusargs);
+        if (trace_plusargs.size() != 0) begin
+            enable_signal_trace = 1;
+            `uvm_info("AXI4_LITE_MONITOR", "AXI monitor signal trace enabled via +AXI_MONITOR_VERBOSE", UVM_LOW)
         end
         `uvm_info("AXI4_LITE_MONITOR", "=== BUILD_PHASE COMPLETED ===", UVM_LOW)
     endfunction
@@ -101,24 +109,23 @@ class axi4_lite_monitor extends uvm_monitor;
             @(posedge vif.aclk);
             clock_count++;
             
-            `uvm_info("AXI4_LITE_MONITOR", $sformatf("*** WRITE TASK CLOCK %0d ***", clock_count), UVM_HIGH)
-            
-            // First 10 clocks - aggressive logging
-            if (clock_count <= 10) begin
-                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write monitor Clock %0d - ALL AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
-                          clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_LOW)
-            end
-            
-            // Regular periodic logging every 100 clocks and when any signal is active
-            if ((clock_count % 100 == 0) || vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
-                `uvm_info("AXI4_LITE_MONITOR", $sformatf("Clock %0d - AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
-                          clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_HIGH)
-            end
-            
-            // Additional debug for complete signal state
-            if (vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
-                `uvm_info("AXI4_LITE_MONITOR", $sformatf("AXI activity detected: wdata=0x%08x, wstrb=0x%x, resp=0x%x", 
-                          vif.wdata, vif.wstrb, vif.bresp), UVM_HIGH)
+            if (enable_signal_trace) begin
+                `uvm_info("AXI4_LITE_MONITOR", $sformatf("*** WRITE TASK CLOCK %0d ***", clock_count), UVM_HIGH)
+                
+                if (clock_count <= 10) begin
+                    `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write monitor Clock %0d - ALL AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
+                              clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_LOW)
+                end
+                
+                if ((clock_count % 100 == 0) || vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
+                    `uvm_info("AXI4_LITE_MONITOR", $sformatf("Clock %0d - AXI signals: awvalid=%b awready=%b wvalid=%b wready=%b bvalid=%b bready=%b awaddr=0x%08x", 
+                              clock_count, vif.awvalid, vif.awready, vif.wvalid, vif.wready, vif.bvalid, vif.bready, vif.awaddr), UVM_HIGH)
+                end
+                
+                if (vif.awvalid || vif.wvalid || vif.bready || vif.awready || vif.wready || vif.bvalid) begin
+                    `uvm_info("AXI4_LITE_MONITOR", $sformatf("AXI activity detected: wdata=0x%08x, wstrb=0x%x, resp=0x%x", 
+                              vif.wdata, vif.wstrb, vif.bresp), UVM_HIGH)
+                end
             end
             
             if (vif.awvalid && vif.awready) begin
@@ -199,7 +206,7 @@ class axi4_lite_monitor extends uvm_monitor;
             @(posedge vif.aclk);
             read_clock_count++;
             
-            if (read_clock_count <= 5) begin
+            if (enable_signal_trace && (read_clock_count <= 5)) begin
                 `uvm_info("AXI4_LITE_MONITOR", $sformatf("*** READ TASK CLOCK %0d ***", read_clock_count), UVM_HIGH)
             end
             

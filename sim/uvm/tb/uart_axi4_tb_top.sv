@@ -14,6 +14,7 @@ module uart_axi4_tb_top;
     
     // Clock and reset
     logic clk;
+    logic rst;
     logic rst_n;
     
     // System status signals from DUT (simulation only)
@@ -24,8 +25,8 @@ module uart_axi4_tb_top;
     `endif
     
     // Interface instances
-    uart_if uart_if_inst(clk, rst_n);
-    bridge_status_if status_if(clk);
+    uart_if uart_if_inst(clk, rst);
+    bridge_status_if status_if(clk, rst_n);
     
     // AXI4-Lite interface for monitoring - will connect directly to DUT's internal interface
     // No need for separate interface instance since DUT provides axi_internal interface
@@ -64,8 +65,8 @@ module uart_axi4_tb_top;
         .MAX_LEN(16),
         .REG_BASE_ADDR(32'h0000_1000)
     ) dut (
-        .clk(clk),
-        .rst(~rst_n),  // RTL expects active-high reset
+    .clk(clk),
+    .rst(rst),
         
         // UART interface - external connections
         .uart_rx(uart_if_inst.uart_rx),
@@ -116,8 +117,10 @@ module uart_axi4_tb_top;
     
     // Reset generation - EXTENDED RESET for stability
     initial begin
+        rst   = 1'b1;
         rst_n = 1'b0;
         repeat (100) @(posedge clk);  // 100 clock cycles = 2us reset
+        rst   = 1'b0;
         rst_n = 1'b1;
         `uvm_info("TB_TOP", "Reset released after extended period", UVM_MEDIUM)
         

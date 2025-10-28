@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // =============================================================================
 // uart_axi4_register_simple_sequence.sv
 // Simple Register Test Sequence with Fixed Values (No Randomization)

@@ -20,7 +20,7 @@ module DUT_Diagnostic_Assertions (
     input logic parser_frame_error,
     input logic [7:0] parser_cmd,
     input logic [31:0] parser_addr,
-    input logic [5:0] parser_data_count,
+    input logic [6:0] parser_data_count,
     input logic parser_frame_consumed,
     input logic parser_busy,
     

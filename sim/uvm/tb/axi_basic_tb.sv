@@ -48,7 +48,7 @@ module axi_basic_tb;
     logic        axi_transaction_done;      // Transaction completion
     logic [7:0]  axi_status;                // Transaction status
     logic [7:0]  axi_read_data [0:63];      // Read data array
-    logic [5:0]  axi_read_data_count;       // Read data count
+    logic [6:0]  axi_read_data_count;       // Read data count
     
     Axi4_Lite_Master axi_master (
         .clk(clk),

@@ -70,8 +70,8 @@ module AXIUART_Top #(
         end
     end
     
-    // Use accelerated baud rate in simulation to reduce runtime
-    localparam int EFFECTIVE_BAUD_RATE = `ifdef DEFINE_SIM 1_152_000 `else BAUD_RATE `endif;
+    // Keep DUT baud rate aligned with UVM driver configuration in all builds
+    localparam int EFFECTIVE_BAUD_RATE = BAUD_RATE;
 
     // UART-AXI4 Bridge instantiation
     Uart_Axi4_Bridge #(

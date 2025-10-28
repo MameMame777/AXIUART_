@@ -12,7 +12,7 @@ import subprocess
 import time
 from pathlib import Path
 
-def run_mcp_tool(workspace, tool, test_name, mode, verbosity="UVM_MEDIUM", waves=False, coverage=False, timeout=300):
+def run_mcp_tool(workspace, tool, test_name, mode, verbosity="UVM_MEDIUM", waves=True, coverage=False, timeout=300):
     """Execute MCP client with specified parameters"""
     cmd = [
         sys.executable,
@@ -27,6 +27,8 @@ def run_mcp_tool(workspace, tool, test_name, mode, verbosity="UVM_MEDIUM", waves
     
     if waves:
         cmd.append("--waves")
+    else:
+        cmd.append("--no-waves")
     if coverage:
         cmd.append("--coverage")
     
@@ -41,7 +43,9 @@ def main():
     parser = argparse.ArgumentParser(description="Batch compile-and-run for DSIM UVM tests")
     parser.add_argument("--test-name", required=True, help="UVM test name to execute")
     parser.add_argument("--verbosity", default="UVM_MEDIUM", help="UVM verbosity level (default: UVM_MEDIUM)")
-    parser.add_argument("--waves", action="store_true", help="Enable waveform generation")
+    parser.add_argument("--waves", dest="waves", action="store_true", help="Enable waveform generation (default)")
+    parser.add_argument("--no-waves", dest="waves", action="store_false", help="Disable waveform generation")
+    parser.set_defaults(waves=True)
     parser.add_argument("--coverage", action="store_true", help="Enable coverage collection")
     parser.add_argument("--compile-timeout", type=int, default=120, help="Compile timeout in seconds (default: 120)")
     parser.add_argument("--run-timeout", type=int, default=300, help="Run timeout in seconds (default: 300)")
@@ -68,6 +72,7 @@ def main():
         test_name=args.test_name,
         mode="compile",
         verbosity="UVM_LOW",  # Low verbosity for compile
+        waves=False,
         timeout=args.compile_timeout
     )
     

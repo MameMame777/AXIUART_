@@ -5,11 +5,10 @@ class uart_axi4_env_config extends uvm_object;
     
     // Clock and timing parameters
     int clk_freq_hz = 125_000_000;
-    // Debug acceleration: temporarily increase baud_rate to speed simulation
-    // Reset to 115200 for final runs
-    int baud_rate = 10000000; // 10 MHz (fast mode for debug)
-    int bit_time_ns = 100; // approx 1e9 / 10e6
-    int byte_time_ns = 1000; // bit_time_ns * 10
+    // Baud rate must match DUT parameterization (Uart_Axi4_Bridge.BAUD_RATE)
+    int baud_rate = 9_600;
+    int bit_time_ns;
+    int byte_time_ns;
     
     // Test control parameters
     bit enable_coverage = 1'b1;
@@ -92,6 +91,7 @@ class uart_axi4_env_config extends uvm_object;
     
     function new(string name = "uart_axi4_env_config");
         super.new(name);
+        calculate_timing();
     endfunction
     
     // Calculate timing values based on baud rate

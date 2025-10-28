@@ -193,7 +193,7 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
         return DSIMError(
             "Simulation timeout occurred",
             "timeout",
-            "Increase timeout value or check for infinite loops in testbench",
+            "Investigate RTL or testbench stalls using DSIM logs and waveforms; resolve handshake or loop deadlocks before adjusting execution limits",
             exit_code
         )
     else:
@@ -328,14 +328,14 @@ Output:
     except subprocess.TimeoutExpired:
         raise DSIMError(
             f"DSIM command timed out after {timeout} seconds",
-            "timeout", 
-            f"Increase timeout value (current: {timeout}s) or optimize testbench for faster execution"
+            "timeout",
+            "Inspect RTL/testbench for blocking conditions; review DSIM logs, waveforms, and handshake monitors to eliminate stalls instead of extending the timeout"
         )
     except asyncio.TimeoutError:
         raise DSIMError(
             f"DSIM command timed out after {timeout} seconds",
-            "timeout", 
-            f"Increase timeout value (current: {timeout}s) or optimize testbench for faster execution"
+            "timeout",
+            "Inspect RTL/testbench for blocking conditions; review DSIM logs, waveforms, and handshake monitors to eliminate stalls instead of extending the timeout"
         )
     except FileNotFoundError as e:
         raise DSIMError(
@@ -358,8 +358,8 @@ async def run_uvm_simulation(
     test_name: str = "uart_axi4_basic_test",
     mode: Literal["run", "compile", "elaborate"] = "run",
     verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_MEDIUM",
-    waves: bool = False,
-    wave_format: Literal["VCD", "MXD"] = "VCD",
+    waves: bool = True,
+    wave_format: Literal["VCD", "MXD"] = "MXD",
     coverage: bool = True,
     seed: int = 1,
     timeout: int = 300,
@@ -371,8 +371,8 @@ async def run_uvm_simulation(
         test_name: UVM test class name to execute (default: uart_axi4_basic_test)
         mode: Simulation mode - run (full sim), compile (syntax check), elaborate (build only)
         verbosity: UVM verbosity level for detailed debugging output
-        waves: Enable waveform capture for signal analysis
-        wave_format: Waveform format - MXD (binary, DSIM native) or VCD (text, portable)
+    waves: Enable waveform capture for signal analysis (default: True)
+    wave_format: Waveform format - MXD (binary, DSIM native, default) or VCD (text, portable)
         coverage: Enable coverage collection for verification metrics  
         seed: Random simulation seed for reproducible results
         timeout: Maximum execution time in seconds before timeout
@@ -460,14 +460,15 @@ async def run_uvm_simulation(
     # Enhanced feature options
     waves_file: Optional[Path] = None
     wave_plusargs: List[str] = []
-    if waves:
+    enable_waves = waves and (mode == "run")
+    if enable_waves:
         waves_dir = workspace_root / "archive" / "waveforms"
         waves_dir.mkdir(parents=True, exist_ok=True)
 
         if wave_format == "MXD":
             waves_file = waves_dir / f"{test_name}_{timestamp}.mxd"
             cmd.extend(["-waves", str(waves_file)])
-        else:  # VCD default
+        else:  # VCD request
             waves_file = waves_dir / f"{test_name}_{timestamp}.vcd"
             wave_plusargs.append(f"+WAVE_FILE={waves_file.as_posix()}")
         wave_plusargs.append("+WAVES_ON=1")
@@ -476,7 +477,7 @@ async def run_uvm_simulation(
         cmd.extend(["+cover+fsm+line+cond+tgl+branch"])
 
     # Add waveform format selection hint for the testbench
-    if waves:
+    if enable_waves:
         if wave_format == "VCD":
             cmd.append("+WAVE_FORMAT=VCD")
         else:
@@ -499,6 +500,18 @@ async def run_uvm_simulation(
 
     if wave_plusargs:
         cmd.extend(wave_plusargs)
+
+    require_callback_access = enable_waves or (mode in ("compile", "elaborate"))
+    if require_callback_access:
+        callback_requested = False
+        for entry in cmd:
+            if not entry:
+                continue
+            if entry.startswith("+acc") or entry.startswith("+access") or entry.startswith("-pli_access"):
+                callback_requested = True
+                break
+        if not callback_requested:
+            cmd.extend(["+acc+b", "+acc+rw"])
     
     # Execute with enhanced error handling
     try:
@@ -548,6 +561,9 @@ async def run_uvm_simulation(
             "log_file": log_file_relative,
             "log_file_absolute": str(log_file_absolute),
             "waves_file": str(waves_file) if waves_file else None,
+            "waves_requested": waves,
+            "waves_enabled": enable_waves,
+            "wave_format": wave_format if enable_waves else None,
             "coverage_requested": coverage,
             "plusargs_requested": plusargs_applied,
             "analysis": {
@@ -923,7 +939,8 @@ async def run_simulation(
         test_name=test_name,
         mode="run", 
         verbosity=verbosity,
-        waves=False,
+        waves=True,
+        wave_format="MXD",
         coverage=True,
         seed=seed,
         timeout=timeout
@@ -932,7 +949,7 @@ async def run_simulation(
 @mcp.tool()
 async def generate_waveforms(
     test_name: str = "uart_axi4_basic_test",
-    format: Literal["vpd", "mxd", "vcd", "both"] = "vcd",
+    format: Literal["vpd", "mxd", "vcd", "both"] = "mxd",
     depth: Literal["all", "top_level", "selected"] = "all",
     timeout: int = 300
 ) -> str:
@@ -940,7 +957,7 @@ async def generate_waveforms(
     
     Args:
         test_name: Test name for waveform generation
-        format: Waveform format (mxd recommended for DSIM)
+    format: Waveform format (mxd default and recommended for DSIM)
         depth: Signal depth for waveform capture
         timeout: Simulation timeout in seconds
         
@@ -949,7 +966,7 @@ async def generate_waveforms(
     """
     
     format_normalized = format.lower()
-    wave_format = "VCD"
+    wave_format = "MXD"
     if format_normalized == "mxd":
         wave_format = "MXD"
     elif format_normalized == "vcd":

@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 // =============================================================================
 // uart_axi4_reg_test_sequence.sv
 // REG_TEST_0-3 Register Verification Sequence

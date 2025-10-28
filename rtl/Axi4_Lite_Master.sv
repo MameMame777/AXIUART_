@@ -19,7 +19,7 @@ module Axi4_Lite_Master #(
     
     // Read data output
     output logic [7:0]  read_data [0:63],  // Read data for frame builder
-    output logic [5:0]  read_data_count,   // Number of read data bytes
+    output logic [6:0]  read_data_count,   // Number of read data bytes
     
     // AXI4-Lite Master Interface
     axi4_lite_if.master axi
@@ -87,7 +87,7 @@ module Axi4_Lite_Master #(
     
     // Internal registers
     logic [3:0] beat_counter;
-    logic [5:0] data_byte_index;
+    logic [6:0] data_byte_index;
     logic [7:0] status_reg;
     logic [15:0] timeout_counter;   // CRITICAL: Timeout monitoring
     logic early_busy_sent;
@@ -172,11 +172,21 @@ module Axi4_Lite_Master #(
             
             // Update beat counter and address for next beat
             if (state == NEXT_BEAT) begin
+                logic [6:0] next_index;
+                logic [6:0] beat_size_ext;
+
                 beat_counter <= beat_counter + 1;
                 if (inc_bit) begin
                     current_addr <= current_addr + beat_size;
                 end
-                data_byte_index <= data_byte_index + beat_size;
+
+                beat_size_ext = {4'b0000, beat_size};
+                next_index = data_byte_index + beat_size_ext;
+                if (next_index > 7'd64) begin
+                    next_index = 7'd64;
+                    $error("[AXI_MASTER] data_byte_index exceeded 64 bytes");
+                end
+                data_byte_index <= next_index;
             end
             
             // Timeout counter management
@@ -235,23 +245,44 @@ module Axi4_Lite_Master #(
                 // Read data capture - moved from separate always_ff block
                 case (size_field)
                     2'b00: begin  // 8-bit
-                        read_data[data_byte_index] <= axi.rdata[7:0];
+                        if (data_byte_index < 7'd64) begin
+                            read_data[data_byte_index] <= axi.rdata[7:0];
+                        end else begin
+                            $error("[AXI_MASTER] byte index overflow for 8-bit read");
+                        end
                     end
                     2'b01: begin  // 16-bit
-                        read_data[data_byte_index] <= axi.rdata[7:0];
-                        read_data[data_byte_index + 1] <= axi.rdata[15:8];
+                        if (data_byte_index <= 7'd62) begin
+                            read_data[data_byte_index] <= axi.rdata[7:0];
+                            read_data[data_byte_index + 1] <= axi.rdata[15:8];
+                        end else begin
+                            $error("[AXI_MASTER] byte index overflow for 16-bit read");
+                        end
                     end
                     2'b10: begin  // 32-bit
-                        read_data[data_byte_index] <= axi.rdata[7:0];
-                        read_data[data_byte_index + 1] <= axi.rdata[15:8];
-                        read_data[data_byte_index + 2] <= axi.rdata[23:16];
-                        read_data[data_byte_index + 3] <= axi.rdata[31:24];
+                        if (data_byte_index <= 7'd60) begin
+                            read_data[data_byte_index] <= axi.rdata[7:0];
+                            read_data[data_byte_index + 1] <= axi.rdata[15:8];
+                            read_data[data_byte_index + 2] <= axi.rdata[23:16];
+                            read_data[data_byte_index + 3] <= axi.rdata[31:24];
+                        end else begin
+                            $error("[AXI_MASTER] byte index overflow for 32-bit read");
+                        end
                     end
                 endcase
                 
                 // Update read data count
                 if (beat_counter >= len_field) begin
-                    read_data_count <= data_byte_index + beat_size;
+                    logic [6:0] read_count_next;
+                    logic [6:0] beat_size_ext;
+
+                    beat_size_ext = {4'b0000, beat_size};
+                    read_count_next = data_byte_index + beat_size_ext;
+                    if (read_count_next > 7'd64) begin
+                        read_count_next = 7'd64;
+                        $error("[AXI_MASTER] read_data_count exceeded 64 bytes");
+                    end
+                    read_data_count <= read_count_next;
                 end
             end
             

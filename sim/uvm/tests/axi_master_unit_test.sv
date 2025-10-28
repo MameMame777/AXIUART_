@@ -159,7 +159,7 @@ module axi_master_unit_test;
     logic        transaction_done;
     logic [7:0]  axi_status;
     logic [7:0]  read_data [0:63];
-    logic [5:0]  read_data_count;
+    logic [6:0]  read_data_count;
 
     // DUT: AXI Master
     Axi4_Lite_Master axi_master (

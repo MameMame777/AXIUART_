@@ -1,0 +1,715 @@
+=N:[UVMSource] Using sources from 'C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2'
+=N:[UsageMeter (2025-10-28 21:43:38 “Œ‹ž (•W€Žž))] usage server initial connection
+=N:[License] 
+Licensed for Altair DSim Cloud.
+=N:[License] New lease granted.
+Analyzing...
+Elaborating...
+  Top-level modules:
+    $unit
+    uart_axi4_tb_top
+=W:[IneffectiveDynamicCast]:
+    The following dynamic $cast cases will always be false    
+
+    C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_callback.svh:521:9              class uvm_pkg::uvm_callbacks#(class uvm_pkg::uvm_phase,class uvm_pkg::uvm_phase_cb)    class uvm_pkg::uvm_callbacks#(class uvm_pkg::uvm_phase,class uvm_pkg::uvm_callback)    
+    Included from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_base.svh:76:12                                                                                                                                                                                  
+    Included from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\uvm_pkg.sv:31:12                                                                                                                                                                                         
+
+    C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_callback.svh:671:12             class uvm_pkg::uvm_phase                                                               class uvm_pkg::uvm_report_object                                                       
+    Included from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_base.svh:76:12                                                                                                                                                                                  
+
+    C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_callback.svh:731:10             class uvm_pkg::uvm_component                                                           class uvm_pkg::uvm_phase                                                               
+    Included from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_base.svh:76:12                                                                                                                                                                                  
+
+    C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_callback.svh:808:10             class uvm_pkg::uvm_component                                                           class uvm_pkg::uvm_phase                                                               
+    Included from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_base.svh:76:12                                                                                                                                                                                  
+
+=W:[IneffectiveDynamicCast]:
+    The following dynamic $cast cases will always be false    
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:26:13                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:225:1       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:26:13                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:78:13                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:14      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:78:13                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:110:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:23      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:110:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:144:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:44      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:144:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:154:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:50      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:154:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:164:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:56      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:164:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:176:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:43      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:176:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:183:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:54      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:183:13                                                                                                                                                                   
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:189:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:32      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:189:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:242:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\basic_func_sequence.sv:263:9                                                                                                                                                                    
+    Included from packages\uart_axi4_test_pkg.sv:407:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\debug_dual_write_sequence.sv:38:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:409:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\metadata_read_sequence_20251015.sv:37:9                                                                                                                                                         
+    Included from packages\uart_axi4_test_pkg.sv:410:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\metadata_expected_error_sequence_20251015.sv:47:9                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:411:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:126:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:22      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:126:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:160:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:18      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:160:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:168:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:13      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:168:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:176:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:57      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:176:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:183:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:57      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:183:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:209:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:18      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:209:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:217:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:36      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:217:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:225:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:60      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:225:9                                                                                                                                                               
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:233:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:40      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\error_injection_sequence.sv:233:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:412:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:42:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:214:19      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:42:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:75:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:49      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:75:13                                                                                                                                                              
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:105:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:52      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:105:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:113:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:207:65      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:113:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:143:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:18      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:143:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:204:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:31      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:204:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:229:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:208:7       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:229:13                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:252:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:45      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:252:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:281:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:52      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:281:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:203:3       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:290:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:216:20      class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2                                                                                            
+    Expanded from sequences\performance_test_sequence.sv:290:17                                                                                                                                                             
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\uart_protocol_active_sequence.sv:30:9                                                                                                                                                           
+    Included from packages\uart_axi4_test_pkg.sv:414:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\uart_protocol_active_sequence.sv:48:9                                                                                                                                                           
+    Included from packages\uart_axi4_test_pkg.sv:414:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\uart_protocol_active_sequence.sv:70:9                                                                                                                                                           
+    Included from packages\uart_axi4_test_pkg.sv:414:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\uart_protocol_active_sequence.sv:92:9                                                                                                                                                           
+    Included from packages\uart_axi4_test_pkg.sv:414:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\uart_protocol_active_sequence.sv:114:9                                                                                                                                                          
+    Included from packages\uart_axi4_test_pkg.sv:414:14                                                                                                                                                                     
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:243:5       class uart_axi4_test_pkg::uart_frame_transaction    class uvm_pkg::uvm_sequence_base    
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:230:2                                                                                            
+    Expanded from sequences\debug_sequences.sv:36:9                                                                                                                                                                         
+    Included from packages\uart_axi4_test_pkg.sv:418:14                                                                                                                                                                     
+
+=W:[ExprStmtNotVoid]:
+    The following expressions used as statements do not have void type:    
+
+    agents\axi4_lite\axi4_lite_monitor.sv:55:9             int    
+    Included from packages\uart_axi4_test_pkg.sv:393:14           
+
+=W:[ConstraintNotSolvable]:
+    The following constraints contain operations that               
+    are not bidirectionally solvable by the constraint solver.      
+    Their results will be treated as state variables,               
+    and will be processed unidirectionally.  Solving might fail.    
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:205:40      
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2    
+    Expanded from sequences\performance_test_sequence.sv:290:17                                                                     
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                             
+
+    Defined at C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:212:9       
+    Expanded from C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\macros\uvm_sequence_defines.svh:114:2    
+    Expanded from sequences\performance_test_sequence.sv:290:17                                                                     
+    Included from packages\uart_axi4_test_pkg.sv:413:14                                                                             
+
+  Found 22 unique specialization(s) of 22 design element(s).
+=W:[ConflictAssignToVar]:
+    A variable may not have both a procedural and               
+    continuous assignment to the same bit.                      
+                                                                
+    The following conflicting assignments                       
+    have been detected (may not be exhaustive).                 
+                                                                
+    Assignments through a virtual interface handle cannot be    
+    checked perfectly at compile time, and may be flagged.      
+    This error can be demoted in that case.                     
+                                                                
+
+                                            Variable                      Driver location                        Driver instance                       Driver type             
+
+    interfaces\bridge_status_if.sv:10:11    frame_parser_state_changed    tb\uart_axi4_tb_top_clean.sv:120:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:46:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:11:17    current_frame_parser_state    tb\uart_axi4_tb_top_clean.sv:121:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:47:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:14:11    fifo_status_changed           tb\uart_axi4_tb_top_clean.sv:122:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:48:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:15:17    rx_fifo_count                 tb\uart_axi4_tb_top_clean.sv:123:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:49:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:16:17    rx_fifo_depth                 tb\uart_axi4_tb_top_clean.sv:124:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:50:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:17:17    tx_fifo_count                 tb\uart_axi4_tb_top_clean.sv:125:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:51:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:18:17    tx_fifo_depth                 tb\uart_axi4_tb_top_clean.sv:126:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:52:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:24:17    bridge_state                  tb\uart_axi4_tb_top_clean.sv:130:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:53:9    (local)                               blocking/nonblocking    
+
+    interfaces\bridge_status_if.sv:25:18    error_status                  tb\uart_axi4_tb_top_clean.sv:131:12    uart_axi4_tb_top.bridge_status_vif    continuous              
+                                                                          interfaces\bridge_status_if.sv:54:9    (local)                               blocking/nonblocking    
+
+=W:[MissingTimescale]:
+    It is illegal for some design elements to have time specifications    
+    while others don't.  A complete time specification includes           
+    both a time unit and time precision.                                  
+
+        Have complete time spec                Have no/incomplete time spec    
+
+        AXIUART_Top                            uvm_pkg                         
+        Address_Aligner                                                        
+        Axi4_Lite_Master                                                       
+        Crc8_Calculator                                                        
+        Frame_Builder                                                          
+        Frame_Parser                                                           
+        Frame_Parser_Assertions                                                
+        Frame_Parser_CRC_Status_Assertions                                     
+        Register_Block                                                         
+        Uart_Axi4_Bridge                                                       
+        Uart_Axi4_Bridge_Timeout_Assertions                                    
+        Uart_Rx                                                                
+        Uart_Tx                                                                
+        axi4_lite_if                                                           
+        bridge_status_if                                                       
+        emergency_frame_parser_diagnostics                                     
+        fifo_sync                                                              
+        uart_axi4_tb_top                                                       
+        uart_axi4_test_pkg                                                     
+        uart_if                                                                
+
+=W:[ReadingOutputModport]:
+    Illegal read from output modport item:    
+
+    ..\..\rtl\Register_Block.sv:83:40       
+
+    ..\..\rtl\Register_Block.sv:84:38       
+
+    ..\..\rtl\Register_Block.sv:85:40       
+
+    ..\..\rtl\Register_Block.sv:268:29      
+
+    ..\..\rtl\Register_Block.sv:270:34      
+
+    ..\..\rtl\Uart_Axi4_Bridge.sv:691:31    
+
+    ..\..\rtl\Uart_Axi4_Bridge.sv:692:30    
+
+    ..\..\rtl\Uart_Axi4_Bridge.sv:694:31    
+
+=W:[LatchInferred]:
+    The following variables in always_comb blocks are not written    
+    along all paths through the block.  Latches will be inferred:    
+
+    ..\..\rtl\Frame_Parser.sv:626:5        data_out                 
+
+    ..\..\rtl\Axi4_Lite_Master.sv:387:5    lane                     
+                                           byte0                    
+                                           byte1                    
+
+    ..\..\rtl\Uart_Axi4_Bridge.sv:386:5    axi_write_data           
+
+    ..\..\rtl\Uart_Axi4_Bridge.sv:454:5    builder_response_data    
+
+=W:[AlwaysFFNba]:
+    The following variables in always_ff blocks are not written    
+    using non-blocking assignments:                                
+
+    ..\..\rtl\Frame_Parser.sv:228:5        bytes_calc         
+
+    ..\..\rtl\Frame_Builder.sv:108:5       sanitized_count    
+
+    ..\..\rtl\Axi4_Lite_Master.sv:138:5    next_index         
+                                           read_count_next    
+                                           beat_size_ext      
+                                           beat_size_ext      
+
+    ..\..\rtl\Register_Block.sv:292:5      write_ok           
+                                           write_offset       
+                                           aligned_offset     
+                                           masked_value       
+
+Optimizing...
+Building models...
+PLI/VPI access: +rwb 
+Simulation time precision is 1ps.
+Linking image.so...
+Using default typical min/typ/max.
+=S:Begin run-time elaboration and static initialization...
+UVM_INFO C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_root.svh(392) @ 0: reporter [UVM/RELNOTES] 
+----------------------------------------------------------------
+UVM-1.2
+(C) 2007-2014 Mentor Graphics Corporation
+(C) 2007-2014 Cadence Design Systems, Inc.
+(C) 2006-2014 Synopsys, Inc.
+(C) 2011-2013 Cypress Semiconductor Corp.
+(C) 2013-2014 NVIDIA Corporation
+----------------------------------------------------------------
+
+  ***********       IMPORTANT RELEASE NOTES         ************
+
+  You are using a version of the UVM library that has been compiled
+  with `UVM_OBJECT_DO_NOT_NEED_CONSTRUCTOR undefined.
+  See http://www.eda.org/svdb/view.php?id=3770 for more details.
+
+      (Specify +UVM_NO_RELNOTES to turn off this notice)
+
+=N:[dumpMXD] preparing MXD dump to 'E:\Nautilus\workspace\fpgawork\AXIUART_\archive\waveforms\uart_axi4_basic_test_20251028_214337.mxd'.
+=N:[dump] Dump started at time 0
+=N:Starting event scheduler...
+=W:[dump] tb\uart_axi4_tb_top_clean.sv:140: $dumpfile() called, but dump already enabled.
+=W:[dump] tb\uart_axi4_tb_top_clean.sv:141: $dumpvars() called after dumping started.
+REGISTER_BLOCK: FIXED version instantiated with BASE_ADDR=0x00001000
+UVM_INFO tb\uart_axi4_tb_top_clean.sv(173) @ 0: reporter [TB_TOP] Starting test 'uart_axi4_basic_test'
+UVM_INFO C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_root.svh(453) @ 0: reporter [NO_DPI_TSTNAME] UVM_NO_DPI defined--getting UVM_TESTNAME directly, without DPI
+UVM_INFO @ 0: reporter [RNTST] Running test uart_axi4_basic_test...
+UVM_INFO tests\uart_axi4_base_test.sv(118) @ 0: uvm_test_top [BASE_TEST] Test configuration completed
+UVM_INFO tests\uart_axi4_base_test.sv(80) @ 0: uvm_test_top [BASE_TEST] Test scenario selected: 'default' (wave dump  enabled)
+UVM_INFO tests\uart_axi4_base_test.sv(84) @ 0: uvm_test_top [BASE_TEST] Base test build phase completed
+UVM_INFO tests\enhanced_uart_axi4_base_test.sv(66) @ 0: uvm_test_top [COMPONENT_CONFIG] Component-specific verbosity configured
+UVM_INFO tests\enhanced_uart_axi4_base_test.sv(49) @ 0: uvm_test_top [ENHANCED_REPORTING] Default enhanced reporting configuration complete
+UVM_INFO tests\enhanced_uart_axi4_base_test.sv(22) @ 0: uvm_test_top [ENHANCED_BASE] Enhanced UVM reporting configured for all tests
+UVM_INFO tests\uart_axi4_basic_test.sv(49) @ 0: uvm_test_top [TEST_BASIC_CONFIG] Runtime debug reporting disabled for performance (set +UART_BASIC_VERBOSE to re-enable)
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(29) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] AXI Monitor constructor called: axi_monitor
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(32) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] AXI Monitor constructor completed
+UVM_INFO env\uart_axi4_env.sv(62) @ 0: uvm_test_top.env [ENV] Phase 3 Scoreboard with Correlation Engine created
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(36) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === BUILD_PHASE STARTED ===
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(47) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] Virtual interface successfully acquired.
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(60) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === BUILD_PHASE COMPLETED ===
+UVM_INFO agents\uart\uart_driver.sv(42) @ 0: uvm_test_top.env.uart_agt.driver [UART_DRIVER] Using monitor response FIFO for DUT replies
+UVM_INFO agents\uart\uart_monitor.sv(55) @ 0: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] Coverage collector not found - coverage disabled
+UVM_INFO env\uart_axi4_env.sv(119) @ 0: uvm_test_top.env [ENV] Connected UART monitor to Phase 3 Scoreboard (analysis_imp)
+UVM_INFO env\uart_axi4_env.sv(126) @ 0: uvm_test_top.env [ENV] Connected UART driver request port to scoreboard metadata input
+UVM_INFO env\uart_axi4_env.sv(139) @ 0: uvm_test_top.env [ENV] Connected UART monitor to coverage collector
+UVM_INFO env\uart_axi4_env.sv(149) @ 0: uvm_test_top.env [ENV] Connected AXI monitor to Phase 3 Scoreboard (analysis_imp)
+UVM_INFO env\uart_axi4_env.sv(154) @ 0: uvm_test_top.env [ENV] AXI monitor coverage hooks active
+UVM_INFO env\uart_axi4_env.sv(95) @ 0: uvm_test_top.env [ENV] Phase 3 Scoreboard ready for UART frame correlation
+UVM_INFO tests\uart_axi4_base_test.sv(123) @ 0: uvm_test_top [BASE_TEST] Base test connect phase completed
+UVM_INFO tests\enhanced_uart_axi4_base_test.sv(81) @ 0: uvm_test_top [REPORTING_VALIDATION] Enhanced reporting setup validated
+UVM_INFO tests\enhanced_uart_axi4_base_test.sv(82) @ 0: uvm_test_top [REPORTING_CONFIG] Report server: uvm_report_server
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(64) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === END_OF_ELABORATION_PHASE ===
+UVM_INFO tests\uart_axi4_base_test.sv(130) @ 0: uvm_test_top [BASE_TEST] === Test Topology ===
+UVM_INFO C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_root.svh(579) @ 0: reporter [UVMTOP] UVM testbench topology:
+-----------------------------------------------------------------------------
+Name                              Type                            Size  Value
+-----------------------------------------------------------------------------
+uvm_test_top                      uart_axi4_basic_test            -     @367 
+  env                             uart_axi4_env                   -     @397 
+    axi_monitor                   axi4_lite_monitor               -     @432 
+      item_collected_port         uvm_analysis_port               -     @443 
+    bridge_status_mon             bridge_status_monitor           -     @495 
+    coverage                      uart_axi4_coverage              -     @471 
+      analysis_imp                uvm_analysis_imp                -     @480 
+    phase3_scoreboard             uart_axi4_scoreboard            -     @460 
+      axi_analysis_imp            uvm_analysis_imp_axi            -     @527 
+      correlation_engine          correlation_engine              -     @547 
+      uart_analysis_imp           uvm_analysis_imp_uart           -     @517 
+      uart_expected_analysis_imp  uvm_analysis_imp_uart_expected  -     @537 
+    uart_agt                      uart_agent                      -     @423 
+      driver                      uart_driver                     -     @580 
+        rsp_port                  uvm_analysis_port               -     @599 
+        seq_item_port             uvm_seq_item_pull_port          -     @589 
+        tx_request_ap             uvm_analysis_port               -     @609 
+      monitor                     uart_monitor                    -     @559 
+        item_collected_port       uvm_analysis_port               -     @568 
+      monitor_tx_fifo             uvm_tlm_analysis_fifo #(T)      -     @757 
+        analysis_export           uvm_analysis_imp                -     @806 
+        get_ap                    uvm_analysis_port               -     @796 
+        get_peek_export           uvm_get_peek_imp                -     @776 
+        put_ap                    uvm_analysis_port               -     @786 
+        put_export                uvm_put_imp                     -     @766 
+      sequencer                   uvm_sequencer                   -     @619 
+        rsp_export                uvm_analysis_export             -     @628 
+        seq_item_export           uvm_seq_item_pull_imp           -     @746 
+        arbitration_queue         array                           0     -    
+        lock_queue                array                           0     -    
+        num_last_reqs             integral                        32    'd1  
+        num_last_rsps             integral                        32    'd1  
+-----------------------------------------------------------------------------
+
+UVM_INFO tests\uart_axi4_base_test.sv(134) @ 0: uvm_test_top [BASE_TEST] === Test Configuration ===
+------------------------------------------------------------------------
+Name                               Type                  Size  Value    
+------------------------------------------------------------------------
+cfg                                uart_axi4_env_config  -     @380     
+  clk_freq_hz                      integral              32    'h7735940
+  baud_rate                        integral              32    'h1c200  
+  bit_time_ns                      integral              32    'h21e8   
+  byte_time_ns                     integral              32    'h15310  
+  enable_coverage                  integral              1     'h1      
+  enable_scoreboard                integral              1     'h1      
+  enable_correlation               integral              1     'h1      
+  enable_protocol_checking         integral              1     'h1      
+  enable_axi_monitor               integral              1     'h1      
+  enable_error_injection           integral              1     'h0      
+  enable_bridge_control_testing    integral              1     'h0      
+  enable_driver_runtime_logs       integral              1     'h1      
+  enable_driver_debug_logs         integral              1     'h1      
+  enable_scoreboard_runtime_logs   integral              1     'h0      
+  enable_scoreboard_metadata_logs  integral              1     'h0      
+  driver_runtime_verbosity         integral              32    'hc8     
+  driver_debug_verbosity           integral              32    'h12c    
+  scoreboard_runtime_verbosity     integral              32    'h64     
+  scoreboard_metadata_verbosity    integral              32    'h12c    
+  uart_agent_is_active             integral              1     'h1      
+  axi_agent_is_active              integral              1     'h0      
+  enable_system_status_monitoring  integral              1     'h1      
+  bridge_status_verbosity          integral              32    'hc8     
+  frame_timeout_ns                 integral              32    'h2a6200 
+  system_timeout_cycles            integral              32    'h3e8    
+  axi_timeout_cycles               integral              32    'h3e8    
+  num_transactions                 integral              32    'h64     
+  min_idle_cycles                  integral              32    'h5      
+  max_idle_cycles                  integral              32    'h14     
+  coverage_warning_threshold       real                  64    80.000000
+------------------------------------------------------------------------
+UVM_INFO C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\uvm\1.2\src\base\uvm_traversal.svh(279) @ 0: reporter [UVM/COMP/NAMECHECK] This implementation of the component name checks requires DPI to be enabled
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(69) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === START_OF_SIMULATION_PHASE ===
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(74) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] *** INFO: RUN_PHASE ENTRY DETECTED ***
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(75) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === RUN_PHASE STARTED ===
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(76) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] AXI monitor starting - monitoring enabled
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(77) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] VIF assigned: YES
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(79) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === STARTING MONITORING TASKS ===
+UVM_INFO agents\uart\uart_driver.sv(94) @ 0: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DEBUG] VIF check OK, clk=0
+UVM_INFO tests\uart_axi4_basic_test.sv(87) @ 0: uvm_test_top [BASIC_TEST] ===============================================
+UVM_INFO tests\uart_axi4_basic_test.sv(88) @ 0: uvm_test_top [BASIC_TEST]      UART-AXI4 BASIC FUNCTIONAL TEST
+UVM_INFO tests\uart_axi4_basic_test.sv(89) @ 0: uvm_test_top [BASIC_TEST] ===============================================
+UVM_INFO tests\uart_axi4_basic_test.sv(90) @ 0: uvm_test_top [BASIC_TEST] Test started with comprehensive UVM reporting
+UVM_INFO tests\uart_axi4_basic_test.sv(99) @ 0: uvm_test_top [BASIC_TEST] Phase: run
+UVM_INFO tests\uart_axi4_basic_test.sv(100) @ 0: uvm_test_top [BASIC_TEST] === Starting Basic Functional Test ===
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(87) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] Starting collect_write_transactions task
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(104) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] *** INFO: WRITE COLLECTION TASK STARTED ***
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(105) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] === COLLECT_WRITE_TRANSACTIONS TASK STARTED ===
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(91) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] Starting collect_read_transactions task
+UVM_INFO agents\axi4_lite\axi4_lite_monitor.sv(197) @ 0: uvm_test_top.env.axi_monitor [AXI4_LITE_MONITOR] *** READ COLLECTION TASK STARTED ***
+UVM_INFO agents\uart\uart_monitor.sv(647) @ 4000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] RTS signal changed:    asa`pdd  (hg`)
+UVM_INFO agents\uart\uart_monitor.sv(654) @ 4000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] CTS signal changed:    asserted (low)
+UVM_INFO agents\uart\uart_monitor.sv(647) @ 12000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] RTS signal changed: deasserted (high)
+UVM_INFO agents\uart\uart_driver.sv(98) @ 36000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DEBUG] Clock verified - 5 edges detected
+UVM_INFO agents\uart\uart_driver.sv(104) @ 36000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DEBUG] Entering forever loop - ready to receive transactions
+UVM_INFO agents\uart\uart_driver.sv(108) @ 36000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_HANDSHAKE] Issuing get_next_item() at time=36000
+UVM_INFO agents\uart\uart_driver.sv(109) @ 36000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DEBUG] Calling get_next_item() - waiting for sequence
+UVM_INFO agents\uart\uart_monitor.sv(647) @ 332000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] RTS signal changed:    asserted (low)
+UVM_INFO tests\uart_axi4_basic_test.sv(106) @ 396000: uvm_test_top [BASIC_TEST] Reset completed, starting sequence
+UVM_INFO tests\uart_axi4_basic_test.sv(114) @ 396000: uvm_test_top [BASIC_TEST_CFG] frame_timeout_ns=2777600 byte_time_ns=86800
+UVM_INFO tests\uart_axi4_basic_test.sv(118) @ 396000: uvm_test_top [BASIC_TEST] Running single write debug sequence
+UVM_INFO tests\uart_axi4_basic_test.sv(124) @ 396000: uvm_test_top [BASIC_TEST] Sequence handle created; invoking start()
+UVM_INFO tests\uart_axi4_basic_test.sv(149) @ 396000: uvm_test_top [BASIC_TEST_CFG] frame_timeout_ns=2777600 byte_time_ns=86800 poll_interval_ns=86800 seq_timeout_ns=11110400 handshake_timeout_ns=11110400
+UVM_INFO tests\uart_axi4_basic_test.sv(153) @ 396000: uvm_test_top [BASIC_TEST_SEQ] About to fork debug sequence thread
+UVM_INFO agents\uart\uart_driver.sv(111) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_HANDSHAKE] get_next_item() returned VALID at time=396000
+UVM_INFO agents\uart\uart_driver.sv(114) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DEBUG] get_next_item() returned - transaction received
+UVM_INFO agents\uart\uart_driver.sv(65) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER] Driving transaction: CMD=0x00, ADDR=0x00001000
+UVM_INFO agents\uart\uart_driver.sv(410) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_FIFO_FORCE] flush_monitor_responses invoked at 396000 initial_depth=0
+UVM_INFO agents\uart\uart_driver.sv(446) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_FIFO_FORCE] flush_monitor_responses found FIFO empty at 396000
+UVM_INFO agents\uart\uart_driver.sv(65) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER] Starting frame transmission: SOF=0xa5, CMD=0x00, ADDR=0x00001000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_DIAG] drive_frame summary: cmd=0x00 data_size=1 byte_count=8
+UVM_INFO agents\uart\uart_driver.sv(69) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_FORCED] Begin byte[0/7]=0xa5 at time=396000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_TIMING] drive_uart_byte setup: data=0xa5 bit_time_cycles=1085 base_guard_ns=86800000 watchdog_delay_ns=347200000
+UVM_INFO agents\uart\uart_driver.sv(65) @ 396000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE] Driving UART byte: 0xa5
+UVM_INFO agents\uart\uart_driver.sv(69) @ 9076000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] start bit complete: data=0xa5 time=9076000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 78516000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] final data bit complete: bit[7]=1 data=0xa5 time=78516000
+UVM_INFO agents\uart\uart_monitor.sv(92) @ 82852000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] SOF detected: 0xa5 - Starting frame collection
+[83020000][BRIDGE_RX] rx_valid #1 data=0xa5 error=0 fifo_full=0 fifo_count=0 busy=0
+[83020000][BRIDGE_RX] rx_fifo_wr_en #1 data=0xa5 fifo_count=0
+=N:[$info call] ..\..\rtl\Frame_Parser_Assertions.sv:202 from uart_axi4_tb_top.dut.uart_bridge_inst.frame_parser.FP_assertions_inst @ 83028000000
+    [FRAME_PARSER] SOF DETECTED at             83028000
+[83028000][BRIDGE_RX] rx_fifo_rd_en #1 data=0xa5 fifo_count=1 state=MAIN_IDLE
+[83028000][PARSER_TRACE] IDLE -> CMD bytes=0 expected_bytes=0 crc_recv=0x00 crc_calc=0xxx
+[83028000][PARSER_BYTE] state=IDLE byte#0=0xa5 data_count=0 expected_bytes=0
+[83036000][BRIDGE_DEBUG] parser_busy asserted #0 main_state=MAIN_IDLE
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87196000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] stop bit complete: data=0xa5 time=87196000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87196000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] byte_done asserted for data=0xa5 at time=87196000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87196000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] drive_uart_byte completed: data=0xa5 total_time=86800000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87196000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_FORCED] End byte[0/7]=0xa5 at time=87196000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87244000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_FORCED] Begin byte[1/7]=0x00 at time=87244000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 87244000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_TIMING] drive_uart_byte setup: data=0x00 bit_time_cycles=1085 base_guard_ns=86800000 watchdog_delay_ns=347200000
+UVM_INFO agents\uart\uart_driver.sv(65) @ 87244000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE] Driving UART byte: 0x00
+UVM_INFO agents\uart\uart_driver.sv(69) @ 95924000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] start bit complete: data=0x00 time=95924000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 165364000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] final data bit complete: bit[7]=0 data=0x00 time=165364000
+[169516000][BRIDGE_RX] rx_valid #2 data=0x00 error=0 fifo_full=0 fifo_count=0 busy=0
+[169516000][BRIDGE_RX] rx_fifo_wr_en #2 data=0x00 fifo_count=0
+[169524000][BRIDGE_RX] rx_fifo_rd_en #2 data=0x00 fifo_count=1 state=MAIN_IDLE
+[169524000][PARSER_TRACE] CMD -> ADDR_BYTE0 bytes=0 expected_bytes=0 crc_recv=0x00 crc_calc=0x00
+[169524000][PARSER_BYTE] state=CMD byte#0=0x00 data_count=0 expected_bytes=0
+UVM_INFO agents\uart\uart_monitor.sv(117) @ 169700000: uvm_test_top.env.uart_agt.monitor [UART_MONITOR] Frame so far (2 bytes): 0xa5 0x00 
+UVM_INFO agents\uart\uart_driver.sv(69) @ 174044000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] stop bit complete: data=0x00 time=174044000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 174044000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] byte_done asserted for data=0x00 at time=174044000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 174044000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_STATE] drive_uart_byte completed: data=0x00 total_time=86800000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 174044000: uvm_test_top.env.uart_agt.driver [UART_DRIVER_BYTE_FORCED] End byte[1/7]=0x00 at time=174044000
+UVM_INFO agents\uart\uart_driver.sv(69) @ 174132000: uvm_test_

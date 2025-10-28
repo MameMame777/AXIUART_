@@ -37,6 +37,9 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     
     `uvm_component_utils(uart_axi4_scoreboard)
     
+    // Guard against runaway expectation matching loops consuming infinite delta cycles
+    localparam int unsigned PROGRESS_LOOP_GUARD_LIMIT = 100000;
+
     // Analysis ports for receiving transactions
     `uvm_analysis_imp_decl(_uart)
     `uvm_analysis_imp_decl(_axi)
@@ -314,6 +317,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         bit progress;
         time newest_time;
 
+        int unsigned progress_guard;
+
+        progress_guard = 0;
+
         do begin
             progress = 0;
 
@@ -427,6 +434,18 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                         break;
                     end
                 end
+            end
+            if (progress) begin
+                progress_guard++;
+                if (progress_guard > PROGRESS_LOOP_GUARD_LIMIT) begin
+                    `uvm_fatal("SCOREBOARD_DELTA_GUARD",
+                               $sformatf("Exceeded %0d progress iterations without time advance; UART expectations=%0d AXI queue=%0d",
+                                         PROGRESS_LOOP_GUARD_LIMIT,
+                                         uart_expectations.size(),
+                                         axi_queue.size()))
+                end
+            end else begin
+                progress_guard = 0;
             end
         end while (progress);
     endfunction
