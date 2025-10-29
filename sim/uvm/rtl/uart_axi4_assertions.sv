@@ -77,9 +77,9 @@ module uart_axi4_assertions (
     
     // UART Protocol Assertions
     
-    // UART bit timing assertions (assuming 115200 baud at 50MHz)
-    localparam int UART_BIT_CYCLES = 434; // 50MHz / 115200 ≈ 434 cycles per bit
-    localparam int UART_BIT_TOL = 22;     // 5% tolerance
+    // UART bit timing assertions (derived from active clock/baud configuration)
+    localparam int UART_BIT_CYCLES = uart_axi4_test_pkg::CLK_FREQ_HZ / uart_axi4_test_pkg::BAUD_RATE;
+    localparam int UART_BIT_TOL = (UART_BIT_CYCLES > 20) ? (UART_BIT_CYCLES / 20) : 1; // ~5% tolerance
     
     logic [15:0] uart_tx_bit_counter;
     logic uart_tx_prev;

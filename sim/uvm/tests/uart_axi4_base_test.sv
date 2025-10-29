@@ -91,7 +91,7 @@ class uart_axi4_base_test extends uvm_test;
         
         // UART configuration
     cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
-        cfg.baud_rate = 115_200;        // Align with DUT baud rate for stable UART sampling
+        cfg.baud_rate = uart_axi4_test_pkg::BAUD_RATE;  // Align with DUT baud rate from shared package
 
     // Recompute dependent timing values after updating the baud rate
     cfg.calculate_timing();

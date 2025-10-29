@@ -14,6 +14,9 @@ localparam bit [31:0] REG_TX_COUNT  = REG_BASE_ADDR + 32'h010;
 localparam bit [31:0] REG_RX_COUNT  = REG_BASE_ADDR + 32'h014;
 localparam bit [31:0] REG_FIFO_STAT = REG_BASE_ADDR + 32'h018;
 localparam bit [31:0] REG_VERSION   = REG_BASE_ADDR + 32'h01C;
+localparam bit [7:0]  MAX_BAUD_DIV = UART_OVERSAMPLE[7:0];
+localparam bit [7:0]  DEFAULT_TIMEOUT_CFG = 8'h5A;
+localparam bit [31:0] DEFAULT_CONFIG_PATTERN = {24'h000000, DEFAULT_TIMEOUT_CFG, MAX_BAUD_DIV};
 
 // Base class providing shared helpers for UART-driven register sequences
 virtual class register_uart_sequence_base extends uvm_sequence #(uart_frame_transaction);
@@ -660,7 +663,7 @@ class register_comprehensive_access_sequence extends register_uart_sequence_base
         bit [31:0] reg_write_values [8] = '{
             32'h0000_0001, // CONTROL: enable bridge
             32'h0000_0000,
-            32'h0000_3301, // CONFIG: baud_div + timeout_cfg
+            DEFAULT_CONFIG_PATTERN, // CONFIG: baud_div + timeout_cfg (max speed)
             32'h0000_0003, // DEBUG: enter mode 3
             32'h0000_0000,
             32'h0000_0000,
@@ -712,8 +715,9 @@ class register_comprehensive_access_sequence extends register_uart_sequence_base
 
     // Toggle individual bitfields to improve toggle coverage
     task automatic exercise_bitfield_patterns();
-        int CONFIG_SWEEPS = 4;
-        int unsigned baud_values [4] = '{434, 217, 108, 54};
+    int CONFIG_SWEEPS = 4;
+    int unsigned base_div = uart_axi4_test_pkg::CLK_FREQ_HZ / uart_axi4_test_pkg::BAUD_RATE;
+    int unsigned baud_values [4] = '{base_div, base_div*2, base_div*4, base_div*8};
         int unsigned timeout_values [4] = '{500, 1000, 2000, 4000};
 
         // CONTROL register: drive explicit enable/disable transitions and reset pulses

@@ -18,6 +18,8 @@ class axiuart_register_sweep_sequence extends uvm_sequence#(uart_frame_transacti
     localparam bit [31:0] REG_RX_COUNT  = REG_BASE_ADDR + 32'h014;
     localparam bit [31:0] REG_FIFO_STAT = REG_BASE_ADDR + 32'h018;
     localparam bit [31:0] REG_VERSION   = REG_BASE_ADDR + 32'h01C;
+    localparam bit [7:0]  MAX_BAUD_DIV = UART_OVERSAMPLE[7:0];
+    localparam bit [7:0]  DEFAULT_TIMEOUT_CFG = 8'h5A;
     
     function new(string name = "axiuart_register_sweep_sequence");
         super.new(name);
@@ -162,12 +164,14 @@ class axiuart_register_sweep_sequence extends uvm_sequence#(uart_frame_transacti
     endtask
     
     virtual task test_config_register();
+        bit [31:0] nominal_baud_pattern = {24'h000000, 8'h00, MAX_BAUD_DIV};
+        bit [31:0] nominal_timeout_pattern = {24'h000000, DEFAULT_TIMEOUT_CFG, 8'h00};
         bit [31:0] config_patterns[$] = {
-            32'h0000_0000,  // Reset state  
-            32'h0000_0087,  // Baud div only
-            32'h0000_5A00,  // Timeout only
-            32'h0000_5A87,  // Both configured
-            32'hFFFF_FFFF   // Maximum values (test reserved bits = 0)
+            32'h0000_0000,              // Reset state  
+            nominal_baud_pattern,       // Baud divisor only (maximum speed)
+            nominal_timeout_pattern,    // Timeout only
+            nominal_timeout_pattern | nominal_baud_pattern, // Both configured
+            32'hFFFF_FFFF               // Maximum values (test reserved bits = 0)
         };
         
         foreach (config_patterns[i]) begin

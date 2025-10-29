@@ -442,7 +442,7 @@ class uart_tx_coverage_sequence extends uvm_sequence #(uart_frame_transaction);
             finish_item(tx_req);
             
             // Wait for transmission completion (approximate UART bit time * bits per frame)
-            #(434*10*i); // Approximate UART bit time * bits per frame
+            #(uart_axi4_test_pkg::BIT_TIME_NS * 10 * i);
             
             `uvm_info("UART_TX_COV", $sformatf("TX frame %0d: len=%0d, addr=0x%08X", 
                      i, tx_req.length, tx_req.addr), UVM_HIGH)
@@ -467,14 +467,16 @@ class uart_config_change_sequence extends uvm_sequence #(uart_frame_transaction)
         uart_frame_transaction config_req;
         int baud_div_values[4];
         int timeout_values[4];
+        int base_div;
         
         `uvm_info("CONFIG_CHANGE", "Starting dynamic configuration change sequence", UVM_MEDIUM)
         
-        // Initialize baud rate configurations - Fixed SystemVerilog array initialization
-        baud_div_values[0] = 434;  // 115200 bps
-        baud_div_values[1] = 217;  // 230400 bps
-        baud_div_values[2] = 108;  // 460800 bps
-        baud_div_values[3] = 54;   // 921600 bps
+        // Initialize baud rate configurations using package constants
+        base_div = uart_axi4_test_pkg::CLK_FREQ_HZ / uart_axi4_test_pkg::BAUD_RATE;
+        baud_div_values[0] = base_div;        // Nominal maximum baud
+        baud_div_values[1] = base_div * 2;    // Half-rate configuration
+        baud_div_values[2] = base_div * 4;    // Quarter-rate configuration
+        baud_div_values[3] = base_div * 8;    // Eighth-rate configuration
         
         // Initialize timeout values
         timeout_values[0] = 500;

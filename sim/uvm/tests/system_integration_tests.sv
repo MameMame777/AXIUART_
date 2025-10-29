@@ -81,7 +81,9 @@ class system_integration_test extends uvm_test;
         // Configure baud rate and timeout
         reg_trans = axi4_lite_transaction::type_id::create("reg_trans");
         reg_trans.addr = 32'h0000_1008; // CONFIG register
-        reg_trans.data = 32'h0000_5A87; // timeout=0x5A, baud_div=0x87
+    const int unsigned timeout_cfg = 8'h5A;
+    const int unsigned base_baud_div = UART_OVERSAMPLE; // Keep register programming aligned with DUT maximum rate
+    reg_trans.data = (timeout_cfg << 8) | (base_baud_div & 8'hFF);
         reg_trans.trans_type = AXI_WRITE;
         reg_trans.strb = 4'hF;
         reg_trans.start_item(env.axi_agent.sequencer);

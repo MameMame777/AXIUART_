@@ -11,15 +11,22 @@ package uart_axi4_test_pkg;
     `uvm_analysis_imp_decl(_uart)
     `uvm_analysis_imp_decl(_axi)
     `uvm_analysis_imp_decl(_dut)
-    
-    // Configuration class first (must be before anything that uses it)
+
+    // Protocol constants (derived from DUT clock and oversampling ratio)
+    parameter int CLK_FREQ_HZ = 125_000_000;
+    parameter int UART_OVERSAMPLE = 16;
+    parameter int BAUD_RATE = CLK_FREQ_HZ / UART_OVERSAMPLE;
+    parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;
+    parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
+
+    // Configuration class (must appear before any component that consumes it)
     `include "../env/uart_axi4_env_config.sv"
-    
+
     // Transaction direction constants
     typedef enum { UART_RX, UART_TX } uart_direction_t;
     typedef enum { AXI_WRITE, AXI_READ } axi_trans_type_t;
     typedef enum logic [1:0] { AXI_OKAY = 2'b00, AXI_EXOKAY = 2'b01, AXI_SLVERR = 2'b10, AXI_DECERR = 2'b11 } axi_response_t;
-    
+
     // DUT Transaction Types  
     typedef enum {
         UART_RX_DATA, 
@@ -33,12 +40,6 @@ package uart_axi4_test_pkg;
         INTERNAL_STATE_CHANGE,
         FIFO_STATUS_CHANGE
     } dut_transaction_type_t;
-    
-    // Protocol constants
-    parameter int CLK_FREQ_HZ = 125_000_000;
-    parameter int BAUD_RATE = 115200;
-    parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;
-    parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
     
     // Frame constants from protocol specification
     parameter logic [7:0] SOF_HOST_TO_DEVICE = 8'hA5;  // Host to device SOF (corrected to match RTL)

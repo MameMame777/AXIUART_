@@ -4,7 +4,7 @@
 class uart_axi4_env_config extends uvm_object;
     
     // Clock and timing parameters
-    int clk_freq_hz = 125_000_000;
+    int clk_freq_hz = CLK_FREQ_HZ;
     // Baud rate must match DUT parameterization (Uart_Axi4_Bridge.BAUD_RATE)
     int baud_rate = 9_600;
     int bit_time_ns;
@@ -91,6 +91,7 @@ class uart_axi4_env_config extends uvm_object;
     
     function new(string name = "uart_axi4_env_config");
         super.new(name);
+        baud_rate = BAUD_RATE;
         calculate_timing();
     endfunction
     

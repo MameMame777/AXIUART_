@@ -78,7 +78,7 @@ module Frame_Parser_Assertions (
     localparam [7:0] STATUS_TIMEOUT     = 8'h04;
     localparam [7:0] STATUS_LEN_RANGE   = 8'h07;
     // Allow ample cycles between sequential state transitions to account for
-    // UART byte arrival latency (~10.8k clk cycles per byte at 125 MHz / 115200 baud).
+    // high-speed UART byte arrival latency (currently ~160 clk cycles per byte at 125 MHz).
     localparam int STATE_ADVANCE_MAX_CYCLES = 16384;
 
     //==========================================================================

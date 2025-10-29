@@ -116,13 +116,13 @@ class uart_coverage_debug_test extends enhanced_uart_axi4_base_test;
         
         foreach(frame_bytes[i]) begin
             send_uart_byte(frame_bytes[i]);
-            #10000; // Inter-byte delay
+            #(uart_axi4_test_pkg::BIT_TIME_NS * 8); // Inter-byte delay (8 bit times)
         end
     endtask
     
     // Send single UART byte (start bit, 8 data bits, stop bit)
     virtual task send_uart_byte(bit [7:0] data);
-        int bit_time_ns = 8680; // Bit time for 115200 baud
+    int bit_time_ns = uart_axi4_test_pkg::BIT_TIME_NS; // Bit time derived from active baud configuration
         
         // Start bit
         force uart_axi4_tb_top.uart_if_inst.uart_rx = 1'b0;

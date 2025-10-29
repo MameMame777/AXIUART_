@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 module AXIUART_Top #(
     parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 115200,          // UART baud rate
-    parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
+    parameter int BAUD_RATE = CLK_FREQ_HZ / UART_OVERSAMPLE, // Max UART baud rate supported by oversampling
+    parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
     parameter int TX_FIFO_DEPTH = 64,           // TX FIFO depth
     parameter int MAX_LEN = 16,                 // Maximum LEN field value
