@@ -15,6 +15,7 @@ class uart_axi4_env extends uvm_env;
     // Agents - UART only for AXIUART_Top (no external AXI interface)
     uart_agent uart_agt;
     axi4_lite_monitor axi_monitor;
+    uart_uvm_loopback_model loopback_model;
     
     // Analysis components
     uart_axi4_scoreboard phase3_scoreboard;              // Phase 3: Scoreboard with Correlation Engine
@@ -37,6 +38,18 @@ class uart_axi4_env extends uvm_env;
         coverage_active = cfg.enable_coverage;
         axi_monitor_active = cfg.enable_axi_monitor;
         status_monitor_active = cfg.enable_system_status_monitoring;
+
+        if (cfg.enable_uvm_loopback_mode) begin
+            if (cfg.loopback_disable_scoreboard) begin
+                scoreboard_active = 1'b0;
+            end
+            if (cfg.loopback_disable_coverage) begin
+                coverage_active = 1'b0;
+            end
+            if (cfg.loopback_disable_axi_monitor) begin
+                axi_monitor_active = 1'b0;
+            end
+        end
         
         // Create agents - UART only for AXIUART_Top system
         uart_agt = uart_agent::type_id::create("uart_agt", this);
@@ -55,6 +68,15 @@ class uart_axi4_env extends uvm_env;
         
         // Set agent configurations
         uvm_config_db#(uart_axi4_env_config)::set(this, "uart_agt*", "cfg", cfg);
+
+        if (cfg.enable_uvm_loopback_mode) begin
+            loopback_model = uart_uvm_loopback_model::type_id::create("loopback_model", this);
+            if (loopback_model == null) begin
+                `uvm_fatal("ENV", "Failed to create loopback model while loopback mode enabled")
+            end
+            uvm_config_db#(uart_axi4_env_config)::set(this, "loopback_model", "cfg", cfg);
+            uvm_config_db#(virtual uart_if)::set(this, "loopback_model", "vif", cfg.uart_vif);
+        end
         
         // Create analysis components
         if (scoreboard_active) begin
@@ -93,6 +115,17 @@ class uart_axi4_env extends uvm_env;
 
         if (cfg.enable_correlation && phase3_scoreboard != null && uart_agt.monitor != null) begin
             `uvm_info("ENV", "Phase 3 Scoreboard ready for UART frame correlation", UVM_MEDIUM)
+        end
+
+        if (cfg.enable_uvm_loopback_mode) begin
+            if (loopback_model == null) begin
+                `uvm_fatal("ENV", "Loopback model not constructed but loopback mode enabled")
+            end
+            if (uart_agt == null || uart_agt.driver == null) begin
+                `uvm_fatal("ENV", "Loopback mode requires UART agent driver instance")
+            end
+            uart_agt.driver.tx_request_ap.connect(loopback_model.request_export);
+            `uvm_info("ENV", "Connected UART driver request port to loopback model", UVM_LOW)
         end
     endfunction
     

@@ -331,12 +331,9 @@ class uart_monitor extends uvm_monitor;
         int bit_time_cycles;
         int half_bit_cycles;
 
-        // Calculate cycles based on configuration
-        bit_time_cycles = (cfg.clk_freq_hz / cfg.baud_rate);
-        half_bit_cycles = bit_time_cycles / 2;
-        if (half_bit_cycles == 0) begin
-            half_bit_cycles = 1;
-        end
+        // Calculate cycles based on configuration (reuse env helpers)
+        bit_time_cycles = cfg.get_bit_time_cycles();
+        half_bit_cycles = cfg.get_half_bit_cycles();
 
         // Sample start bit midpoint
         repeat (half_bit_cycles) @(posedge vif.clk);
@@ -344,8 +341,9 @@ class uart_monitor extends uvm_monitor;
             `uvm_info("UART_MONITOR", "TX start bit timing variation detected", UVM_DEBUG)
         end
 
-        // Advance to the optimal sampling point for the first data bit.
-        repeat (half_bit_cycles) @(posedge vif.clk);
+        // Advance one full bit period from the midpoint of the start bit so the
+        // first data sample occurs at the center of data bit[0].
+        repeat (bit_time_cycles) @(posedge vif.clk);
         data[0] = vif.uart_tx;
         `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", 0, data[0], $realtime), UVM_MEDIUM)
 

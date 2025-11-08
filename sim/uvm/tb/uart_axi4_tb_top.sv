@@ -32,6 +32,7 @@ module uart_axi4_tb_top;
     // Scenario control for waveform dumping and debug selection
     string test_scenario = "default";
     string selected_uvm_test = "uart_axi4_basic_test";
+    bit tb_loopback_mode = 1'b0;
 
     // Optional internal loopback control (disabled by default)
     localparam bit ENABLE_UART_LOOPBACK = 1'b0;
@@ -42,6 +43,14 @@ module uart_axi4_tb_top;
     // Derived simulation guard sized for extended coverage campaigns at the oversampled max baud
     localparam time DEFAULT_SIM_TIMEOUT = 200ms; // Default guard; override via +SIM_TIMEOUT_MS=<value>
 
+    // DUT UART wiring (allows loopback model to override signals when enabled)
+    logic dut_uart_tx;
+    logic dut_uart_rx;
+    logic dut_uart_rts_n;
+    logic dut_uart_cts_n;
+    logic dut_led;
+    logic dut_rst;
+
     // Ensure the RX line idles high until the driver starts toggling it
     initial begin
         uart_if_inst.uart_rx = 1'b1;
@@ -50,7 +59,7 @@ module uart_axi4_tb_top;
     // DUT instance - Using complete AXIUART_Top system
     AXIUART_Top #(
         .CLK_FREQ_HZ(125_000_000),
-    .BAUD_RATE(TB_BAUD_RATE),
+        .BAUD_RATE(TB_BAUD_RATE),
         .AXI_TIMEOUT(1000),
         .UART_OVERSAMPLE(16),
         .RX_FIFO_DEPTH(64),
@@ -58,15 +67,16 @@ module uart_axi4_tb_top;
         .MAX_LEN(16),
         .REG_BASE_ADDR(32'h0000_1000)
     ) dut (
-    .clk(clk),
-    .rst(rst),
-        
+        .clk(clk),
+        .rst(dut_rst),
+
         // UART interface - external connections
-        .uart_rx(uart_if_inst.uart_rx),
-        .uart_tx(uart_if_inst.uart_tx),
-        .uart_rts_n(uart_if_inst.uart_rts_n),   // Request to Send (active low)
-        .uart_cts_n(uart_if_inst.uart_cts_n)    // Clear to Send (active low)
-        
+        .uart_rx(dut_uart_rx),
+        .uart_tx(dut_uart_tx),
+        .uart_rts_n(dut_uart_rts_n),   // Request to Send (active low)
+        .uart_cts_n(dut_uart_cts_n),   // Clear to Send (active low)
+        .led(dut_led)
+
         // System status outputs (simulation only)
         `ifdef DEFINE_SIM
         ,
@@ -75,6 +85,15 @@ module uart_axi4_tb_top;
         .system_ready(system_ready)
         `endif    
     );
+
+    // Route UART interface signals with loopback-aware overrides
+    assign dut_uart_rx = uart_if_inst.uart_rx;
+    assign uart_if_inst.uart_tx = (uart_if_inst.tb_uart_tx_override_en) ?
+        uart_if_inst.tb_uart_tx_override : dut_uart_tx;
+    assign uart_if_inst.uart_rts_n = tb_loopback_mode ? 1'b1 : dut_uart_rts_n;
+    assign dut_uart_cts_n = tb_loopback_mode ? 1'b0 : uart_if_inst.uart_cts_n;
+    assign uart_if_inst.tb_loopback_active = tb_loopback_mode;
+    assign dut_rst = tb_loopback_mode ? 1'b1 : rst;
 
     // Connect DUT AXI interface directly to UVM monitor - no signal copying needed
     // UVM monitor will access dut.axi_internal directly via virtual interface
@@ -131,11 +150,24 @@ module uart_axi4_tb_top;
         string scenario_arg;
         string testname_arg;
         bit scenario_enables_wave;
+        int loopback_flag;
         if ($value$plusargs("TEST_SCENARIO=%s", scenario_arg)) begin
             test_scenario = scenario_arg;
         end
         if ($value$plusargs("UVM_TESTNAME=%s", testname_arg)) begin
             selected_uvm_test = testname_arg;
+        end
+        if ($value$plusargs("UVM_LOOPBACK=%d", loopback_flag)) begin
+            tb_loopback_mode = (loopback_flag != 0);
+        end else if ($test$plusargs("UVM_LOOPBACK")) begin
+            tb_loopback_mode = 1'b1;
+        end
+
+        uart_if_inst.tb_uart_tx_override_en = 1'b0;
+        uart_if_inst.tb_uart_tx_override = 1'b1;
+
+        if (tb_loopback_mode) begin
+            `uvm_info("TB_TOP", "UVM loopback mode enabled: DUT instance held in reset and UART_TX overridden", UVM_LOW)
         end
 
         // Set virtual interfaces in config database
@@ -143,10 +175,12 @@ module uart_axi4_tb_top;
         uvm_config_db#(virtual uart_if)::set(null, "*", "uart_vif", uart_if_inst); // Legacy support
         uvm_config_db#(virtual bridge_status_if)::set(null, "*", "bridge_status_vif", status_if);
         uvm_config_db#(virtual axi4_lite_if)::set(null, "*", "axi_vif", dut.axi_internal);
+        uvm_config_db#(bit)::set(null, "*", "tb_loopback_mode", tb_loopback_mode);
 
         // Propagate scenario configuration into the UVM config database for tests
         uvm_config_db#(string)::set(null, "uvm_test_top", "test_scenario", test_scenario);
         uvm_config_db#(string)::set(null, "uvm_test_top", "selected_test_name", selected_uvm_test);
+        uvm_config_db#(bit)::set(null, "uvm_test_top", "tb_loopback_mode", tb_loopback_mode);
 
         // Default policy: enable waveform dumping unless explicitly disabled via scenario name
         scenario_enables_wave = (test_scenario != "none");

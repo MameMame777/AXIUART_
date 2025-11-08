@@ -35,6 +35,10 @@ class uart_axi4_env_config extends uvm_object;
     // System status monitoring
     bit enable_system_status_monitoring = 1'b1;
     int bridge_status_verbosity = UVM_LOW;
+    bit enable_uvm_loopback_mode = 1'b0;       // Loopback mode (driver/monitor only)
+    bit loopback_disable_scoreboard = 1'b1;    // Disable scoreboard when loopback active
+    bit loopback_disable_coverage = 1'b1;      // Disable coverage when loopback active
+    bit loopback_disable_axi_monitor = 1'b1;   // Disable AXI monitor when loopback active
     
     // Virtual interfaces
     virtual uart_if uart_vif;
@@ -55,6 +59,8 @@ class uart_axi4_env_config extends uvm_object;
     int num_transactions = 100;
     int min_idle_cycles = 2;
     int max_idle_cycles = 10;
+    int bit_time_cycles;
+    int half_bit_cycles;
     
     `uvm_object_utils_begin(uart_axi4_env_config)
         `uvm_field_int(clk_freq_hz, UVM_ALL_ON)
@@ -80,12 +86,18 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(axi_agent_is_active, UVM_ALL_ON)
         `uvm_field_int(enable_system_status_monitoring, UVM_ALL_ON)
         `uvm_field_int(bridge_status_verbosity, UVM_ALL_ON)
+        `uvm_field_int(enable_uvm_loopback_mode, UVM_ALL_ON)
+        `uvm_field_int(loopback_disable_scoreboard, UVM_ALL_ON)
+        `uvm_field_int(loopback_disable_coverage, UVM_ALL_ON)
+        `uvm_field_int(loopback_disable_axi_monitor, UVM_ALL_ON)
         `uvm_field_int(frame_timeout_ns, UVM_ALL_ON)
         `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(num_transactions, UVM_ALL_ON)
         `uvm_field_int(min_idle_cycles, UVM_ALL_ON)
     `uvm_field_int(max_idle_cycles, UVM_ALL_ON)
+    `uvm_field_int(bit_time_cycles, UVM_ALL_ON)
+    `uvm_field_int(half_bit_cycles, UVM_ALL_ON)
     `uvm_field_real(coverage_warning_threshold, UVM_ALL_ON)
     `uvm_object_utils_end
     
@@ -97,9 +109,41 @@ class uart_axi4_env_config extends uvm_object;
     
     // Calculate timing values based on baud rate
     function void calculate_timing();
-        bit_time_ns = 1_000_000_000 / baud_rate;
-        byte_time_ns = bit_time_ns * 10;
-        frame_timeout_ns = byte_time_ns * 10; // 10 byte times
+        if (baud_rate <= 0) begin
+            bit_time_ns = 0;
+            byte_time_ns = 0;
+            bit_time_cycles = 1;
+        end else begin
+            bit_time_ns = 1_000_000_000 / baud_rate;
+            byte_time_ns = bit_time_ns * 10;
+            bit_time_cycles = (clk_freq_hz / baud_rate);
+            if (bit_time_cycles < 1) begin
+                bit_time_cycles = 1;
+            end
+        end
+
+        half_bit_cycles = (bit_time_cycles + 1) >> 1;
+        if (half_bit_cycles < 1) begin
+            half_bit_cycles = 1;
+        end
+
+        frame_timeout_ns = (byte_time_ns != 0) ? byte_time_ns * 10 : frame_timeout_ns;
+    endfunction
+
+    function int get_bit_time_cycles();
+        return (bit_time_cycles > 0) ? bit_time_cycles : 1;
+    endfunction
+
+    function int get_half_bit_cycles();
+        return (half_bit_cycles > 0) ? half_bit_cycles : 1;
+    endfunction
+
+    function time get_bit_period();
+        return bit_time_ns;
+    endfunction
+
+    function time get_byte_period();
+        return byte_time_ns;
     endfunction
     
 endclass

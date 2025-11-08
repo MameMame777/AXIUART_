@@ -400,6 +400,9 @@ package uart_axi4_test_pkg;
     
     // Then agent definitions
     `include "agents/uart_agent.sv"
+
+    // Loopback support components
+    `include "components/uart_uvm_loopback_model.sv"
     
     // Finally environment (when agents are ready)
     `include "env/uart_axi4_env.sv"
@@ -448,6 +451,7 @@ package uart_axi4_test_pkg;
     `include "tests/uart_axi4_read_protocol_test.sv"         // Read protocol verification test
     `include "tests/uart_flow_control_tests.sv"         // RTS/CTS flow control tests
     `include "tests/frame_parser_diagnostic_test.sv"    // Frame parser diagnostic test (Oct 10, 2025)
+    `include "tests/uart_axi4_uvm_loopback_test.sv"
     
     // TEMPORARILY DISABLED - compilation errors blocking all tests:
     // `include "tests/uart_axi4_comprehensive_test.sv"     // Comprehensive system test

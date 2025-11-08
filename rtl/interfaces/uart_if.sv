@@ -43,6 +43,11 @@ interface uart_if (
     logic [7:0] current_data_length;
     logic [63:0] current_payload;  // Support up to 8 bytes
     logic [7:0] current_crc;
+
+    // Testbench-only overrides (loopback mode and diagnostics)
+    logic tb_uart_tx_override;
+    logic tb_uart_tx_override_en;
+    logic tb_loopback_active;
     
     // Clocking block for driver synchronization
     // This provides proper timing alignment for UART signal generation

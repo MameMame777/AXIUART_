@@ -114,6 +114,17 @@ class uart_axi4_base_test extends uvm_test;
         cfg.enable_system_status_monitoring = 1;
         cfg.enable_axi_monitor = 1;
         cfg.bridge_status_verbosity = UVM_MEDIUM;
+
+        // Loopback detection (plusarg propagated from TB top)
+        begin
+            bit tb_loopback_from_tb;
+            if (uvm_config_db#(bit)::get(this, "", "tb_loopback_mode", tb_loopback_from_tb)) begin
+                if (tb_loopback_from_tb) begin
+                    cfg.enable_uvm_loopback_mode = 1'b1;
+                    `uvm_info("BASE_TEST", "Loopback mode requested via testbench configuration", UVM_LOW)
+                end
+            end
+        end
         
         `uvm_info("BASE_TEST", "Test configuration completed", UVM_MEDIUM)
     endfunction
