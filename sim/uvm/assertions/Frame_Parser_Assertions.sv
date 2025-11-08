@@ -121,7 +121,8 @@ module Frame_Parser_Assertions (
         |=> frame_valid;
     endproperty
     assert_frame_valid: assert property (frame_valid_generation_correctness)
-        else $fatal("ASSERTION_FAIL: frame_valid generation failed - Critical system failure at %t", $time);    // A4: Frame Valid Persistence Guarantee
+        else $fatal("ASSERTION_FAIL: frame_valid generation failed - Critical system failure at %t", $time);
+    // A4: Frame Valid Persistence Guarantee
     property frame_valid_persistence_guarantee;
         @(posedge clk) disable iff (rst)
         (frame_valid && !frame_consumed) |=> frame_valid;

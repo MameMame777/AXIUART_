@@ -53,11 +53,11 @@ interfaces/bridge_status_if.sv
 ../../rtl/AXIUART_Top.sv
 
 # Frame Parser Assertions (bind statement approach)
-../../rtl/Frame_Parser_Assertions.sv
-../../rtl/Frame_Parser_CRC_Status_Assertions.sv
-../../rtl/Frame_Parser_Assertions_Bind.sv
-../../rtl/Uart_Axi4_Bridge_Timeout_Assertions.sv
-../../rtl/Uart_Axi4_Bridge_Timeout_Bind.sv
+assertions/Frame_Parser_Assertions.sv
+assertions/Frame_Parser_CRC_Status_Assertions.sv
+assertions/Frame_Parser_Assertions_Bind.sv
+assertions/Uart_Axi4_Bridge_Timeout_Assertions.sv
+assertions/Uart_Axi4_Bridge_Timeout_Bind.sv
 
 # Emergency diagnostic assertions (corrected path)
 ../emergency_frame_parser_diagnostics.sv
