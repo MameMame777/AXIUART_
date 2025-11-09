@@ -172,6 +172,8 @@ module Uart_Axi4_Bridge #(
     // CMD保持用レジスタ - Frame_Parserの出力が消える前にキャプチャ
     logic [7:0] captured_cmd;
     logic [31:0] captured_addr;
+    logic [6:0] captured_read_data_count;
+    logic axi_transaction_done_prev;
     
     // Transaction control flags - CRITICAL FIX for AXI transactions
     logic axi_start_issued;
@@ -395,6 +397,8 @@ module Uart_Axi4_Bridge #(
             main_state <= MAIN_IDLE;
             captured_cmd <= 8'h00;
             captured_addr <= 32'h00000000;
+            captured_read_data_count <= 7'd0;
+            axi_transaction_done_prev <= 1'b0;
             // Bridge reset - state=IDLE
         end else begin
             // Always show state transitions
@@ -408,6 +412,7 @@ module Uart_Axi4_Bridge #(
             if (parser_frame_valid) begin
                 captured_cmd <= parser_cmd;
                 captured_addr <= parser_addr;
+                captured_read_data_count <= 7'd0;
                 // Bridge captured CMD and ADDR
             end
             
@@ -415,8 +420,19 @@ module Uart_Axi4_Bridge #(
             if (parser_frame_error && !parser_frame_valid) begin
                 captured_cmd <= parser_cmd;  // エラー時でもCMDをキャプチャ
                 captured_addr <= parser_addr;
+                captured_read_data_count <= 7'd0;
                 // Bridge captured ERROR CMD and ADDR
             end
+
+            if (axi_transaction_done && !axi_transaction_done_prev) begin
+                if (captured_cmd[7] && (axi_status == 8'h00)) begin
+                    captured_read_data_count <= axi_read_data_count;
+                end else begin
+                    captured_read_data_count <= 7'd0;
+                end
+            end
+
+            axi_transaction_done_prev <= axi_transaction_done;
         end
     end
     
@@ -538,7 +554,7 @@ module Uart_Axi4_Bridge #(
                     
                     if (captured_cmd[7]) begin  // 修正: parser_cmd[7] → captured_cmd[7]
                         if (axi_status == 8'h00) begin  // Success
-                            builder_response_data_count = axi_read_data_count;
+                            builder_response_data_count = captured_read_data_count;
                         end else begin  // Error
                             builder_response_data_count = 7'd0;
                         end

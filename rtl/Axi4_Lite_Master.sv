@@ -92,6 +92,9 @@ module Axi4_Lite_Master #(
     logic [15:0] timeout_counter;   // CRITICAL: Timeout monitoring
     logic early_busy_sent;
 
+    // Flattened view of write_data for waveform/debug visibility
+    (* keep = "true" *) logic [(64 * 8) - 1:0] write_data_flat;
+
     // Internal valid/ready tracking to avoid reading modport outputs
     logic awvalid_int;  // CRITICAL: Write address valid from master
     logic wvalid_int;   // CRITICAL: Write data valid from master
@@ -134,6 +137,14 @@ module Axi4_Lite_Master #(
         early_busy_threshold_reached = (timeout_counter >= EARLY_BUSY_THRESHOLD);
     end
     
+    // Provide continuous flattened mapping for tools that cannot display 2-D arrays
+    always_comb begin
+        write_data_flat = '0;
+        for (int i = 0; i < 64; i++) begin
+            write_data_flat[(i * 8) +: 8] = write_data[i];
+        end
+    end
+
     // State machine (sequential part)
     always_ff @(posedge clk) begin
         if (rst) begin

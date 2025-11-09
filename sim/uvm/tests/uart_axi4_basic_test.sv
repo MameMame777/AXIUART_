@@ -69,6 +69,22 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         end
     endfunction
 
+    // Primary stimulus hook; derived tests can override to supply custom sequences.
+    // Default implementation executes the legacy single-write debug sequence.
+    protected virtual task run_primary_sequence(output bit sequence_completed);
+        `uvm_info("BASIC_TEST", "Running single write debug sequence", UVM_MEDIUM)
+
+        debug_seq = simple_debug_write_sequence_20250923::type_id::create("debug_seq");
+        if (debug_seq == null) begin
+            `uvm_fatal("BASIC_TEST", "Failed to create debug sequence")
+        end
+
+        `uvm_info("BASIC_TEST_SEQ", "Calling debug_seq.start()", UVM_HIGH)
+        debug_seq.start(env.uart_agt.sequencer);
+        sequence_completed = 1;
+        `uvm_info("BASIC_TEST", "Sequence.start() returned successfully - no timeout", UVM_LOW)
+    endtask
+
     // Override run_phase instead of main_phase to avoid phase conflicts
     virtual task run_phase(uvm_phase phase);
     bit sequence_completed;
@@ -115,13 +131,6 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
             $sformatf("frame_timeout_ns=%0d byte_time_ns=%0d", cfg.frame_timeout_ns, cfg.byte_time_ns), UVM_LOW)
 
         // Run debug single write sequence with timeout protection (no forced thread kill)
-        `uvm_info("BASIC_TEST", "Running single write debug sequence", UVM_MEDIUM)
-        debug_seq = simple_debug_write_sequence_20250923::type_id::create("debug_seq");
-        if (debug_seq == null) begin
-            `uvm_fatal("BASIC_TEST", "Failed to create debug sequence")
-        end
-
-        `uvm_info("BASIC_TEST", "Sequence handle created; invoking start()", UVM_LOW)
         sequence_completed = 0;
 
         if (cfg.frame_timeout_ns > 0) begin
@@ -150,13 +159,10 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
             $sformatf("frame_timeout_ns=%0d byte_time_ns=%0d poll_interval_ns=%0d seq_timeout_ns=%0d handshake_timeout_ns=%0d",
                 cfg.frame_timeout_ns, cfg.byte_time_ns, poll_interval_ns, seq_timeout_ns, handshake_timeout_ns), UVM_LOW)
 
-        `uvm_info("BASIC_TEST_SEQ", "About to fork debug sequence thread", UVM_LOW)
-        fork : debug_sequence_execution
+        `uvm_info("BASIC_TEST_SEQ", "About to fork primary test sequence thread", UVM_LOW)
+        fork : primary_sequence_execution
             begin
-                `uvm_info("BASIC_TEST_SEQ", "Calling debug_seq.start()", UVM_HIGH)
-                debug_seq.start(env.uart_agt.sequencer);
-                sequence_completed = 1;
-                `uvm_info("BASIC_TEST", "Sequence.start() returned successfully - no timeout", UVM_LOW)
+                run_primary_sequence(sequence_completed);
             end
         join_none
 

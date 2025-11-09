@@ -37,13 +37,14 @@ module emergency_frame_parser_diagnostics #(
     assert property (frame_valid_releases)
         else $error("[EMERGENCY_FP] frame_valid_hold stuck high beyond %0d cycles (time=%0t)", MAX_VALIDATE_STRETCH, $time);
 
-    // Detect state machine lock-up away from IDLE.
+    // Detect state machine lock-up away from IDLE. Guard on the live state so that
+    // long idle stretches (expected while TX drains) do not trigger false positives.
     property state_eventually_advances;
         @(posedge clk) disable iff (rst)
-        (state_q != IDLE) |-> ##[1:MAX_STATE_STABLE_CYCLES] (state != state_q);
+    (state != IDLE) |-> ##[1:MAX_STATE_STABLE_CYCLES] (!$stable(state));
     endproperty
     assert property (state_eventually_advances)
-        else $error("[EMERGENCY_FP] parser state %0d held for >%0d cycles (time=%0t)", state_q, MAX_STATE_STABLE_CYCLES, $time);
+        else $error("[EMERGENCY_FP] parser state %0d held for >%0d cycles (time=%0t)", state, MAX_STATE_STABLE_CYCLES, $time);
 
     // Coverage on healthy VALIDATE to IDLE progression.
     cover property (@(posedge clk) disable iff (rst)

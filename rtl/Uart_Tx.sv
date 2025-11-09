@@ -62,7 +62,8 @@ module Uart_Tx #(
             end
         end
     end
-    assign baud_tick = tx_busy && (baud_counter == 0);
+    // Pulse once per completed baud interval so start/data/stop bits hold for a full period
+    assign baud_tick = tx_busy && (baud_counter == BAUD_DIV - 1);
     
     // State machine (sequential part)
     always_ff @(posedge clk) begin

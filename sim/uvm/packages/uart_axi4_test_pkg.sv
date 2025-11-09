@@ -50,9 +50,9 @@ package uart_axi4_test_pkg;
     parameter logic [7:0] WRITE_CMD = 8'h00;  // Write command (bit 7 = 0)
     
     // Register addresses for testing
-    parameter logic [31:0] TEST_REG_ADDR        = 32'h0000_1000;
+    parameter logic [31:0] TEST_REG_ADDR        = 32'h0000_1020;
     parameter logic [31:0] STATUS_REG_ADDR      = 32'h0000_1004;
-    parameter logic [31:0] FIFO_STATUS_REG_ADDR = 32'h0000_1008;
+    parameter logic [31:0] FIFO_STATUS_REG_ADDR = 32'h0000_1018;
     
     // Status codes
     parameter logic [7:0] STATUS_OK         = 8'h00;
@@ -420,12 +420,14 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_axi4_register_block_sequence.sv"
     `include "sequences/uart_axi4_read_protocol_sequence.sv"  // Read protocol verification
     `include "sequences/debug_sequences.sv"  // Debug sequences to avoid circular dependencies
+    `include "sequences/uart_configure_baud_sequence.sv"
     // `include "sequences/register_sequences.sv"  // TEMPORARILY DISABLED - duplicate uart_debug_write_seq definition
     // NOTE: test_register_sequences.sv commented out due to identifier conflict
     // `include "sequences/test_register_sequences.sv"  // Test register sequences  
     `include "sequences/coverage_sequences.sv"
     `include "sequences/flow_control_sequences.sv"       // RTS/CTS flow control sequences
     `include "sequences/simple_test_register_sequence.sv"
+    `include "sequences/test_reg_rw_sequence.sv"
     
     // Test files
     `include "tests/uart_axi4_base_test.sv"
@@ -436,6 +438,8 @@ package uart_axi4_test_pkg;
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
+    `include "tests/uart_axi4_basic_test_reg_rw.sv"
+    `include "tests/uart_axi4_basic_115200_test.sv"
     `include "tests/uart_axi4_simple_write_test.sv"   // Simple write test
     `include "tests/uart_axi4_dual_write_test.sv"
     `include "tests/uart_axi4_metadata_read_test.sv"

@@ -33,6 +33,16 @@ class uart_axi4_expected_transaction extends uvm_object;
 endclass
 
 // UVM Scoreboard for UART-AXI4 Bridge
+typedef struct packed {
+    logic [31:0] start_addr;
+    logic [31:0] end_addr;
+} valid_region_t;
+
+typedef struct packed {
+    bit          valid;
+    logic [31:0] data;
+} register_mirror_entry_t;
+
 class uart_axi4_scoreboard extends uvm_scoreboard;
     
     `uvm_component_utils(uart_axi4_scoreboard)
@@ -66,9 +76,19 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     uart_frame_transaction uart_expected_queue[$];
     response_expectation_info_t response_expectation_queue[$];
 
+    register_mirror_entry_t register_mirror[logic [31:0]];
+
     // Register map boundaries for automatic reserved-address classification
     localparam logic [31:0] REG_BASE_ADDR = 32'h0000_1000;
-    localparam logic [31:0] REG_LAST_VALID_ADDR = 32'h0000_102F;  // Updated to include REG_TEST registers
+    localparam int unsigned NUM_VALID_REGIONS = 6;
+    localparam valid_region_t VALID_REGIONS[NUM_VALID_REGIONS] = '{
+        '{32'h0000_1000, 32'h0000_101F},   // Control, status, config, debug, counters
+        '{32'h0000_1020, 32'h0000_102F},   // REG_TEST_0 through REG_TEST_3
+        '{32'h0000_1040, 32'h0000_1043},   // REG_TEST_4
+        '{32'h0000_1050, 32'h0000_1053},   // REG_TEST_5
+        '{32'h0000_1080, 32'h0000_1083},   // REG_TEST_6
+        '{32'h0000_1100, 32'h0000_1103}    // REG_TEST_7
+    };
     
     // Statistics
     int uart_transactions_received = 0;
@@ -114,6 +134,8 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
         if (!uvm_config_db#(uart_axi4_env_config)::get(this, "", "cfg", cfg)) begin
             `uvm_fatal("SCOREBOARD", "Failed to get configuration object")
         end
+
+        clear_register_mirror();
     endfunction
 
     protected function void scoreboard_metadata_log(string id, string message, int default_verbosity = UVM_HIGH);
@@ -152,29 +174,78 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
     endfunction
 
     function bit is_addr_reserved(logic [31:0] addr);
-        bit result;
-        
-        if (addr < REG_BASE_ADDR) begin
-            result = 1'b1;
-            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
-                $sformatf("Address check: 0x%08X (BELOW_BASE) offset=0x%02X -> reserved=%0b",
-                          addr, (addr - REG_BASE_ADDR), result),
-                UVM_MEDIUM);
-        end else if (addr > REG_LAST_VALID_ADDR) begin
-            result = 1'b1;
-            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
-                $sformatf("Address check: 0x%08X (ABOVE_LAST) offset=0x%02X -> reserved=%0b",
-                          addr, (addr - REG_BASE_ADDR), result),
-                UVM_MEDIUM);
-        end else begin
-            result = 1'b0;
-            scoreboard_metadata_log("SCOREBOARD_RESERVED_ALREADY",
-                $sformatf("Address check: 0x%08X (VALID) offset=0x%02X -> reserved=%0b",
-                          addr, (addr - REG_BASE_ADDR), result),
+        bit within_region;
+
+        within_region = 1'b0;
+
+        foreach (VALID_REGIONS[idx]) begin
+            if ((addr >= VALID_REGIONS[idx].start_addr) && (addr <= VALID_REGIONS[idx].end_addr)) begin
+                within_region = 1'b1;
+                scoreboard_metadata_log("SCOREBOARD_ADDR_CLASSIFY",
+                    $sformatf("Address check: 0x%08X within region [0x%08X:0x%08X]",
+                              addr, VALID_REGIONS[idx].start_addr, VALID_REGIONS[idx].end_addr),
+                    UVM_MEDIUM);
+                break;
+            end
+        end
+
+        if (!within_region) begin
+            scoreboard_metadata_log("SCOREBOARD_ADDR_CLASSIFY",
+                $sformatf("Address check: 0x%08X outside defined regions (base=0x%08X)",
+                          addr, REG_BASE_ADDR),
                 UVM_MEDIUM);
         end
-        
-        return result;
+
+        return !within_region;
+    endfunction
+
+    protected function void clear_register_mirror();
+        register_mirror.delete();
+    endfunction
+
+    protected function void update_register_mirror(logic [31:0] addr,
+                                                   logic [31:0] wdata,
+                                                   logic [3:0]  wstrb);
+        register_mirror_entry_t entry;
+        logic [31:0] current_data;
+        logic [31:0] mask;
+
+        if (register_mirror.exists(addr) && register_mirror[addr].valid) begin
+            current_data = register_mirror[addr].data;
+        end else begin
+            current_data = 32'h0;
+        end
+
+        mask = expand_wstrb_mask(wstrb);
+        entry.valid = 1'b1;
+        entry.data = (current_data & ~mask) | (wdata & mask);
+        register_mirror[addr] = entry;
+
+        scoreboard_runtime_log("SCOREBOARD_MIRROR_WRITE",
+            $sformatf("Mirror update: ADDR=0x%08X mask=0x%08X new=0x%08X",
+                      addr, mask, entry.data),
+            UVM_HIGH);
+    endfunction
+
+    protected function bit read_register_mirror(logic [31:0] addr,
+                                                output logic [31:0] data);
+        if (register_mirror.exists(addr) && register_mirror[addr].valid) begin
+            data = register_mirror[addr].data;
+            return 1'b1;
+        end
+
+        data = 32'h0;
+        return 1'b0;
+    endfunction
+
+    protected function logic [31:0] read_mask_from_size(logic [1:0] size,
+                                                         logic [1:0] addr_lsb);
+        case (size)
+            2'b00: return (32'h0000_00FF << (addr_lsb * 8));
+            2'b01: return (addr_lsb[1] ? 32'hFFFF_0000 : 32'h0000_FFFF);
+            2'b10: return 32'hFFFF_FFFF;
+            default: return 32'h0000_0000;
+        endcase
     endfunction
 
     function void apply_expected_metadata(ref uart_frame_transaction uart_tr);
@@ -557,6 +628,10 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
             if (!verify_write_data(expectation, beat_index, axi_tr)) begin
                 return 0;
             end
+
+            if (!allow_error && !require_error) begin
+                update_register_mirror(expectation.beat_addr[beat_index], axi_tr.wdata, axi_tr.wstrb);
+            end
         end else begin
             logic [1:0] rresp = axi_tr.rresp;
 
@@ -583,6 +658,34 @@ class uart_axi4_scoreboard extends uvm_scoreboard;
                     $sformatf("ERROR_PREDICTION_TOLERANCE: Expected AXI error on read at ADDR=0x%08X but RRESP=0 (expect_error=%0b)",
                               axi_tr.addr, expect_error))
                 return 0;
+            end
+
+            if (!allow_error && !require_error) begin
+                logic [31:0] mirror_data;
+                bit mirror_valid;
+                logic [31:0] read_mask;
+
+                mirror_valid = read_register_mirror(expectation.beat_addr[beat_index], mirror_data);
+                if (!mirror_valid) begin
+                    scoreboard_runtime_log("SCOREBOARD_MIRROR_DEFAULT",
+                        $sformatf("Mirror miss: ADDR=0x%08X defaulting to reset value 0x00000000",
+                                  expectation.beat_addr[beat_index]),
+                        UVM_HIGH);
+                    mirror_data = 32'h0;
+                    register_mirror[expectation.beat_addr[beat_index]] = '{valid:1'b1, data:mirror_data};
+                end
+
+                read_mask = read_mask_from_size(expectation.size, expectation.beat_addr[beat_index][1:0]);
+                if (read_mask == 32'h0000_0000) begin
+                    read_mask = 32'hFFFF_FFFF;
+                end
+
+                if ((axi_tr.rdata & read_mask) != (mirror_data & read_mask)) begin
+                    `uvm_warning("SCOREBOARD",
+                        $sformatf("READ_DATA_TOLERANCE: Read data mismatch at beat %0d: expected 0x%08X, got 0x%08X (mask 0x%08X)",
+                                  beat_index + 1, mirror_data, axi_tr.rdata, read_mask))
+                    return 0;
+                end
             end
         end
 
