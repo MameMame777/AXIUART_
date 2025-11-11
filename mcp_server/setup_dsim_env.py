@@ -8,8 +8,8 @@ from pathlib import Path
 def setup_dsim_environment():
     """Setup DSIM environment variables"""
     
-    # Default DSIM installation path
-    dsim_home = "C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0"
+    # Default DSIM installation path (DSIM 2025.1)
+    dsim_home = "C:\\Program Files\\Altair\\DSim\\2025.1"
     
     print("Setting up DSIM environment variables...")
     
