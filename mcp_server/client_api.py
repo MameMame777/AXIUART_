@@ -22,9 +22,9 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 DEFAULT_ENV_OVERRIDES: Dict[str, str] = {
-    "DSIM_HOME": r"C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
-    "DSIM_ROOT": r"C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0",
-    "DSIM_LIB_PATH": r"C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim\\20240422.0.0\\lib",
+    "DSIM_HOME": r"C:\\Program Files\\Altair\\DSim\\2025.1",
+    "DSIM_ROOT": r"C:\\Program Files\\Altair\\DSim\\2025.1",
+    "DSIM_LIB_PATH": r"C:\\Program Files\\Altair\\DSim\\2025.1\\lib",
     "DSIM_LICENSE": r"C:\\Users\\Nautilus\\AppData\\Local\\metrics-ca\\dsim-license.json",
 }
 
