@@ -41,6 +41,10 @@ module fifo_sync #(
             wr_ptr <= '0;
             rd_ptr <= '0;
             fifo_count <= '0;
+            // Clear storage to avoid propagating stale bytes after reset
+            for (int i = 0; i < FIFO_DEPTH; i++) begin
+                mem[i] <= '0;
+            end
         end else begin
             // Write pointer
             if (wr_en && !full) begin

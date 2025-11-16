@@ -361,6 +361,7 @@ module Uart_Axi4_Bridge #(
     
     // TX FIFO read control and UART TX feeding
     logic tx_start_req, tx_start_reg;
+    logic tx_byte_done_delayed;  // Delay tx_done to release tx_start cleanly
     
     assign tx_start_req = !tx_fifo_empty && !tx_busy && !tx_start_reg;
     assign tx_fifo_rd_en = tx_start_req;
@@ -375,12 +376,23 @@ module Uart_Axi4_Bridge #(
         end
     `endif
     
+    // Delay tx_done by one cycle to hold tx_start_reg until UART finishes
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            tx_byte_done_delayed <= 1'b0;
+        end else begin
+            tx_byte_done_delayed <= tx_done;
+        end
+    end
+
     // Generate single-cycle pulse for tx_start
     always_ff @(posedge clk) begin
         if (rst) begin
             tx_start_reg <= 1'b0;
-        end else begin
-            tx_start_reg <= tx_start_req || (tx_start_reg && tx_busy);
+        end else if (tx_byte_done_delayed) begin
+            tx_start_reg <= 1'b0;
+        end else if (tx_start_req) begin
+            tx_start_reg <= 1'b1;
         end
     end
     
