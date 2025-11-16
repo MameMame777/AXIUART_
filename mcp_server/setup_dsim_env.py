@@ -17,6 +17,11 @@ def setup_dsim_environment():
     os.environ['DSIM_HOME'] = dsim_home
     os.environ['DSIM_ROOT'] = dsim_home
     os.environ['DSIM_LIB_PATH'] = f"{dsim_home}\\lib"
+    os.environ['STD_LIBS'] = f"{dsim_home}\\std_pkgs\\lib"
+    os.environ['RADFLEX_PATH'] = f"{dsim_home}\\radflex"
+    uvm_home = Path(dsim_home) / "uvm" / "1.2"
+    if uvm_home.exists():
+        os.environ['UVM_HOME'] = str(uvm_home)
     
     # Check if DSIM_LICENSE is already set, if not try to auto-configure
     if not os.environ.get('DSIM_LICENSE'):
@@ -31,6 +36,21 @@ def setup_dsim_environment():
                 os.environ['DSIM_LICENSE'] = str(license_path)
                 print(f"Auto-configured DSIM_LICENSE: {license_path}")
                 break
+
+    # Prepend DSIM binaries to PATH for processes launched afterwards
+    required_paths = [
+        f"{dsim_home}\\bin",
+        f"{dsim_home}\\mingw\\bin",
+        f"{dsim_home}\\dsim_deps\\bin",
+        f"{dsim_home}\\lib",
+    ]
+
+    current_path = os.environ.get('PATH', '')
+    path_parts = current_path.split(os.pathsep) if current_path else []
+    for entry in required_paths:
+        if entry not in path_parts:
+            path_parts.insert(0, entry)
+    os.environ['PATH'] = os.pathsep.join(path_parts)
     
     # Verify setup
     print("\\n=== DSIM Environment Status ===")
@@ -38,6 +58,8 @@ def setup_dsim_environment():
     print(f"DSIM_ROOT: {os.environ.get('DSIM_ROOT', 'NOT SET')}")
     print(f"DSIM_LIB_PATH: {os.environ.get('DSIM_LIB_PATH', 'NOT SET')}")
     print(f"DSIM_LICENSE: {os.environ.get('DSIM_LICENSE', 'NOT SET')}")
+    print(f"STD_LIBS: {os.environ.get('STD_LIBS', 'NOT SET')}")
+    print(f"UVM_HOME: {os.environ.get('UVM_HOME', 'NOT SET')}")
     
     # Check DSIM executable
     dsim_exe = Path(dsim_home) / "bin" / "dsim.exe"

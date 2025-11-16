@@ -94,6 +94,34 @@ def setup_dsim_environment():
     os.environ.setdefault('DSIM_ROOT', dsim_home)
     os.environ.setdefault('DSIM_LIB_PATH', str(dsim_path / "lib"))
 
+    # Always force DSIM 2025.1 standard library locations to avoid stale overrides
+    std_libs_path = dsim_path / "std_pkgs" / "lib"
+    if std_libs_path.exists():
+        os.environ['STD_LIBS'] = str(std_libs_path)
+
+    uvm_default = dsim_path / "uvm" / "1.2"
+    if uvm_default.exists():
+        os.environ['UVM_HOME'] = str(uvm_default)
+
+    radflex_path = dsim_path / "radflex"
+    if radflex_path.exists():
+        os.environ['RADFLEX_PATH'] = str(radflex_path)
+
+    # Ensure PATH contains the DSIM tool directories exactly once
+    required_path_entries = [
+        str(dsim_path / "bin"),
+        str(dsim_path / "mingw" / "bin"),
+        str(dsim_path / "dsim_deps" / "bin"),
+        str(dsim_path / "lib"),
+    ]
+
+    current_path = os.environ.get('PATH', '')
+    path_components = current_path.split(os.pathsep) if current_path else []
+    for entry in required_path_entries:
+        if entry and entry not in path_components:
+            path_components.insert(0, entry)
+    os.environ['PATH'] = os.pathsep.join(path_components)
+
     # Auto-configure DSIM_LICENSE if not set
     if not os.environ.get('DSIM_LICENSE') and dsim_home:
         license_locations = [
