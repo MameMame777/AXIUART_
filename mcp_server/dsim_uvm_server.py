@@ -68,6 +68,13 @@ def setup_dsim_environment():
     global dsim_home
 
     dsim_home = os.environ.get('DSIM_HOME')
+    if dsim_home:
+        dsim_path_candidate = Path(dsim_home)
+        # Some setups incorrectly append /bin; normalize so DSIM_HOME points to install root
+        if dsim_path_candidate.name.lower() == "bin" and dsim_path_candidate.parent.exists():
+            dsim_path_candidate = dsim_path_candidate.parent
+            dsim_home = str(dsim_path_candidate)
+            os.environ['DSIM_HOME'] = dsim_home
     if not dsim_home:
         logger.info("DSIM_HOME not set - invoking setup_dsim_env helper")
         try:
