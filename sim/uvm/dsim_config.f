@@ -12,6 +12,7 @@
 +define+UVM_NO_DPI
 +define+WAVES
 +define+SIM_DEBUG_BRIDGE
++define+ENABLE_DEBUG
 +define+ENABLE_COVERAGE
 +define+ENABLE_ASSERTIONS
 +define+COVERAGE_ENHANCED

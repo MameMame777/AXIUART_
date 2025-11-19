@@ -129,16 +129,36 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
             if (tx_response_fifo != null) begin
                 int pre_drive_depth;
+                bit skip_response;
                 pre_drive_depth = (tx_response_fifo != null) ? tx_response_fifo.used() : 0;
                 driver_debug_log("UART_DRIVER_FIFO",
                     $sformatf("Entering monitored response path: fifo_depth=%0d", pre_drive_depth),
                     UVM_HIGH);
                 flush_monitor_responses();
                 drive_frame(req);
-                driver_runtime_log("UART_DRIVER",
-                    "Invoking collect_response_from_fifo() after frame transmission",
-                    UVM_LOW);
-                collect_response_from_fifo(req);
+                
+                // Determine if response collection should be skipped:
+                // 1. RESET command (CMD=0xFF): Triggers soft reset, no response frame
+                // 2. CONFIG write (addr=0x00001008, is_write=1): Baud switch, response at new baud (UVM still at old baud)
+                skip_response = (req.cmd == 8'hFF) || 
+                               (req.is_write && (req.addr == 32'h00001008));
+                
+                if (skip_response) begin
+                    if (req.cmd == 8'hFF) begin
+                        driver_runtime_log("UART_DRIVER_RESET",
+                            "RESET command transmitted - no response expected (soft reset active)",
+                            UVM_MEDIUM);
+                    end else begin
+                        driver_runtime_log("UART_DRIVER_CONFIG",
+                            "CONFIG write transmitted - no response expected (baud rate mismatch)",
+                            UVM_MEDIUM);
+                    end
+                end else begin
+                    driver_runtime_log("UART_DRIVER",
+                        "Invoking collect_response_from_fifo() after frame transmission",
+                        UVM_LOW);
+                    collect_response_from_fifo(req);
+                end
             end else begin
                 // Legacy direct sampling path - kept as fallback
                 fork
@@ -178,8 +198,19 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         payload_bytes = tr.data.size();
         is_write_cmd = (tr.cmd[7] == 1'b0);
 
-        // Build complete frame
-        if (tr.cmd[7]) begin // Read command
+        // RESET command special handling (CMD=0xFF)
+        if (tr.cmd == 8'hFF) begin
+            byte_count = 3;  // RESET frame: SOF + CMD + CRC only
+            frame_bytes = new[byte_count];
+            frame_bytes[0] = SOF_HOST_TO_DEVICE;  // 0xA5
+            frame_bytes[1] = 8'hFF;  // CMD = RESET
+            // CRC calculation for RESET: only CMD byte (0xFF)
+            calculated_crc = calculate_crc({8'hFF}, 1);
+            frame_bytes[2] = calculated_crc;
+            driver_runtime_log("UART_DRIVER_RESET",
+                $sformatf("RESET frame: SOF=0x%02X CMD=0xFF CRC=0x%02X (3 bytes)",
+                          SOF_HOST_TO_DEVICE, calculated_crc), UVM_MEDIUM);
+        end else if (tr.cmd[7]) begin // Read command
             byte_count = 7; // SOF + CMD + ADDR(4) + CRC
             frame_bytes = new[byte_count];
             frame_bytes[0] = SOF_HOST_TO_DEVICE;
@@ -238,7 +269,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         driver_forced_log("UART_DRIVER_DIAG",
             $sformatf("drive_frame summary: cmd=0x%02X data_size=%0d byte_count=%0d", tr.cmd, payload_bytes, byte_count));
 
-        if (is_write_cmd) begin
+        // Frame validation: RESET=3 bytes, Read=7 bytes, Write>=7 bytes
+        if (tr.cmd == 8'hFF) begin  // RESET command
+            if (byte_count != 3) begin
+                `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("RESET frame byte_count=%0d (expected 3)", byte_count))
+            end
+        end else if (is_write_cmd) begin
             if (payload_bytes <= 0) begin
                 `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("Write frame missing payload bytes (cmd=0x%02X)", tr.cmd))
             end
@@ -332,7 +368,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         time start_time;
         bit emit_debug;
 
-        bit_time_cycles = (cfg.baud_rate > 0) ? (cfg.clk_freq_hz / cfg.baud_rate) : 0;
+        // CRITICAL FIX: Use pre-calculated cfg.bit_time_cycles instead of recalculating
+        // This ensures baud rate changes (via cfg.calculate_timing()) are respected
+        bit_time_cycles = (cfg.bit_time_cycles > 0) ? cfg.bit_time_cycles : 
+                          ((cfg.baud_rate > 0) ? (cfg.clk_freq_hz / cfg.baud_rate) : 1);
         if (bit_time_cycles <= 0) begin
             bit_time_cycles = 1;
         end
@@ -356,7 +395,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             watchdog_delay_ns = base_guard_ns + 100;
         end
 
-        emit_debug = (debug_byte_count < 8);
+        // TEMPORARY DEBUG: Always emit timing logs (remove debug_byte_count restriction)
+        emit_debug = 1'b1;
 
         if (emit_debug) begin
             driver_forced_log("UART_DRIVER_TIMING",
@@ -372,19 +412,19 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
         fork
             begin : drive_thread
-                driver_runtime_log("UART_DRIVER_BYTE",
-                    $sformatf("Driving UART byte: 0x%02X", data),
-                    UVM_LOW);
+            driver_runtime_log("UART_DRIVER_BYTE",
+                $sformatf("Driving UART byte: 0x%02X", data),
+                UVM_LOW);
 
-                // Start bit
-                vif.uart_rx = 1'b0;
-                repeat (bit_time_cycles) @(posedge vif.clk);
-                if (emit_debug) begin
-                    driver_forced_log("UART_DRIVER_BYTE_STATE",
-                        $sformatf("start bit complete: data=0x%02X time=%0t", data, $time));
-                end
+            // Start bit
+            vif.uart_rx = 1'b0;
+            repeat (bit_time_cycles) @(posedge vif.clk);
+            if (emit_debug) begin
+                driver_forced_log("UART_DRIVER_BYTE_STATE",
+                    $sformatf("start bit complete: data=0x%02X time=%0t", data, $time));
+            end
 
-                // Data bits (LSB first)
+            // Data bits (LSB first)
                 for (int i = 0; i < 8; i++) begin
                     vif.uart_rx = data[i];
                     repeat (bit_time_cycles) @(posedge vif.clk);
@@ -1257,5 +1297,43 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         assert_cts(1'b1);  // Assert CTS (low) to allow transmission
         `uvm_info("UART_DRIVER", "Flow control backpressure released", UVM_MEDIUM);
     endtask
+
+    // ★ Baud rate 切替時の応答バッファリセット
+    // CONFIG write の response（baud rate 不一致で受信失敗したもの）を破棄
+    // Test 側から明示的に呼び出される
+    virtual function void reset_response_buffer();
+        uart_frame_transaction dummy_tr;
+        int flushed_count = 0;
+        
+        `uvm_info(get_type_name(), 
+            $sformatf("Resetting response buffer @ t=%0t for baud rate change", $time),
+            UVM_HIGH)
+        
+        // tx_response_fifo が使用可能な場合のみフラッシュ
+        if (tx_response_fifo != null) begin
+            // FIFO 内のゴミデータをすべて破棄
+            while (tx_response_fifo.try_get(dummy_tr)) begin
+                flushed_count++;
+            end
+            
+            if (flushed_count > 0) begin
+                `uvm_info(get_type_name(), 
+                    $sformatf("Flushed %0d stale response(s) from FIFO (baud rate mismatch period)", flushed_count),
+                    UVM_MEDIUM)
+            end else begin
+                `uvm_info(get_type_name(), 
+                    "Response FIFO was already empty - no stale data to flush",
+                    UVM_HIGH)
+            end
+        end else begin
+            `uvm_info(get_type_name(), 
+                "Response FIFO not available (direct sampling mode) - no buffer to reset",
+                UVM_HIGH)
+        end
+        
+        `uvm_info(get_type_name(), 
+            "Response buffer reset complete - ready for new baud rate",
+            UVM_HIGH)
+    endfunction
 
 endclass

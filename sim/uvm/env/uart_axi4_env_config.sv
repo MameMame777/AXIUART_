@@ -54,6 +54,11 @@ class uart_axi4_env_config extends uvm_object;
     int frame_timeout_ns = 200_000; // 200us (temporary debug increase)
     int system_timeout_cycles = 1000;
     int axi_timeout_cycles = 1000;
+    bit enable_simulation_watchdog = 1'b1;
+    bit lock_simulation_timeout = 1'b1;
+    int simulation_timeout_multiplier = 4096;
+    longint unsigned simulation_timeout_min_ns = 5_000_000;
+    longint unsigned simulation_timeout_override_ns = 0;
     
     // Test stimulus parameters
     int num_transactions = 100;
@@ -93,6 +98,11 @@ class uart_axi4_env_config extends uvm_object;
         `uvm_field_int(frame_timeout_ns, UVM_ALL_ON)
         `uvm_field_int(system_timeout_cycles, UVM_ALL_ON)
         `uvm_field_int(axi_timeout_cycles, UVM_ALL_ON)
+        `uvm_field_int(enable_simulation_watchdog, UVM_ALL_ON)
+        `uvm_field_int(lock_simulation_timeout, UVM_ALL_ON)
+        `uvm_field_int(simulation_timeout_multiplier, UVM_ALL_ON)
+        `uvm_field_int(simulation_timeout_min_ns, UVM_ALL_ON)
+        `uvm_field_int(simulation_timeout_override_ns, UVM_ALL_ON)
         `uvm_field_int(num_transactions, UVM_ALL_ON)
         `uvm_field_int(min_idle_cycles, UVM_ALL_ON)
     `uvm_field_int(max_idle_cycles, UVM_ALL_ON)
@@ -128,6 +138,14 @@ class uart_axi4_env_config extends uvm_object;
         end
 
         frame_timeout_ns = (byte_time_ns != 0) ? byte_time_ns * 10 : frame_timeout_ns;
+
+        if (byte_time_ns > 0) begin
+            longint unsigned recommended_min;
+            recommended_min = longint'(byte_time_ns) * 256;
+            if ((simulation_timeout_min_ns == 0) || (simulation_timeout_min_ns < recommended_min)) begin
+                simulation_timeout_min_ns = recommended_min;
+            end
+        end
     endfunction
 
     function int get_bit_time_cycles();
@@ -144,6 +162,41 @@ class uart_axi4_env_config extends uvm_object;
 
     function time get_byte_period();
         return byte_time_ns;
+    endfunction
+
+    // Resolve the absolute simulation watchdog timeout based on configured thresholds
+    function time get_simulation_watchdog_timeout();
+        longint unsigned base_timeout;
+        longint unsigned resolved_timeout;
+        longint unsigned minimum_timeout;
+
+        if (!enable_simulation_watchdog) begin
+            return 0;
+        end
+
+        if (simulation_timeout_override_ns != 0) begin
+            return time'(simulation_timeout_override_ns);
+        end
+
+        base_timeout = (frame_timeout_ns > 0) ? longint'(frame_timeout_ns) : 0;
+        if ((base_timeout == 0) && (byte_time_ns > 0)) begin
+            base_timeout = longint'(byte_time_ns) * 10;
+        end
+        if (base_timeout == 0) begin
+            base_timeout = 1_000_000; // Fallback to 1ms if timing data is unavailable
+        end
+
+        resolved_timeout = base_timeout;
+        if (simulation_timeout_multiplier > 1) begin
+            resolved_timeout = base_timeout * simulation_timeout_multiplier;
+        end
+
+        minimum_timeout = simulation_timeout_min_ns;
+        if ((minimum_timeout != 0) && (resolved_timeout < minimum_timeout)) begin
+            resolved_timeout = minimum_timeout;
+        end
+
+        return time'(resolved_timeout);
     endfunction
     
 endclass

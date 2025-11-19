@@ -389,10 +389,10 @@ module Axi4_Lite_Master #(
                 state_next = IDLE;
             end
         endcase
+        `ifdef ENABLE_DEBUG
+            $display("[%0t] AXI_MASTER_DEBUG: start_transaction asserted cmd=0x%0h addr=0x%08h", $time, cmd, addr);
+        `endif
     end
-                            `ifdef ENABLE_DEBUG
-                                $display("[%0t] AXI_MASTER_DEBUG: start_transaction asserted cmd=0x%0h addr=0x%08h", $time, cmd, addr);
-                            `endif
     
     // AXI4-Lite signal assignments
     always_comb begin

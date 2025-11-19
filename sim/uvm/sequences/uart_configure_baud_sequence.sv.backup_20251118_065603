@@ -94,32 +94,21 @@ class uart_configure_baud_sequence extends uvm_sequence#(uart_frame_transaction)
         req.calculate_crc();
         finish_item(req);
 
-        // CONFIG write 特殊処理:
-        // - DUT は CONFIG register 更新後、即座に新 baud rate に切り替わる
-        // - Response frame は新 baud rate で送信されるため、UVM Monitor/Driver は
-        //   旧 baud rate でサンプリングして受信失敗する（タイミング不一致）
-        // - AXI BRESP=OKAY で CONFIG 書き込み成功は確認済み
-        // - この Sequence は response を待たず Test に制御を返し、Test 側で
-        //   UVM timing 更新と Monitor/Driver リセットを行う
-        //
-        // 技術的背景（実測値）:
-        //   t=15,964,000ns: AXI write complete (BRESP=0x0)
-        //   t=16,012,000ns: DUT が新 baud (921600) で TX 開始
-        //   t=17,228,000ns: Monitor が旧 baud (7.8125M) でサンプリング → 0x00 (誤)
-        //   結果: response_received = false は **設計上正しい動作**
-        //
-        // 注意: CONFIG write のみ特殊処理。他の register write は通常の検証を行う。
-        
-        `uvm_info(get_type_name(), 
-            $sformatf("CONFIG write completed (addr=0x%08X, data=0x%08X). Response not expected due to baud rate switch. Test must update UVM timing parameters.", 
-                      req.addr, req.data),
-            UVM_LOW)
-        
-        // response 検証をスキップ（受信不可能な設計）
-        // Test 側で以下を実施する必要がある:
-        //   1. DUT が新 baud rate で安定するまで待機（~50us）
-        //   2. cfg.baud_rate を更新して cfg.calculate_timing() 実行
-        //   3. Monitor/Driver の内部状態をリセット（ゴミデータ破棄）
+        // Validate response - Critical for baud rate change verification
+        // If response fails, subsequent transactions at wrong baud rate will hang
+        if (!req.response_received) begin
+            `uvm_fatal(get_type_name(), 
+                "CONFIG write failed - no response received. DUT may not have processed baud divisor change.")
+        end else if (req.response_status != STATUS_OK) begin
+            `uvm_fatal(get_type_name(),
+                $sformatf("CONFIG write returned error STATUS=0x%02X - DUT rejected baud configuration", 
+                          req.response_status))
+        end else begin
+            `uvm_info(get_type_name(), 
+                $sformatf("CONFIG write acknowledged by DUT - divisor=0x%04h programmed successfully", 
+                          sanitized_divisor), 
+                UVM_LOW)
+        end
     endtask
 
 endclass

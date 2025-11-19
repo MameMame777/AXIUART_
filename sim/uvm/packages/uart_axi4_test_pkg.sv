@@ -421,6 +421,7 @@ package uart_axi4_test_pkg;
     `include "sequences/uart_axi4_read_protocol_sequence.sv"  // Read protocol verification
     `include "sequences/debug_sequences.sv"  // Debug sequences to avoid circular dependencies
     `include "sequences/uart_configure_baud_sequence.sv"
+    `include "sequences/uart_reset_sequence.sv"  // RESET command sequence (2025-11-19)
     // `include "sequences/register_sequences.sv"  // TEMPORARILY DISABLED - duplicate uart_debug_write_seq definition
     // NOTE: test_register_sequences.sv commented out due to identifier conflict
     // `include "sequences/test_register_sequences.sv"  // Test register sequences  
@@ -438,8 +439,12 @@ package uart_axi4_test_pkg;
     `include "tests/axiuart_system_test.sv"
     `include "tests/uart_axi4_minimal_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
+    `include "tests/uart_axi4_fast_basic_test.sv"     // Fast test - no waveforms, minimal verbosity
     `include "tests/uart_axi4_basic_test_reg_rw.sv"
     `include "tests/uart_axi4_basic_115200_test.sv"
+    `include "tests/uart_axi4_fast_115200_test.sv"    // Fast 115200 test - minimal verbosity
+    `include "tests/uart_axi4_fixed_115200_test.sv"   // RESET-based baud switching (2025-11-19)
+    `include "tests/uart_axi4_baud_3p9mbps_test.sv"   // 3.90625Mbps baud switching test (2025-11-19)
     `include "tests/uart_axi4_simple_write_test.sv"   // Simple write test
     `include "tests/uart_axi4_dual_write_test.sv"
     `include "tests/uart_axi4_metadata_read_test.sv"

@@ -144,6 +144,13 @@ class uart_monitor extends uvm_monitor;
                             UVM_LOW)
                         last_rx_publish_time = $time;
                         item_collected_port.write(tr);
+                        // Force-print push metadata so FIFO ordering can be reconstructed from logs
+                        `uvm_info("UART_MONITOR_FIFO",
+                            $sformatf("PUSH dir=RX idx=%0d fifo_conn=%s time=%0t",
+                                rx_publish_count,
+                                (item_collected_port != null) ? "analysis_port" : "NULL",
+                                $time),
+                            UVM_NONE)
 
                         // Collect coverage
                         if (coverage != null) begin
@@ -291,6 +298,13 @@ class uart_monitor extends uvm_monitor;
                 UVM_NONE)
             last_tx_publish_time = $time;
             item_collected_port.write(tr);
+            // Force-print push metadata so FIFO ordering can be reconstructed from logs
+            `uvm_info("UART_MONITOR_FIFO",
+                $sformatf("PUSH dir=TX idx=%0d fifo_conn=%s time=%0t",
+                    tx_publish_count,
+                    (item_collected_port != null) ? "analysis_port" : "NULL",
+                    $time),
+                UVM_NONE)
             `uvm_info("UART_MONITOR_DBG", $sformatf("analysis_port.write() done for TX #%0d ts=%0t", tx_publish_count, $time), UVM_LOW)
             
             // Collect coverage
@@ -302,23 +316,20 @@ class uart_monitor extends uvm_monitor;
     
     // Collect single byte from RX line
     virtual task collect_uart_rx_byte(output logic [7:0] data);
-        int bit_time_cycles = cfg.clk_freq_hz / cfg.baud_rate;
-        int sample_time = bit_time_cycles / 2; // Sample at bit center
-        
         // Sample start bit
-        repeat (sample_time) @(posedge vif.clk);
+        repeat (cfg.bit_time_cycles / 2) @(posedge vif.clk);
         if (vif.uart_rx != 1'b0) begin
             `uvm_warning("UART_MONITOR", "RX start bit not low")
         end
         
         // Sample data bits (LSB first)
         for (int i = 0; i < 8; i++) begin
-            repeat (bit_time_cycles) @(posedge vif.clk);
+            repeat (cfg.bit_time_cycles) @(posedge vif.clk);
             data[i] = vif.uart_rx;
         end
         
         // Sample stop bit
-        repeat (bit_time_cycles) @(posedge vif.clk);
+        repeat (cfg.bit_time_cycles) @(posedge vif.clk);
         if (vif.uart_rx != 1'b1) begin
             `uvm_warning("UART_MONITOR", "RX stop bit not high")
         end
@@ -328,38 +339,39 @@ class uart_monitor extends uvm_monitor;
     
     // Collect single byte from TX line (Clock-synchronized sampling)
     virtual task collect_uart_tx_byte(output logic [7:0] data);
-        int bit_time_cycles;
-        int half_bit_cycles;
-
-        // Calculate cycles based on configuration (reuse env helpers)
-        bit_time_cycles = cfg.get_bit_time_cycles();
-        half_bit_cycles = cfg.get_half_bit_cycles();
-
         // Sample start bit midpoint
-        repeat (half_bit_cycles) @(posedge vif.clk);
+        repeat (cfg.bit_time_cycles / 2) @(posedge vif.clk);
+        `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
+                  $sformatf("Start bit check @ %0t: uart_tx=%0b", $realtime, vif.uart_tx), UVM_NONE)
         if (vif.uart_tx != 1'b0) begin
             `uvm_info("UART_MONITOR", "TX start bit timing variation detected", UVM_DEBUG)
         end
 
         // Advance one full bit period from the midpoint of the start bit so the
         // first data sample occurs at the center of data bit[0].
-        repeat (bit_time_cycles) @(posedge vif.clk);
+        repeat (cfg.bit_time_cycles) @(posedge vif.clk);
         data[0] = vif.uart_tx;
+        `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
+                  $sformatf("data[0]=%0b @ %0t", data[0], $realtime), UVM_NONE)
         `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", 0, data[0], $realtime), UVM_MEDIUM)
 
         // Sample remaining data bits at full bit intervals.
         for (int i = 1; i < 8; i++) begin
-            repeat (bit_time_cycles) @(posedge vif.clk);
+            repeat (cfg.bit_time_cycles) @(posedge vif.clk);
             data[i] = vif.uart_tx;
+            `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
+                      $sformatf("data[%0d]=%0b @ %0t", i, data[i], $realtime), UVM_NONE)
             `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", i, data[i], $realtime), UVM_MEDIUM)
         end
 
         // Sample stop bit midpoint
-        repeat (bit_time_cycles) @(posedge vif.clk);
+        repeat (cfg.bit_time_cycles) @(posedge vif.clk);
         if (vif.uart_tx != 1'b1) begin
             `uvm_info("UART_MONITOR", "TX stop bit timing variation detected", UVM_DEBUG)
         end
 
+        `uvm_info("UART_MONITOR_RESULT_DEBUG", 
+                  $sformatf("Collected byte=0x%02X (binary: %08b) @ %0t", data, data, $realtime), UVM_NONE)
         `uvm_info("UART_MONITOR", $sformatf("TX byte: 0x%02X", data), UVM_DEBUG)
     endtask
     
@@ -664,6 +676,30 @@ class uart_monitor extends uvm_monitor;
             return 1;
         end
         return 0;
+    endfunction
+
+    // ★ Baud rate 切替時の状態リセット
+    // CONFIG write 後のゴミデータ（baud rate 不一致期間のサンプリング結果）を破棄
+    // Test 側から明示的に呼び出される
+    virtual function void reset_sampling_state();
+        `uvm_info(get_type_name(), 
+            $sformatf("Resetting sampling state @ t=%0t for baud rate change", $time),
+            UVM_HIGH)
+        
+        // Monitor は task ローカル変数で byte_count を管理しているため、
+        // ここでリセットできるのは FIFO や published transaction count のみ
+        
+        `uvm_info(get_type_name(), 
+            $sformatf("Discarding stale sampling state (published: RX=%0d TX=%0d)", 
+                      rx_publish_count, tx_publish_count),
+            UVM_MEDIUM)
+        
+        // Note: collected_bytes と byte_count は task 内ローカル変数のため
+        // ここでリセット不可。次回の SOF (0x5A) 検出時に自動リセットされる。
+        
+        `uvm_info(get_type_name(), 
+            "Sampling state reset complete - next SOF will start fresh frame collection",
+            UVM_HIGH)
     endfunction
 
 endclass

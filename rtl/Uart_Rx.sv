@@ -9,28 +9,28 @@ module Uart_Rx #(
 )(
     input  logic       clk,
     input  logic       rst,
+    input  logic       soft_reset_request,    // Soft reset from RESET command (pulse)
     input  logic       uart_rx,                // UART RX line
+    input  logic [15:0] baud_divisor,         // Runtime baud divisor (cycles per bit)
     output logic [7:0] rx_data,               // Received data byte
     output logic       rx_valid,              // Data valid pulse
     output logic       rx_error,              // Framing error (stop bit = 0)
     output logic       rx_busy                // Reception in progress
 );
 
-    // Baud rate generator
-    localparam int BAUD_MULT = BAUD_RATE * OVERSAMPLE;
-    localparam int BAUD_DIV_UNCLAMPED = (BAUD_MULT > 0)
-        ? (CLK_FREQ_HZ + (BAUD_MULT / 2)) / BAUD_MULT
+    localparam int DEFAULT_DIV_CALC = (BAUD_RATE > 0)
+        ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
         : 1;
-    localparam int BAUD_DIV = (BAUD_DIV_UNCLAMPED < 1) ? 1 : BAUD_DIV_UNCLAMPED;
-    localparam int BAUD_WIDTH = (BAUD_DIV <= 1) ? 1 : $clog2(BAUD_DIV);
-    
-    logic [BAUD_WIDTH-1:0] baud_counter;
-    logic baud_tick;
-    
-    // Sample counter for bit timing
-    localparam int SAMPLE_WIDTH = $clog2(OVERSAMPLE);
-    logic [SAMPLE_WIDTH-1:0] sample_counter;
-    logic sample_tick;
+    localparam int DEFAULT_DIV_CLAMP = (DEFAULT_DIV_CALC < 1)
+        ? 1
+        : ((DEFAULT_DIV_CALC > 16'hFFFF) ? 16'hFFFF : DEFAULT_DIV_CALC);
+    localparam logic [15:0] DEFAULT_BAUD_DIVISOR = 16'(DEFAULT_DIV_CLAMP);
+
+    logic [15:0] config_baud_divisor;
+    logic [15:0] active_bit_cycles;
+    logic [15:0] baud_limit;  // Renamed from oversample_limit for consistency with Uart_Tx
+    logic [15:0] baud_counter;
+    logic        baud_tick;
     
     // Bit counter
     logic [3:0] bit_counter;
@@ -71,44 +71,55 @@ module Uart_Rx #(
         end
     end
     assign rx_synced = rx_sync[1];
+
+    always_comb begin
+        int unsigned candidate;
+
+        candidate = (baud_divisor != 16'd0) ? baud_divisor : DEFAULT_BAUD_DIVISOR;
+        if (candidate < 1) begin
+            candidate = 1;
+        end else if (candidate > 16'hFFFF) begin
+            candidate = 16'hFFFF;
+        end
+
+    config_baud_divisor = 16'(candidate);
+    end
+
+    // Baud divisor change detection
+    logic [15:0] prev_baud_divisor;
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            active_bit_cycles <= DEFAULT_BAUD_DIVISOR;
+            prev_baud_divisor <= DEFAULT_BAUD_DIVISOR;
+        end else if (soft_reset_request || (config_baud_divisor != prev_baud_divisor)) begin
+            // Update on soft reset OR baud divisor change
+            active_bit_cycles <= config_baud_divisor;
+            prev_baud_divisor <= config_baud_divisor;
+        end
+    end
+
+    // Baud limit calculation - simplified to match Uart_Tx design
+    // active_bit_cycles already includes OVERSAMPLE factor
+    // No need to divide by OVERSAMPLE again
+    always_comb begin
+        baud_limit = (active_bit_cycles > 16'd0) ? (active_bit_cycles - 16'd1) : 16'd0;
+    end
     
     // Baud rate generator
     always_ff @(posedge clk) begin
         if (rst) begin
             baud_counter <= '0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Clear baud counter to resync timing
+            baud_counter <= '0;
+        end else if (baud_counter == baud_limit) begin
+            baud_counter <= '0;
         end else begin
-            if (baud_counter >= BAUD_DIV - 1) begin
-                baud_counter <= '0;
-            end else begin
-                baud_counter <= baud_counter + 1;
-            end
+            baud_counter <= baud_counter + 16'd1;
         end
     end
-    assign baud_tick = (baud_counter == 0);
-    
-    // Sample counter
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            sample_counter <= '0;
-        end else if (baud_tick) begin
-            if (rx_state == IDLE) begin
-                // Reset sample counter when transitioning from idle
-                if (!rx_synced) begin  // Start bit detected
-                    // Start with counter that will trigger sample_tick after OVERSAMPLE/2 cycles
-                    // sample_tick occurs when sample_counter == (OVERSAMPLE/2 - 1) = 7
-                    // So we need to start with -1 to reach 7 after 8 cycles
-                    sample_counter <= OVERSAMPLE - 1;  // This will wrap to 0 and count to 7
-                end else begin
-                    sample_counter <= '0;
-                end
-            end else if (sample_counter >= OVERSAMPLE - 1) begin
-                sample_counter <= '0;
-            end else begin
-                sample_counter <= sample_counter + 1;
-            end
-        end
-    end
-    assign sample_tick = baud_tick && (sample_counter == (OVERSAMPLE/2 - 1));
+    assign baud_tick = (baud_counter == baud_limit);
     
     // State machine (sequential part)
     always_ff @(posedge clk) begin
@@ -116,6 +127,12 @@ module Uart_Rx #(
             rx_state <= IDLE;
             bit_counter <= '0;
             rx_shift_reg <= '0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Return to IDLE state, abort current reception
+            rx_state <= IDLE;
+            bit_counter <= '0;
+            rx_shift_reg <= '0;
+            $display("[%0t][UART_RX_SOFT_RESET] RX state cleared, active_bit_cycles=%0d", $time, config_baud_divisor);
         end else begin
             rx_state <= rx_state_next;
             rx_shift_reg <= rx_shift_reg_next;
@@ -123,7 +140,7 @@ module Uart_Rx #(
             if (rx_state == IDLE || rx_state == START_BIT) begin
                 bit_counter <= '0;
                 rx_shift_reg <= '0;  // Clear shift register when idle or in start bit
-            end else if (sample_tick && (rx_state == DATA_BITS)) begin
+            end else if (baud_tick && (rx_state == DATA_BITS)) begin
                 bit_counter <= bit_counter + 1;
             end
         end
@@ -142,7 +159,7 @@ module Uart_Rx #(
             end
             
             START_BIT: begin
-                if (sample_tick) begin
+                if (baud_tick) begin
                     // Sample and validate start bit
                     if (!rx_synced) begin  // Valid start bit (should be 0)
                         rx_state_next = DATA_BITS;
@@ -154,7 +171,7 @@ module Uart_Rx #(
             end
             
             DATA_BITS: begin
-                if (sample_tick) begin
+                if (baud_tick) begin
                     // Sample data bit (LSB first) and store at bit position indicated by bit_counter
                     rx_shift_reg_next = rx_shift_reg;
                     rx_shift_reg_next[bit_counter] = rx_synced;
@@ -169,7 +186,7 @@ module Uart_Rx #(
             end
             
             STOP_BIT: begin
-                if (sample_tick) begin
+                if (baud_tick) begin
                     rx_state_next = IDLE;
                 end
             end
@@ -188,7 +205,7 @@ module Uart_Rx #(
             rx_valid_int <= 1'b0;
             rx_error_int <= 1'b0;
             
-            if ((rx_state == STOP_BIT) && sample_tick) begin
+            if ((rx_state == STOP_BIT) && baud_tick) begin
                 rx_data <= rx_shift_reg_next;
                 rx_valid_int <= 1'b1;
                 // Modified error detection: In loopback environments, stop bit timing can be affected
@@ -209,10 +226,8 @@ module Uart_Rx #(
     `ifdef ENABLE_UART_RX_ASSERTIONS
         localparam int RX_FRAME_BITS = 1 + 8 + 1;  // start + data + stop
         localparam int RX_MARGIN_BITS = 2;          // guard bits to tolerate jitter/handshake gaps
-        localparam int RX_CYCLES_PER_BIT = (BAUD_RATE > 0)
-            ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
-            : 1;
-        localparam int RX_SAFE_CYCLES_PER_BIT = (RX_CYCLES_PER_BIT < 1) ? 1 : RX_CYCLES_PER_BIT;
+        localparam int RX_MAX_BIT_CYCLES = 16'hFFFF;
+        localparam int RX_SAFE_CYCLES_PER_BIT = (RX_MAX_BIT_CYCLES < 1) ? 1 : RX_MAX_BIT_CYCLES;
         localparam int RX_MAX_BUSY_CYCLES = RX_SAFE_CYCLES_PER_BIT * (RX_FRAME_BITS + RX_MARGIN_BITS);
 
         // rx_valid should be a single-cycle pulse
@@ -254,12 +269,11 @@ module Uart_Rx #(
             end else begin
                 if (rx_synced_prev != rx_synced && debug_event_count < 128) begin
                     $display(
-                        "[%0t][UART_RX_DEBUG] rx_synced change %0b -> %0b state=%s sample_counter=%0d baud_counter=%0d",
+                        "[%0t][UART_RX_DEBUG] rx_synced change %0b -> %0b state=%s baud_counter=%0d",
                         $time,
                         rx_synced_prev,
                         rx_synced,
                         rx_debug_state(rx_state),
-                        sample_counter,
                         baud_counter
                     );
                     debug_event_count <= debug_event_count + 1;
@@ -269,12 +283,11 @@ module Uart_Rx #(
                 if (rx_state_prev != rx_state) begin
                     if (debug_event_count < 128) begin
                         $display(
-                            "[%0t][UART_RX_DEBUG] state %s -> %s rx_synced=%0b sample_counter=%0d baud_counter=%0d",
+                            "[%0t][UART_RX_DEBUG] state %s -> %s rx_synced=%0b baud_counter=%0d",
                             $time,
                             rx_debug_state(rx_state_prev),
                             rx_debug_state(rx_state),
                             rx_synced,
-                            sample_counter,
                             baud_counter
                         );
                         debug_event_count <= debug_event_count + 1;
@@ -282,24 +295,21 @@ module Uart_Rx #(
                     rx_state_prev <= rx_state;
                 end
 
-                if (sample_tick && (debug_event_count < 128)) begin
+                if (baud_tick && (debug_event_count < 128)) begin
                     $display(
-                        "[%0t][UART_RX_DEBUG] sample_tick state=%s rx_synced=%0b bit_counter=%0d sample_counter=%0d",
+                        "[%0t][UART_RX_DEBUG] baud_tick state=%s rx_synced=%0b bit_counter=%0d",
                         $time,
                         rx_debug_state(rx_state),
                         rx_synced,
-                        bit_counter,
-                        sample_counter
+                        bit_counter
                     );
                     debug_event_count <= debug_event_count + 1;
                 end
 
                 if ((rx_state == STOP_BIT) && baud_tick && (stop_bit_debug_count < 32)) begin
                     $display(
-                        "[%0t][UART_RX_DEBUG] stop_bit_tracking baud_tick=1 sample_counter=%0d sample_tick=%0b",
-                        $time,
-                        sample_counter,
-                        sample_tick
+                        "[%0t][UART_RX_DEBUG] stop_bit_tracking baud_tick=1",
+                        $time
                     );
                     stop_bit_debug_count <= stop_bit_debug_count + 1;
                 end

@@ -158,6 +158,17 @@ class DSIMError(Exception):
 
 def cleanup_old_logs(log_dir: Path, max_logs: int = MAX_LOG_FILES) -> None:
     """Remove older DSIM log files while keeping the newest max_logs entries."""
+    # Preserve logs by default. Automatic deletion was found to remove
+    # historical simulation artifacts that are useful for debugging.
+    # To re-enable cleanup (not recommended by default), set
+    # environment variable DSIM_ALLOW_LOG_CLEANUP=1
+    if os.environ.get("DSIM_ALLOW_LOG_CLEANUP", "0") != "1":
+        logger.info(
+            "Preserving DSIM logs in %s (set DSIM_ALLOW_LOG_CLEANUP=1 to enable automatic cleanup)",
+            log_dir,
+        )
+        return
+
     if max_logs <= 0 or not log_dir.exists():
         return
 
@@ -181,6 +192,16 @@ def cleanup_old_logs(log_dir: Path, max_logs: int = MAX_LOG_FILES) -> None:
 
 def remove_existing_logs(log_dir: Path) -> None:
     """Delete all existing DSIM log files to ensure only the newest run remains."""
+    # Preserve existing logs by default to aid post-run debugging and forensics.
+    # If automatic wiping of logs is explicitly desired, set
+    # environment variable DSIM_ALLOW_LOG_CLEANUP=1
+    if os.environ.get("DSIM_ALLOW_LOG_CLEANUP", "0") != "1":
+        logger.info(
+            "Preserving existing DSIM logs in %s (set DSIM_ALLOW_LOG_CLEANUP=1 to enable removal)",
+            log_dir,
+        )
+        return
+
     if not log_dir.exists():
         return
 
@@ -476,6 +497,7 @@ async def run_uvm_simulation(
     cmd = [
         str(dsim_exe),
         "-uvm", "1.2",  # CRITICAL: UVM library version (DSIM official requirement)
+        "-timescale", "1ns/1ps",  # Global timescale to fix 1000x slowdown issue
         "-f", "dsim_config.f",
         "-top", "work.uart_axi4_tb_top",  # Top-level module specification
         f"+UVM_TESTNAME={test_name}",

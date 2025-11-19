@@ -31,6 +31,14 @@ Command frames originate from the host. The parser accepts only the format below
 | 5:4 | `SIZE` | `00` = 8-bit, `01` = 16-bit, `10` = 32-bit, `11` = reserved (decoder flags as invalid).
 | 3:0 | `LEN` | Encodes beat count minus one. Effective beats = `LEN + 1` (range 1–16).
 
+**Special Command: RESET (`CMD = 0xFF`)**
+- When `CMD = 0xFF`, the bridge performs a soft reset of internal state machines and FIFOs.
+- **Preserved state**: Configuration registers (`CONFIG`, baud divisor) are NOT reset.
+- **Reset state**: RX/TX FIFOs cleared, Frame Parser/Builder state machines reset to IDLE, pending AXI transactions aborted.
+- **Frame format**: `SOF (0xA5) | CMD (0xFF) | CRC (0x58)` (no ADDR or DATA fields).
+- **Response**: Standard ACK with `SOF (0x5A) | STATUS (0x00) | CMD echo (0xFF) | CRC (0x55)`.
+- **Use case**: Safe baud rate switching after CONFIG update without affecting configuration state.
+
 ### 3.2 Write Payload Sizing
 For writes (`RW=0`), the payload width in bytes is `(LEN + 1) × beat_size`, where `beat_size` is 1/2/4 for 8/16/32-bit accesses. Payload bytes are transmitted little-endian; the first byte corresponds to the least-significant byte of the first beat.
 

@@ -4,24 +4,32 @@
 // 8N1 format with configurable baud rate, LSB-first transmission
 module Uart_Tx #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 9600           // UART baud rate
+    parameter int BAUD_RATE = 9600,           // UART baud rate
+    parameter int OVERSAMPLE = 16              // Oversampling factor (must match Uart_Rx)
 )(
     input  logic       clk,
     input  logic       rst,
+    input  logic       soft_reset_request,    // Soft reset from RESET command (pulse)
     input  logic [7:0] tx_data,               // Data to transmit
     input  logic       tx_start,              // Start transmission pulse
     input  logic       uart_cts_n,            // Clear to Send (active low)
+    input  logic [15:0] baud_divisor,         // Runtime baud divisor (cycles per bit)
     output logic       uart_tx,               // UART TX line
     output logic       tx_busy,               // Transmission in progress
     output logic       tx_done                // Transmission complete pulse
 );
 
-    // Baud rate generator
-    localparam int BAUD_DIV = CLK_FREQ_HZ / BAUD_RATE;
-    localparam int BAUD_WIDTH = $clog2(BAUD_DIV);
-    
-    logic [BAUD_WIDTH-1:0] baud_counter;
-    logic baud_tick;
+    localparam int DEFAULT_DIV_CALC = (BAUD_RATE > 0) ? (CLK_FREQ_HZ / BAUD_RATE) : 1;
+    localparam int DEFAULT_DIV_CLAMP = (DEFAULT_DIV_CALC < 1)
+        ? 1
+        : ((DEFAULT_DIV_CALC > 16'hFFFF) ? 16'hFFFF : DEFAULT_DIV_CALC);
+    localparam logic [15:0] DEFAULT_BAUD_DIVISOR = 16'(DEFAULT_DIV_CLAMP);
+
+    logic [15:0] config_baud_divisor;
+    logic [15:0] active_baud_divisor;
+    logic [15:0] baud_limit;
+    logic [15:0] baud_counter;
+    logic        baud_tick;
     
     // Bit counter
     logic [3:0] bit_counter;
@@ -45,14 +53,44 @@ module Uart_Tx #(
     logic       debug_uart_tx_bit;          // Current bit being sent
     logic [2:0] debug_uart_tx_state;        // TX state machine
     logic [3:0] debug_uart_bit_counter;     // Bit position counter
+
+    always_comb begin
+        int unsigned candidate;
+
+        candidate = (baud_divisor != 16'd0) ? baud_divisor : DEFAULT_BAUD_DIVISOR;
+        if (candidate < 1) begin
+            candidate = 1;
+        end else if (candidate > 16'hFFFF) begin
+            candidate = 16'hFFFF;
+        end
+
+    config_baud_divisor = 16'(candidate);
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            active_baud_divisor <= DEFAULT_BAUD_DIVISOR;
+        end else if (!tx_busy) begin
+            // baud_divisor is per-bit value WITHOUT oversampling factor
+            // Multiply by OVERSAMPLE to get total cycles per bit period
+            active_baud_divisor <= config_baud_divisor * OVERSAMPLE;
+        end
+    end
+
+    always_comb begin
+        baud_limit = (active_baud_divisor > 16'd0) ? (active_baud_divisor - 16'd1) : 16'd0;
+    end
     
     // Baud rate generator
     always_ff @(posedge clk) begin
         if (rst) begin
             baud_counter <= '0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Clear baud counter to resync timing
+            baud_counter <= '0;
         end else begin
             if (tx_busy) begin
-                if (baud_counter >= BAUD_DIV - 1) begin
+                if (baud_counter == baud_limit) begin
                     baud_counter <= '0;
                 end else begin
                     baud_counter <= baud_counter + 1;
@@ -63,7 +101,7 @@ module Uart_Tx #(
         end
     end
     // Pulse once per completed baud interval so start/data/stop bits hold for a full period
-    assign baud_tick = tx_busy && (baud_counter == BAUD_DIV - 1);
+    assign baud_tick = tx_busy && (baud_counter == baud_limit);
     
     // State machine (sequential part)
     always_ff @(posedge clk) begin
@@ -71,34 +109,55 @@ module Uart_Tx #(
             tx_state <= IDLE;
             bit_counter <= '0;
             tx_shift_reg <= '0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Return to IDLE state, abort current transmission
+            tx_state <= IDLE;
+            bit_counter <= '0;
+            tx_shift_reg <= '0;
+            $display("[%0t][UART_TX_SOFT_RESET] TX state cleared", $time);
         end else begin
             tx_state <= tx_state_next;
-            tx_shift_reg <= tx_shift_reg_next;
+            tx_shift_reg <= tx_shift_reg_next; // Use combinationally computed next value
             
-            if (tx_start && (tx_state == IDLE)) begin
-                tx_shift_reg <= tx_data;
+            `ifdef ENABLE_DEBUG
+                if (tx_start) begin
+                    $display("[%0t][UART_TX_SEQ_LATCH] tx_data=0x%02h tx_shift_reg_next=0x%02h -> tx_shift_reg@next_clk", 
+                             $time, tx_data, tx_shift_reg_next);
+                end
+                if (tx_state_next == START_BIT && tx_state == IDLE) begin
+                    $display("[%0t][UART_TX_STATE_TRANSITION] IDLE -> START_BIT, tx_shift_reg_next=0x%02h will be latched", 
+                             $time, tx_shift_reg_next);
+                end
+                if (tx_state == DATA_BITS) begin
+                    $display("[%0t][UART_TX_DATA_BITS] tx_shift_reg=0x%02h bit_counter=%0d baud_counter=%0d uart_tx=%b", 
+                             $time, tx_shift_reg, bit_counter, baud_counter, uart_tx_int);
+                end
+            `endif
+            
+            // Bit counter management
+            if (tx_state_next == IDLE) begin
                 bit_counter <= '0;
-                `ifdef ENABLE_DEBUG
-                    // UART_TX loading data
-                `endif
-            end else if (baud_tick && (tx_state == DATA_BITS)) begin
+            end else if (tx_state == DATA_BITS && baud_tick && bit_counter <= 7) begin
                 bit_counter <= bit_counter + 1;
-            end else if (tx_state == IDLE) begin
-                bit_counter <= '0;
             end
         end
     end
     
-    // State machine (combinational part)
+    // State machine (combinational part) - tx_shift_reg_next logic
     always_comb begin
         tx_state_next = tx_state;
-        tx_shift_reg_next = tx_shift_reg;
+        tx_shift_reg_next = tx_shift_reg; // Default: hold current value
         
         case (tx_state)
             IDLE: begin
                 // Only start transmission if CTS is asserted (active low)
                 if (tx_start && !uart_cts_n) begin
                     tx_state_next = START_BIT;
+                    tx_shift_reg_next = tx_data; // Latch data combinationally for same-cycle use
+                    `ifdef ENABLE_DEBUG
+                        $display("[%0t][UART_TX_COMB] tx_start detected: tx_data=0x%02h -> tx_shift_reg_next", 
+                                 $time, tx_data);
+                    `endif
                 end
             end
             
@@ -113,14 +172,11 @@ module Uart_Tx #(
                 // Continue transmission regardless of CTS during data bits
                 // (CTS is checked at frame boundaries only)
                 if (baud_tick) begin
-                    // Shift right for LSB-first transmission
-                    tx_shift_reg_next = {1'b0, tx_shift_reg[7:1]};
-                    `ifdef ENABLE_DEBUG
-                        // UART_TX bit transmission
-                    `endif
-                    
-                    if (bit_counter == 7) begin
+                    if (bit_counter >= 7) begin
                         tx_state_next = STOP_BIT;
+                    end else begin
+                        // Shift for next bit (occurs at end of current bit period)
+                        tx_shift_reg_next = {1'b0, tx_shift_reg[7:1]};
                     end
                 end
             end

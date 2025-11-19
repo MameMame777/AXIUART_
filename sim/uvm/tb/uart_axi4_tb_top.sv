@@ -54,6 +54,7 @@ module uart_axi4_tb_top;
     // Ensure the RX line idles high until the driver starts toggling it
     initial begin
         uart_if_inst.uart_rx = 1'b1;
+        uart_if_inst.uart_cts_n = 1'b1; // Default to deasserted until driver takes control
     end
     
     // DUT instance - Using complete AXIUART_Top system
@@ -92,6 +93,10 @@ module uart_axi4_tb_top;
         uart_if_inst.tb_uart_tx_override : dut_uart_tx;
     assign uart_if_inst.uart_rts_n = tb_loopback_mode ? 1'b1 : dut_uart_rts_n;
     assign dut_uart_cts_n = tb_loopback_mode ? 1'b0 : uart_if_inst.uart_cts_n;
+    assign uart_if_inst.tx_busy = dut.uart_bridge_inst.tx_busy; // expose DUT TX busy status to TB
+    assign uart_if_inst.rx_valid = dut.uart_bridge_inst.rx_valid;
+    assign uart_if_inst.rx_data = dut.uart_bridge_inst.rx_data;
+    assign uart_if_inst.rx_error = dut.uart_bridge_inst.rx_error;
     assign uart_if_inst.tb_loopback_active = tb_loopback_mode;
     assign dut_rst = tb_loopback_mode ? 1'b1 : rst;
 

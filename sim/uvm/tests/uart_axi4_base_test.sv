@@ -90,12 +90,21 @@ class uart_axi4_base_test extends uvm_test;
         cfg.axi_agent_is_active = UVM_PASSIVE;
         
         // UART configuration
-    cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
+        cfg.clk_freq_hz = 125_000_000;  // 125MHz system clock
         cfg.baud_rate = uart_axi4_test_pkg::BAUD_RATE;  // Align with DUT baud rate from shared package
 
-    // Recompute dependent timing values after updating the baud rate
-    cfg.calculate_timing();
-    cfg.frame_timeout_ns = cfg.byte_time_ns * 32;            // Guard for multi-byte frames
+        // Recompute dependent timing values after updating the baud rate
+        cfg.calculate_timing();
+        cfg.frame_timeout_ns = cfg.byte_time_ns * 32;            // Guard for multi-byte frames
+        cfg.enable_simulation_watchdog = 1'b1;
+        cfg.lock_simulation_timeout = 1'b1;
+        cfg.simulation_timeout_multiplier = 4096;
+        if (cfg.byte_time_ns > 0) begin
+            cfg.simulation_timeout_min_ns = longint'(cfg.byte_time_ns) * 256;
+        end else begin
+            cfg.simulation_timeout_min_ns = 5_000_000;
+        end
+        cfg.simulation_timeout_override_ns = 0;
         
         // Timing configuration  
         cfg.min_idle_cycles = 5;
@@ -144,6 +153,40 @@ class uart_axi4_base_test extends uvm_test;
         // Print configuration
         `uvm_info("BASE_TEST", "=== Test Configuration ===", UVM_LOW)
         cfg.print();
+
+        configure_simulation_watchdog();
+    endfunction
+
+    // Apply a global watchdog to terminate simulations that exceed the expected completion time
+    protected function void configure_simulation_watchdog();
+        time watchdog_timeout;
+        bit timeout_overridable;
+
+        if (cfg == null) begin
+            `uvm_warning("BASE_TEST_TIMEOUT", "Configuration handle is null; skipping simulation watchdog setup")
+            return;
+        end
+
+        if (!cfg.enable_simulation_watchdog) begin
+            `uvm_info("BASE_TEST_TIMEOUT", "Simulation watchdog disabled via configuration", UVM_LOW)
+            return;
+        end
+
+        watchdog_timeout = cfg.get_simulation_watchdog_timeout();
+        if (watchdog_timeout <= 0) begin
+            `uvm_warning("BASE_TEST_TIMEOUT", "Resolved simulation watchdog timeout is non-positive; skipping configuration")
+            return;
+        end
+
+        timeout_overridable = (cfg.lock_simulation_timeout) ? 1'b0 : 1'b1;
+        uvm_root::get().set_timeout(watchdog_timeout, timeout_overridable);
+        `uvm_info("BASE_TEST_TIMEOUT",
+            $sformatf("Simulation watchdog set to %0t ns (overridable=%0d, frame_timeout_ns=%0d, multiplier=%0d)",
+                watchdog_timeout,
+                timeout_overridable,
+                cfg.frame_timeout_ns,
+                cfg.simulation_timeout_multiplier),
+            UVM_LOW)
     endfunction
     
     virtual task run_phase(uvm_phase phase);

@@ -39,7 +39,8 @@ module AXIUART_Top #(
     
     // Bridge control and status signals
     logic        bridge_reset_stats;
-    logic [7:0]  baud_div_config;
+    logic        bridge_soft_reset;  // RESET command from parser
+    logic [15:0] baud_div_config;
     logic [7:0]  timeout_config;
     logic [3:0]  debug_mode;
     
@@ -91,7 +92,8 @@ module AXIUART_Top #(
         .rx_fifo_full_out(rx_fifo_full),    // RX FIFO status for RTS control
         .rx_fifo_high_out(rx_fifo_high),    // RX FIFO high threshold
         .tx_ready_out(tx_ready),            // TX readiness status
-    .axi(axi_internal),  // 内部レジスタブロックに直接接続
+        .axi(axi_internal),  // 内部レジスタブロックに直接接続
+        .baud_divisor_cfg(baud_div_config),
         
         // Status monitoring connections
         .bridge_busy(bridge_busy),
@@ -99,7 +101,8 @@ module AXIUART_Top #(
         .tx_transaction_count(tx_count),
         .rx_transaction_count(rx_count),
         .fifo_status_flags(fifo_status),
-        .reset_statistics(bridge_reset_stats)
+        .reset_statistics(bridge_reset_stats),
+        .soft_reset_request(bridge_soft_reset)  // RESET command output
     );
     
     // Register Block instantiation - UART bridgeからのみアクセス可能
@@ -110,6 +113,7 @@ module AXIUART_Top #(
     ) register_block_inst (
         .clk(clk),
         .rst(rst),
+        .soft_reset_request(bridge_soft_reset),  // Soft reset from RESET command
         .axi(axi_internal.slave),  // UARTブリッジからの内部アクセス
         
         // Control outputs

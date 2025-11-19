@@ -115,9 +115,10 @@ module Frame_Parser_Assertions (
                     received_crc, expected_crc, error_status_reg, $time);
 
     // A3: Frame Valid Generation Correctness - CRITICAL FIX for frame_consumed handling
+    // RESET command (0xFF) exclusion: RESET is a control command, not a data frame
     property frame_valid_generation_correctness;
         @(posedge clk) disable iff (rst)
-        (state == VALIDATE && error_status_reg == STATUS_OK && (received_crc == expected_crc) && !frame_consumed)
+        (state == VALIDATE && error_status_reg == STATUS_OK && (received_crc == expected_crc) && !frame_consumed && cmd_reg != 8'hFF)
         |=> frame_valid;
     endproperty
     assert_frame_valid: assert property (frame_valid_generation_correctness)

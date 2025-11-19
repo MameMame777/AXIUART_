@@ -9,13 +9,14 @@ module Register_Block #(
 )(
     input  logic clk,
     input  logic rst,
+    input  logic soft_reset_request,  // Soft reset from RESET command (pulse)
     
     // AXI4-Lite slave interface
     axi4_lite_if.slave axi,
     
     // Register interface to UART bridge
     output logic        bridge_reset_stats,    // Pulse to reset statistics counters
-    output logic [7:0]  baud_div_config,       // UART baud rate divider configuration
+    output logic [15:0] baud_div_config,       // UART baud rate divider configuration
     output logic [7:0]  timeout_config,        // AXI timeout configuration
     output logic [3:0]  debug_mode,            // Debug mode selection
     
@@ -292,7 +293,7 @@ module Register_Block #(
     always_ff @(posedge clk) begin
         if (rst) begin
             control_reg <= 32'h0000_0000;  // Default control register value
-            config_reg <= 32'h0000_0000;
+            config_reg <= 32'h0000_0010;   // Initial: divisor=16 for 7.8125Mbps @ 125MHz (matches UVM default: 125M/(7.8125M)=16)
             debug_reg <= 32'h0000_0000;
             
             // Test register initialization - SAFE INITIAL VALUES (not test patterns)
@@ -333,7 +334,29 @@ module Register_Block #(
             test_reg_6_write_detect <= 1'b0;
             test_reg_7_write_detect <= 1'b0;
 
-            if (aw_handshake) begin
+            // SOFT RESET: Clear all registers EXCEPT CONFIG (preserve baud rate)
+            if (soft_reset_request) begin
+                // Clear control register
+                control_reg <= '0;
+                
+                // Preserve CONFIG register (baud rate configuration)
+                // config_reg NOT reset
+                
+                // Clear debug register
+                debug_reg <= '0;
+                
+                // Clear all test registers
+                test_reg_0 <= '0;
+                test_reg_1 <= '0;
+                test_reg_2 <= '0;
+                test_reg_3 <= '0;
+                test_reg_4 <= '0;
+                test_reg_5 <= '0;
+                test_reg_6 <= '0;
+                test_reg_7 <= '0;
+                
+                $display("[%0t][REGISTER_BLOCK_SOFT_RESET] All registers cleared except CONFIG", $time);
+            end else if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
                 write_resp <= RESP_OKAY;
                 write_error_code_reg <= error_code;
@@ -542,7 +565,7 @@ module Register_Block #(
     end
     
     // Output register mappings
-    assign baud_div_config = config_reg[7:0];
+    assign baud_div_config = config_reg[15:0];
     assign timeout_config = config_reg[15:8];
     assign debug_mode = debug_reg[3:0];
 

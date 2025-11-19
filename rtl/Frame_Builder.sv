@@ -9,6 +9,7 @@
 module Frame_Builder (
     input  logic        clk,
     input  logic        rst,
+    input  logic        soft_reset_request,    // Soft reset from RESET command (pulse)
     
     // Frame construction inputs
     input  logic [7:0]  status_code,        // Response status code
@@ -23,6 +24,7 @@ module Frame_Builder (
     output logic [7:0]  tx_fifo_data,
     output logic        tx_fifo_wr_en,
     input  logic        tx_fifo_full,
+    input  logic [6:0]  tx_fifo_count,      // TX FIFO current occupancy
     
     // Status
     output logic        builder_busy,
@@ -39,6 +41,7 @@ module Frame_Builder (
     // Protocol constants per specification
     localparam [7:0] SOF_DEVICE_TO_HOST = 8'h5A;    // Device to Host SOF
     localparam [7:0] STATUS_OK = 8'h00;              // Success status
+    localparam [7:0] CMD_RESET = 8'hFF;              // RESET command (no response)
     
     // Debug signals for FPGA debugging - Phase 1 & 2 (ref: fpga_debug_work_plan.md)
     logic [7:0] debug_sof_raw;        // SOF before correction LUT
@@ -85,6 +88,10 @@ module Frame_Builder (
     logic        build_response_prev;
     logic        build_response_edge;
     
+    // Registered FIFO outputs to fix timing
+    logic [7:0]  tx_fifo_data_next;
+    logic        tx_fifo_wr_en_next;
+    
     // CRC calculator instance
     logic crc_enable;
     logic crc_reset;
@@ -112,9 +119,22 @@ module Frame_Builder (
             cmd_reg <= '0;
             addr_reg <= '0;
             data_count_reg <= '0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Clear all internal state, abort current frame
+            state <= IDLE;
+            status_reg <= '0;
+            cmd_reg <= '0;
+            addr_reg <= '0;
+            data_count_reg <= '0;
+            data_index <= '0;
+            is_read_reg <= 1'b0;
+            $display("[%0t][FRAME_BUILDER_SOFT_RESET] Builder state cleared", $time);
             data_index <= '0;
             is_read_reg <= 1'b0;
             build_response_prev <= 1'b0;
+            // Register FIFO outputs to fix timing issue
+            tx_fifo_data <= '0;
+            tx_fifo_wr_en <= 1'b0;
             // Initialize data array to prevent X-state propagation
             for (int i = 0; i < 64; i++) begin
                 data_reg[i] <= '0;
@@ -122,6 +142,9 @@ module Frame_Builder (
         end else begin
             state <= state_next;
             build_response_prev <= build_response;
+            // Update registered FIFO outputs
+            tx_fifo_data <= tx_fifo_data_next;
+            tx_fifo_wr_en <= tx_fifo_wr_en_next;
             
             // Load inputs when build_response rising edge detected (single clock edge trigger)
             if (build_response_edge && (state == IDLE)) begin
@@ -148,7 +171,7 @@ module Frame_Builder (
             end
             
             // Increment data index when writing data bytes successfully
-            if ((state == DATA) && tx_fifo_wr_en && !tx_fifo_full) begin
+            if ((state == DATA) && tx_fifo_wr_en_next && !tx_fifo_full) begin
                 if (data_index < 7'd64) begin
                     data_index <= data_index + 7'd1;
                 end else begin
@@ -188,38 +211,58 @@ module Frame_Builder (
     integer debug_build_count;
     integer debug_tx_write_count;
     logic response_complete_q;
+    
+    // FIFO space check signals (moved outside always_ff to fix synthesis issue)
+    // Changed to 8-bit to properly represent TX_FIFO_DEPTH=128 (requires 8 bits)
+    logic [7:0] fifo_required_space;
+    logic [7:0] fifo_available_space;
 
     always_ff @(posedge clk) begin
         if (rst) begin
             debug_build_count <= 0;
             debug_tx_write_count <= 0;
             response_complete_q <= 1'b0;
+            fifo_required_space <= '0;
+            fifo_available_space <= '0;
         end else begin
             response_complete_q <= response_complete;
 
             if (build_response_edge && state == IDLE) begin
+                // Calculate required FIFO space for response frame
+                // SOF(1) + STATUS(1) + CMD(1) + ADDR(4) + DATA(response_data_count) + CRC(1)
+                fifo_required_space <= 8'd8 + {1'b0, response_data_count};
+                fifo_available_space <= 8'd128 - {1'b0, tx_fifo_count};  // TX_FIFO_DEPTH=128
+                
+                if ((8'd8 + {1'b0, response_data_count}) > (8'd128 - {1'b0, tx_fifo_count})) begin
+                    $error("[%0t][FRAME_BUILDER_ERROR] Insufficient TX FIFO space: required=%0d available=%0d fifo_count=%0d",
+                           $time, 8'd8 + {1'b0, response_data_count}, 8'd128 - {1'b0, tx_fifo_count}, tx_fifo_count);
+                    // Note: Current design proceeds anyway; consider adding stall logic
+                end
+                
                 // Track how many times the builder is kicked off
                 debug_build_count <= debug_build_count + 1;
-                $display("[%0t][FRAME_BUILDER_DEBUG] build_response_edge #%0d status=0x%02h cmd=0x%02h read=%0b data_count=%0d fifo_full=%0b",
+                $display("[%0t][FRAME_BUILDER_DEBUG] build_response_edge #%0d status=0x%02h cmd=0x%02h read=%0b data_count=%0d fifo_full=%0b fifo_count=%0d req_space=%0d",
                          $time,
                          debug_build_count + 1,
                          status_code,
                          cmd_echo,
                          is_read_response,
                          response_data_count,
-                         tx_fifo_full);
+                         tx_fifo_full,
+                         tx_fifo_count,
+                         7'd8 + response_data_count);
                 // Reset byte counter for the new frame
                 debug_tx_write_count <= 0;
             end
 
-            if (tx_fifo_wr_en && !tx_fifo_full) begin
+            if (tx_fifo_wr_en_next && !tx_fifo_full) begin
                 debug_tx_write_count <= debug_tx_write_count + 1;
                 if (debug_tx_write_count <= 16) begin
                     $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE #%0d state=%0d byte=0x%02h fifo_full=%0b",
                              $time,
                              debug_tx_write_count,
                              state,
-                             tx_fifo_data,
+                             tx_fifo_data_next,
                              tx_fifo_full);
                 end else if (debug_tx_write_count == 17) begin
                     $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE limit reached, suppressing additional byte logs",
@@ -239,8 +282,8 @@ module Frame_Builder (
     // State machine (combinational part)
     always_comb begin
         state_next = state;
-        tx_fifo_data = '0;
-        tx_fifo_wr_en = 1'b0;
+        tx_fifo_data_next = '0;
+        tx_fifo_wr_en_next = 1'b0;
         crc_enable = 1'b0;
         crc_reset = 1'b0;
         crc_data_in = '0;
@@ -275,8 +318,8 @@ module Frame_Builder (
                     debug_sof_valid = 1'b1;                                  // SOF timing marker
                     
                     // Send protocol specification value directly
-                    tx_fifo_data = SOF_DEVICE_TO_HOST;  // Send 0x5A per protocol specification
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = SOF_DEVICE_TO_HOST;  // Send 0x5A per protocol specification
+                    tx_fifo_wr_en_next = 1'b1;
                     `ifdef ENABLE_DEBUG
                         // Frame_Builder sending SOF (protocol specification)
                     `endif
@@ -293,8 +336,8 @@ module Frame_Builder (
                     debug_status_output = status_reg;                      // Send original value directly
                     
                     // Send protocol specification value directly
-                    tx_fifo_data = status_reg;  // Send original status value per protocol
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = status_reg;  // Send original status value per protocol
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = status_reg;  // CRC uses status value per protocol
                     
@@ -312,8 +355,8 @@ module Frame_Builder (
             CMD: begin
                 if (!tx_fifo_full) begin
                     // Send protocol specification value directly
-                    tx_fifo_data = cmd_reg;  // Send original command echo per protocol
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = cmd_reg;  // Send original command echo per protocol
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = cmd_reg;  // CRC uses original value per protocol
                     
@@ -324,15 +367,14 @@ module Frame_Builder (
                     debug_cmd_echo_out = cmd_reg;  // Send original command
                     debug_response_type = is_read_response;
                     
-                    // Decide next state based on response type and status
-                    // Write response (MSB=0): SOF + STATUS + CMD + CRC (4 bytes total)
-                    // Read response (MSB=1): SOF + STATUS + CMD + ADDR + DATA + CRC (7+ bytes total)
-                    
-                    // Force Write responses to be exactly 4 bytes by checking MSB=0
-                    if (cmd_reg[7] == 1'b0) begin  // Write command (MSB=0)
+                    // Check for special RESET command - no response
+                    if (cmd_reg == CMD_RESET) begin
+                        // RESET command: No response, return to IDLE immediately
+                        state_next = IDLE;
+                    end else if (cmd_reg[7] == 1'b0) begin  // Write command (MSB=0)
                         // Write response: go directly to CRC after CMD
                         state_next = CRC;
-                    end else if (cmd_reg[7]) begin  // Read command (MSB=1) - check success status by looking at specific success codes
+                    end else if (cmd_reg[7]) begin  // Read command (MSB=1) - check success status
                         // Accept multiple success status values: 0x00 (spec), 0x40 (current), 0x80 (previous)
                         if ((status_reg == 8'h00) || (status_reg == 8'h40) || (status_reg == 8'h80)) begin
                             // Successful read response includes address and data
@@ -350,8 +392,8 @@ module Frame_Builder (
             
             ADDR_BYTE0: begin
                 if (!tx_fifo_full) begin
-                    tx_fifo_data = addr_reg[7:0];
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = addr_reg[7:0];
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = addr_reg[7:0];
                     state_next = ADDR_BYTE1;
@@ -360,8 +402,8 @@ module Frame_Builder (
             
             ADDR_BYTE1: begin
                 if (!tx_fifo_full) begin
-                    tx_fifo_data = addr_reg[15:8];
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = addr_reg[15:8];
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = addr_reg[15:8];
                     state_next = ADDR_BYTE2;
@@ -370,8 +412,8 @@ module Frame_Builder (
             
             ADDR_BYTE2: begin
                 if (!tx_fifo_full) begin
-                    tx_fifo_data = addr_reg[23:16];
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = addr_reg[23:16];
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = addr_reg[23:16];
                     state_next = ADDR_BYTE3;
@@ -380,8 +422,8 @@ module Frame_Builder (
             
             ADDR_BYTE3: begin
                 if (!tx_fifo_full) begin
-                    tx_fifo_data = addr_reg[31:24];
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = addr_reg[31:24];
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = addr_reg[31:24];
                     
@@ -395,8 +437,8 @@ module Frame_Builder (
             
             DATA: begin
                 if (!tx_fifo_full && (data_index < data_count_reg)) begin
-                    tx_fifo_data = data_reg[data_index];
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = data_reg[data_index];
+                    tx_fifo_wr_en_next = 1'b1;
                     crc_enable = 1'b1;
                     crc_data_in = data_reg[data_index];
                     
@@ -410,8 +452,8 @@ module Frame_Builder (
             
             CRC: begin
                 if (!tx_fifo_full) begin
-                    tx_fifo_data = crc_out;
-                    tx_fifo_wr_en = 1'b1;
+                    tx_fifo_data_next = crc_out;  // Normal CRC calculation
+                    tx_fifo_wr_en_next = 1'b1;
                     state_next = DONE;
                 end
             end
@@ -466,11 +508,18 @@ module Frame_Builder (
             response_complete |=> !response_complete
         ) else $error("Frame_Builder: response_complete should be a single-cycle pulse");
 
-        // Should not write to FIFO when full
+        // Should not write to FIFO when full (CRITICAL SAFETY CHECK)
         assert_no_write_when_full: assert property (
             @(posedge clk) disable iff (rst)
             tx_fifo_full |-> !tx_fifo_wr_en
         ) else $error("Frame_Builder: Writing to FIFO when full");
+        
+        // FIFO space check at frame start (64-byte READ protection)
+        assert_fifo_space_sufficient: assert property (
+            @(posedge clk) disable iff (rst)
+            (build_response && state == IDLE && is_read_response && response_data_count > 7'd56) |->
+            (tx_fifo_count < 7'd72)  // Max frame 72 bytes, need space
+        ) else $error("Frame_Builder: Insufficient FIFO space for large response");
     `endif
 
 endmodule

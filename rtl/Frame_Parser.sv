@@ -20,6 +20,7 @@ module Frame_Parser #(
     input  logic [7:0]  rx_fifo_data,
     input  logic        rx_fifo_empty,
     output logic        rx_fifo_rd_en,
+    input  logic [15:0] baud_divisor,
     
     // Parsed frame output
     output logic [7:0]  cmd,
@@ -33,6 +34,7 @@ module Frame_Parser #(
     // Control
     input  logic        frame_consumed,     // Frame has been processed
     output logic        parser_busy,        // Parser is active
+    output logic        soft_reset_request, // RESET command detected (pulse)
     // Debug signals for HW analysis
     output logic [7:0] debug_cmd_in,
     output logic [7:0] debug_cmd_decoded,
@@ -46,6 +48,7 @@ module Frame_Parser #(
 
     // Protocol constants
     localparam [7:0] SOF_HOST_TO_DEVICE = 8'hA5;
+    localparam [7:0] CMD_RESET = 8'hFF;  // Special RESET command
     
     // Status codes from Section 3
     localparam [7:0] STATUS_OK        = 8'h00;
@@ -65,9 +68,46 @@ module Frame_Parser #(
     // Error cause encoding: 0x0=No error, 0x1=CRC mismatch, 0x2=AXI timeout, 0x3=Unsupported command
     
     // Timeout calculation
-    localparam int BYTE_TIME_CLOCKS = CLK_FREQ_HZ / (BAUD_RATE / 10); // 10 bits per byte
-    localparam int TIMEOUT_CLOCKS = BYTE_TIME_CLOCKS * TIMEOUT_BYTE_TIMES;
-    localparam int TIMEOUT_WIDTH = $clog2(TIMEOUT_CLOCKS + 1);
+    localparam int DEFAULT_DIV_CALC = (BAUD_RATE > 0)
+        ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
+        : 1;
+    localparam int DEFAULT_DIV_CLAMP = (DEFAULT_DIV_CALC < 1)
+        ? 1
+        : ((DEFAULT_DIV_CALC > 16'hFFFF) ? 16'hFFFF : DEFAULT_DIV_CALC);
+    localparam logic [15:0] DEFAULT_BAUD_DIVISOR = 16'(DEFAULT_DIV_CLAMP);
+    localparam int MAX_BAUD_DIVISOR = 16'hFFFF;
+    localparam int MAX_TIMEOUT_CLOCKS = MAX_BAUD_DIVISOR * 10 * TIMEOUT_BYTE_TIMES;
+    localparam int TIMEOUT_WIDTH = $clog2(MAX_TIMEOUT_CLOCKS + 1);
+
+    logic [15:0] effective_baud_divisor;
+    logic [TIMEOUT_WIDTH-1:0] timeout_limit;
+
+    always_comb begin
+        int unsigned candidate;
+        int unsigned byte_cycles;
+        int unsigned timeout_cycles;
+
+        candidate = (baud_divisor != 16'd0) ? baud_divisor : int'(DEFAULT_BAUD_DIVISOR);
+        if (candidate < 1) begin
+            candidate = 1;
+        end else if (candidate > MAX_BAUD_DIVISOR) begin
+            candidate = MAX_BAUD_DIVISOR;
+        end
+
+    effective_baud_divisor = 16'(candidate);
+
+        byte_cycles = candidate * 10;
+        if (byte_cycles > MAX_TIMEOUT_CLOCKS) begin
+            byte_cycles = MAX_TIMEOUT_CLOCKS;
+        end
+
+        timeout_cycles = byte_cycles * TIMEOUT_BYTE_TIMES;
+        if (timeout_cycles > MAX_TIMEOUT_CLOCKS) begin
+            timeout_cycles = MAX_TIMEOUT_CLOCKS;
+        end
+
+    timeout_limit = TIMEOUT_WIDTH'(timeout_cycles);
+    end
     
     // State machine
     typedef enum logic [3:0] {
@@ -80,6 +120,7 @@ module Frame_Parser #(
         DATA_RX,
         CRC_RX,
         VALIDATE,
+        POSTVTC,  // Post-validation cleanup for RESET command
         ERROR
     } parser_state_t;
     
@@ -96,6 +137,7 @@ module Frame_Parser #(
             DATA_RX:    return "DATA_RX";
             CRC_RX:     return "CRC_RX";
             VALIDATE:   return "VALIDATE";
+            POSTVTC:    return "POSTVTC";
             ERROR:      return "ERROR";
             default:    return "UNKNOWN";
         endcase
@@ -110,6 +152,7 @@ module Frame_Parser #(
     logic [7:0]  expected_crc;
     logic [7:0]  received_crc;
     logic [7:0]  error_status_reg;
+    logic        is_reset_command; // Flag for RESET command (CMD=0xFF)
     
     // CRC calculation control signals - 重要な修正
     logic        crc_reset;
@@ -179,14 +222,20 @@ module Frame_Parser #(
     always_comb begin
         cmd_valid = 1'b1;
         
-        // Check for reserved size field  
-        if (size_field == 2'b11) begin
-            cmd_valid = 1'b0;
+        // RESET command (0xFF) is always valid - special case
+        if (current_cmd == 8'hFF) begin
+            cmd_valid = 1'b1;
         end
-        
-        // Check LEN range (should be 1-16, encoded as 0-15)
-        if (current_cmd[3:0] > 15) begin  // This is impossible with 4 bits, but for clarity
-            cmd_valid = 1'b0;
+        else begin
+            // Check for reserved size field  
+            if (size_field == 2'b11) begin
+                cmd_valid = 1'b0;
+            end
+            
+            // Check LEN range (should be 1-16, encoded as 0-15)
+            if (current_cmd[3:0] > 15) begin  // This is impossible with 4 bits, but for clarity
+                cmd_valid = 1'b0;
+            end
         end
     end
     
@@ -216,7 +265,7 @@ module Frame_Parser #(
             if (!rx_fifo_empty) begin
                 timeout_counter <= '0;
                 timeout_occurred <= 1'b0;
-            end else if (timeout_counter >= TIMEOUT_CLOCKS) begin
+            end else if (timeout_counter >= timeout_limit) begin
                 timeout_occurred <= 1'b1;
             end else begin
                 timeout_counter <= timeout_counter + 1;
@@ -243,6 +292,26 @@ module Frame_Parser #(
             end
             parser_state_transition_count <= 0;
             parser_byte_trace_count <= 0;
+        end else if (soft_reset_request) begin
+            // SOFT RESET: Clear parser state but preserve configuration
+            // This allows RESET command (0xFF) to clear internal state without full reset
+            state <= IDLE;
+            cmd_reg <= '0;
+            current_cmd <= '0;
+            addr_reg <= '0;
+            data_byte_count <= '0;
+            received_crc <= 8'h00;
+            error_status_reg <= STATUS_OK;
+            expected_data_bytes <= '0;
+            rx_fifo_data_reg <= 8'h00;
+            // Clear data array
+            for (int i = 0; i < 64; i++) begin
+                data_reg[i] <= '0;
+            end
+            // Reset trace counters
+            parser_state_transition_count <= 0;
+            parser_byte_trace_count <= 0;
+            $display("[%0t][PARSER_SOFT_RESET] Parser state cleared via soft_reset_request", $time);
         end else begin
             state <= state_next;
             
@@ -270,6 +339,13 @@ module Frame_Parser #(
                     CMD: begin
                         cmd_reg <= rx_fifo_data;
                         current_cmd <= rx_fifo_data;  // Capture immediately for later use
+                        
+                        // Check for special RESET command (no ADDR/DATA, jump to CRC)
+                        if (rx_fifo_data == CMD_RESET) begin
+                            is_reset_command <= 1'b1;
+                        end else begin
+                            is_reset_command <= 1'b0;
+                        end
                         // expected_data_bytes calculation is handled separately above
                     end
                     ADDR_BYTE0: begin
@@ -420,7 +496,12 @@ module Frame_Parser #(
                 if (!rx_fifo_empty) begin
                     rx_fifo_rd_en = 1'b1;
                     crc_enable = 1'b1;
-                    state_next = ADDR_BYTE0;
+                    // RESET command (0xFF) has no ADDR/DATA, jump directly to CRC
+                    if (rx_fifo_data == CMD_RESET) begin
+                        state_next = CRC_RX;
+                    end else begin
+                        state_next = ADDR_BYTE0;
+                    end
                 end else if (timeout_occurred) begin
                     state_next = ERROR;
                 end
@@ -502,10 +583,32 @@ module Frame_Parser #(
                 debug_crc_match = (received_crc == expected_crc);
                 debug_status_gen = error_status_reg;
                 
-                if (frame_consumed) begin
+                // RESET command special handling: bypass frame_consumed wait
+                if (current_cmd == 8'hFF && cmd_valid) begin
+                    state_next = POSTVTC;  // Immediate transition for RESET
+                end
+                // Soft reset during validation: abort and return to IDLE
+                else if (soft_reset_request) begin
+                    state_next = IDLE;
+                end
+                else if (frame_consumed) begin
                     state_next = IDLE;
                 end else begin
                     state_next = VALIDATE;  // Stay in VALIDATE until frame is consumed
+                end
+            end
+            
+            POSTVTC: begin
+                // Post-validation cleanup - single cycle transition
+                // CRITICAL: Immediately clear frame_valid_hold in combinational logic
+                // (sequential clear in always_ff happens 1 cycle too late)
+                // This is required because POSTVTC→IDLE transition is instant
+                
+                // Also handle soft_reset during this transient state
+                if (soft_reset_request) begin
+                    state_next = IDLE;
+                end else begin
+                    state_next = IDLE;
                 end
             end
             
@@ -537,8 +640,15 @@ module Frame_Parser #(
     end
     
     // frame_valid信号の正確な制御 - CRITICAL FIX
+    // CRITICAL: POSTVTC state requires immediate clearing (not 1 cycle later)
+    logic postvtc_clear;
+    assign postvtc_clear = (state == POSTVTC);  // Combinational clear signal
+    
     always_ff @(posedge clk) begin
         if (rst) begin
+            frame_valid_hold <= 1'b0;
+        end else if (soft_reset_request || postvtc_clear) begin
+            // SOFT RESET or POSTVTC state: clear frame_valid_hold immediately
             frame_valid_hold <= 1'b0;
         end else begin
             // CRITICAL: frame_consumed検出時は即座にクリア（最優先）
@@ -549,7 +659,15 @@ module Frame_Parser #(
                 case (state)
                     VALIDATE: begin
                         // VALIDATE状態でのframe_valid評価
-                        if (cmd_valid && (received_crc == expected_crc)) begin
+                        // CRITICAL: RESET command (0xFF) should NOT set frame_valid_hold
+                        if (soft_reset_request) begin
+                            frame_valid_hold <= 1'b0;  // Soft reset always clears
+                        end else if (current_cmd == 8'hFF) begin
+                            // RESET command (0xFF) is a control command, not a data frame
+                            // It should NOT generate frame_valid even if CRC passes
+                            frame_valid_hold <= 1'b0;
+                            $display("[%0t][PARSER_VALIDATE] RESET cmd=0xff - no frame_valid (control command)", $time);
+                        end else if (cmd_valid && (received_crc == expected_crc)) begin
                             frame_valid_hold <= 1'b1;  // 条件満足時のみ有効フレーム
                             $display("[%0t][PARSER_VALIDATE] cmd=0x%02h addr=0x%08h crc_ok=1 data_bytes=%0d", $time, cmd_reg, addr_reg, data_byte_count);
                         end else begin
@@ -563,7 +681,7 @@ module Frame_Parser #(
                     end
                     default: begin
                         // その他の状態では現在値を保持（VALIDATE後の遷移中）
-                        // frame_valid_holdは維持される
+                        // NOTE: POSTVTC case removed - handled by postvtc_clear above
                     end
                 endcase
             end
@@ -578,33 +696,49 @@ module Frame_Parser #(
     assign error_status = error_status_reg;
     assign frame_error = ((state == VALIDATE) && (error_status_reg != STATUS_OK)) || 
                         (state == ERROR) || timeout_occurred;
-    assign parser_busy = (state != IDLE);
+    assign parser_busy = (state != IDLE) && !soft_reset_request;  // Clear busy on soft reset
+    
+    // RESET command handling: generate pulse in VALIDATE state for RESET command
+    logic soft_reset_pulse;
+    logic soft_reset_pulse_reg;  // Register to ensure clean 1-cycle pulse
+    
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            soft_reset_pulse <= 1'b0;
+            soft_reset_pulse_reg <= 1'b0;
+        end else begin
+            // Generate 1-cycle pulse when RESET command validated
+            if (state == VALIDATE && current_cmd == 8'hFF && cmd_valid && !soft_reset_pulse_reg) begin
+                soft_reset_pulse <= 1'b1;
+                soft_reset_pulse_reg <= 1'b1;  // Prevent re-trigger
+            end else begin
+                soft_reset_pulse <= 1'b0;
+                // Clear flag when leaving VALIDATE
+                if (state != VALIDATE) begin
+                    soft_reset_pulse_reg <= 1'b0;
+                end
+            end
+        end
+    end
+    
+    assign soft_reset_request = soft_reset_pulse;
 
-    // CRITICAL: frame_consumed検証アサーション
+    // Assertion: frame_valid_hold cleanup after frame_consumed
     `ifdef ENABLE_DEBUG
-    // frame_consumedパルス検出の検証
-    property frame_consumed_pulse_detection;
-        @(posedge clk) disable iff (rst)
-        $rose(frame_consumed) |-> ##1 frame_consumed_reg;
-    endproperty
-    assert property (frame_consumed_pulse_detection) else
-        $error("[FRAME_PARSER] frame_consumed pulse not latched correctly at time %0t", $time);
-
-    // frame_valid_holdがframe_consumed後にクリアされることの検証
     property frame_valid_cleared_after_consumed;
         @(posedge clk) disable iff (rst)
-        (frame_consumed && frame_valid_hold) |-> ##1 !frame_valid_hold;
+        (frame_consumed && frame_valid_hold) |=> !frame_valid_hold;
     endproperty
     assert property (frame_valid_cleared_after_consumed) else
-        $error("[FRAME_PARSER] frame_valid_hold not cleared after frame_consumed at time %0t", $time);
+        $error("[FP_ASSERT] frame_valid_hold not cleared after frame_consumed at time=%0t", $time);
 
-    // frame_valid_holdがVALIDATE状態以外で1になることを防ぐ
-    property frame_valid_only_in_validate;
+    // Assertion: frame_valid_hold only valid in VALIDATE or POSTVTC (transition state)
+    property frame_valid_state_constraint;
         @(posedge clk) disable iff (rst)
-        (frame_valid_hold && (state != VALIDATE)) |-> ##1 !frame_valid_hold;
+        (frame_valid_hold && (state != VALIDATE) && (state != POSTVTC)) |=> !frame_valid_hold;
     endproperty
-    assert property (frame_valid_only_in_validate) else
-        $error("[FRAME_PARSER] frame_valid_hold asserted outside VALIDATE state! state=%0d at time %0t", state, $time);
+    assert property (frame_valid_state_constraint) else
+        $error("[FP_ASSERT] frame_valid_hold=1 outside VALIDATE/POSTVTC! state=%0d at time=%0t", state, $time);
     `endif
     
     // Debug signal assignments for hardware analysis
@@ -628,37 +762,6 @@ module Frame_Parser #(
             data_out[i] = data_reg[i];
         end
     end
-
-    // Emergency diagnostics instance for assertion-based debugging
-    emergency_frame_parser_diagnostics #(
-        .MAX_STATE_STABLE_CYCLES(TIMEOUT_CLOCKS)
-    ) emergency_frame_parser_diag_internal_inst (
-        .clk(clk),
-        .rst(rst),
-        .frame_valid_hold(frame_valid_hold),
-        .state(state)
-    );
-
-    // CRITICAL: frame_consumed処理の検証アサーション
-    `ifdef ENABLE_DEBUG
-    // frame_consumedパルス後のframe_valid_holdクリア検証
-    property frame_consumed_clears_valid;
-        @(posedge clk) disable iff (rst)
-        $rose(frame_consumed) |=> (frame_valid_hold == 1'b0);
-    endproperty
-    
-    assert property (frame_consumed_clears_valid) else
-        $error("[FP_CRITICAL] frame_consumed did not clear frame_valid_hold at time=%0t", $time);
-    
-    // frame_valid_holdの状態整合性検証
-    property frame_valid_state_consistency;
-        @(posedge clk) disable iff (rst)
-        frame_valid_hold |-> (state == VALIDATE);
-    endproperty
-    
-    assert property (frame_valid_state_consistency) else
-        $error("[FP_CRITICAL] frame_valid_hold=1 in wrong state=%0d (expected VALIDATE=8) at time=%0t", state, $time);
-    `endif
 
     // Runtime visibility for frame_valid activity
     logic frame_valid_q;

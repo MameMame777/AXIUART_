@@ -13,7 +13,7 @@ module Uart_Axi4_Bridge #(
     parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth
-    parameter int TX_FIFO_DEPTH = 64,           // TX FIFO depth
+    parameter int TX_FIFO_DEPTH = 128,          // TX FIFO depth (64→128 for 64-byte READ responses)
     parameter int MAX_LEN = 16,                 // Maximum LEN field value
     parameter int PARSER_TIMEOUT_BYTE_TIMES = 10, // Parser byte-time timeout window
     parameter bit ENABLE_PARSER_TIMEOUT = 1'b1   // Enable parser timeout based recovery
@@ -39,6 +39,7 @@ module Uart_Axi4_Bridge #(
     output logic [15:0] tx_transaction_count,  // TX transaction counter
     output logic [15:0] rx_transaction_count,  // RX transaction counter
     output logic [7:0]  fifo_status_flags,     // FIFO status flags
+    output logic        soft_reset_request,    // RESET command detected (pulse)
     // Debug signals for HW debug
     output logic [7:0] debug_parser_cmd,
     output logic [7:0] debug_builder_cmd_echo,
@@ -58,6 +59,9 @@ module Uart_Axi4_Bridge #(
     output logic       debug_parser_frame_error,      // Parser frame error
     output logic [7:0] debug_captured_cmd_out,        // Captured CMD for bridge
     output logic [7:0] debug_axi_status_out,          // AXI status visibility
+
+    // Runtime configuration inputs
+    input  logic [15:0] baud_divisor_cfg,      // Configured baud divisor (cycles per bit)
     
     // Statistics reset input
     input  logic        reset_statistics       // Pulse to reset counters
@@ -67,6 +71,15 @@ module Uart_Axi4_Bridge #(
     localparam int RX_FIFO_WIDTH = $clog2(RX_FIFO_DEPTH) + 1;
     localparam int TX_FIFO_WIDTH = $clog2(TX_FIFO_DEPTH) + 1;
     
+    localparam int DEFAULT_DIV_CALC = (BAUD_RATE > 0)
+        ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
+        : 1;
+    localparam int DEFAULT_DIV_CLAMP = (DEFAULT_DIV_CALC < 1)
+        ? 1
+        : ((DEFAULT_DIV_CALC > 16'hFFFF) ? 16'hFFFF : DEFAULT_DIV_CALC);
+    localparam logic [15:0] DEFAULT_BAUD_DIVISOR = 16'(DEFAULT_DIV_CLAMP);
+    localparam int MAX_BAUD_DIVISOR = 16'hFFFF;
+
     // Debug signals for FPGA debugging - Phase 3 & 4 (ref: fpga_debug_work_plan.md)
     logic [7:0] debug_uart_tx_data;      // UART TX data cross-check
     logic       debug_uart_tx_valid;     // UART TX byte start marker
@@ -87,6 +100,22 @@ module Uart_Axi4_Bridge #(
     logic [7:0]  debug_parser_cmd_out;   // CMD from Parser to Bridge
     logic [7:0]  debug_bridge_status;    // STATUS from Bridge to Builder
     logic [3:0]  debug_bridge_state;     // Bridge main FSM state
+    logic [15:0] config_baud_divisor;
+    logic [15:0] runtime_baud_divisor;
+
+    always_comb begin
+        int unsigned candidate;
+
+        candidate = (baud_divisor_cfg != 16'd0) ? baud_divisor_cfg : DEFAULT_BAUD_DIVISOR;
+        if (candidate < 1) begin
+            candidate = 1;
+        end else if (candidate > MAX_BAUD_DIVISOR) begin
+            candidate = MAX_BAUD_DIVISOR;
+        end
+
+    config_baud_divisor = 16'(candidate);
+        runtime_baud_divisor = config_baud_divisor;
+    end
     
     // UART RX signals
     logic [7:0] rx_data;
@@ -128,6 +157,10 @@ module Uart_Axi4_Bridge #(
     logic parser_frame_error;
     logic parser_frame_consumed;
     logic parser_busy;
+    logic parser_soft_reset;  // RESET command detected signal
+    
+    // Soft reset output connection
+    assign soft_reset_request = parser_soft_reset;
     
     // AXI master signals
     logic [7:0] axi_write_data [0:63];
@@ -191,7 +224,9 @@ module Uart_Axi4_Bridge #(
     ) uart_rx_inst (
         .clk(clk),
         .rst(rst),
+        .soft_reset_request(parser_soft_reset),  // RESET command propagation
         .uart_rx(uart_rx),
+        .baud_divisor(runtime_baud_divisor),
         .rx_data(rx_data),
         .rx_valid(rx_valid),
         .rx_error(rx_error),
@@ -201,13 +236,16 @@ module Uart_Axi4_Bridge #(
     // UART TX instance
     Uart_Tx #(
         .CLK_FREQ_HZ(CLK_FREQ_HZ),
-        .BAUD_RATE(BAUD_RATE)
+        .BAUD_RATE(BAUD_RATE),
+        .OVERSAMPLE(UART_OVERSAMPLE)
     ) uart_tx_inst (
         .clk(clk),
         .rst(rst),
+        .soft_reset_request(parser_soft_reset),  // RESET command propagation
         .tx_data(tx_data),
         .tx_start(tx_start),
         .uart_cts_n(uart_cts_n),        // Clear to Send input
+        .baud_divisor(runtime_baud_divisor),
         .uart_tx(uart_tx),
         .tx_busy(tx_busy),
         .tx_done(tx_done)
@@ -261,6 +299,7 @@ module Uart_Axi4_Bridge #(
         .rx_fifo_data(rx_fifo_rd_data),
         .rx_fifo_empty(rx_fifo_empty),
         .rx_fifo_rd_en(rx_fifo_rd_en),
+        .baud_divisor(runtime_baud_divisor),
         .cmd(parser_cmd),
         .addr(parser_addr),
         .data_out(parser_data_out),
@@ -270,6 +309,7 @@ module Uart_Axi4_Bridge #(
         .frame_error(parser_frame_error),
         .frame_consumed(parser_frame_consumed),
         .parser_busy(parser_busy),
+        .soft_reset_request(parser_soft_reset),  // RESET command output
         .debug_cmd_in(debug_parser_cmd),
         .debug_cmd_decoded(),
         .debug_status_out(debug_parser_status),
@@ -302,6 +342,7 @@ module Uart_Axi4_Bridge #(
     Frame_Builder frame_builder (
         .clk(clk),
         .rst(rst),
+        .soft_reset_request(parser_soft_reset),  // RESET command propagation
         .status_code(builder_status_code),
         .cmd_echo(builder_cmd_echo),
         .addr_echo(builder_addr_echo),
@@ -312,6 +353,7 @@ module Uart_Axi4_Bridge #(
         .tx_fifo_data(tx_fifo_data),
         .tx_fifo_wr_en(tx_fifo_wr_en),
         .tx_fifo_full(tx_fifo_full),
+        .tx_fifo_count(tx_fifo_count),
         .builder_busy(builder_busy),
         .response_complete(builder_response_complete),
         .debug_cmd_echo(debug_builder_cmd_echo),
@@ -321,8 +363,21 @@ module Uart_Axi4_Bridge #(
         .builder_response_done_pulse(debug_builder_done)
     );
     
-    // RX FIFO write control
+    // RX FIFO write control with overflow error handling
     assign rx_fifo_wr_en = rx_valid && !rx_error && !rx_fifo_full;
+    
+    // RX FIFO overflow error detection and logging
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            // Reset - no overflow error
+        end else begin
+            if (rx_valid && !rx_error && rx_fifo_full) begin
+                $error("[%0t][UART_BRIDGE_RX_OVERFLOW] RX FIFO full, dropping byte 0x%02h (fifo_count=%0d)",
+                       $time, rx_data, rx_fifo_count);
+                // Data loss - critical error condition
+            end
+        end
+    end
 
     // Comprehensive UART RX debug output with data path analysis
     always @(posedge clk) begin
@@ -365,13 +420,14 @@ module Uart_Axi4_Bridge #(
     
     assign tx_start_req = !tx_fifo_empty && !tx_busy && !tx_start_reg;
     assign tx_fifo_rd_en = tx_start_req;
-    assign tx_data = tx_fifo_rd_data;
+    assign tx_data = tx_fifo_rd_data;  // Combinational read from synchronous FIFO
     assign tx_start = tx_start_req;  // Single-cycle pulse for UART TX
     
     `ifdef ENABLE_DEBUG
         always_ff @(posedge clk) begin
             if (tx_start_req) begin
-                // Bridge TX starting
+                $display("[%0t][BRIDGE_TX_START] tx_start_req=1 tx_data=0x%02h tx_fifo_empty=%0b tx_busy=%0b tx_start_reg=%0b",
+                         $time, tx_fifo_rd_data, tx_fifo_empty, tx_busy, tx_start_reg);
             end
         end
     `endif
@@ -412,6 +468,16 @@ module Uart_Axi4_Bridge #(
             captured_read_data_count <= 7'd0;
             axi_transaction_done_prev <= 1'b0;
             // Bridge reset - state=IDLE
+        end else if (parser_soft_reset) begin
+            // Soft reset: preserve CONFIG, reset operational state
+            // Note: FIFOs are self-draining, state machines reset to IDLE
+            main_state <= MAIN_IDLE;
+            captured_cmd <= 8'hFF;  // Mark as RESET command for Frame_Builder
+            captured_addr <= 32'h00000000;
+            captured_read_data_count <= 7'd0;
+            axi_transaction_done_prev <= 1'b0;
+            // CONFIG registers (baud_divisor) are NOT reset here
+            // They are preserved in Register_Block and Uart_Tx/Rx modules
         end else begin
             // Always show state transitions
             if (main_state != main_state_next) begin
@@ -533,49 +599,47 @@ module Uart_Axi4_Bridge #(
             end
             
             MAIN_BUILD_RESPONSE: begin
-                // Issue build response only once per frame
-                builder_build_response = !builder_start_issued;
-                builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
-                builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
-                
-                `ifdef ENABLE_DEBUG
-                    if (!builder_start_issued) begin
-                        // Bridge starting response
+                // Wait for builder to be ready before issuing response
+                // CRITICAL FIX: Frame_Builder only captures inputs when state==IDLE
+                if (!builder_busy) begin
+                    // Issue build response only once per frame
+                    builder_build_response = !builder_start_issued;
+                    builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
+                    builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
+                    
+                    if (parser_frame_error) begin
+                        // Error response
+                        builder_status_code = parser_error_status;
+                        builder_is_read_response = 1'b0;
+                        builder_response_data_count = 7'd0;
+                    end else begin
+                        // Normal response
+                        builder_status_code = axi_status;
+                        builder_is_read_response = captured_cmd[7];  // 修正: parser_cmd[7] → captured_cmd[7]
+                        
+                        if (captured_cmd[7]) begin  // 修正: parser_cmd[7] → captured_cmd[7]
+                            if (axi_status == 8'h00) begin  // Success
+                                builder_response_data_count = captured_read_data_count;
+                            end else begin  // Error
+                                builder_response_data_count = 7'd0;
+                            end
+                        end else begin  // Write response
+                            builder_response_data_count = 7'd0;
+                        end
                     end
-                `endif
-                
-                if (parser_frame_error) begin
-                    // Error response
-                    builder_status_code = parser_error_status;
-                    builder_is_read_response = 1'b0;
-                    builder_response_data_count = 7'd0;
+                    
+                    // Only advance to MAIN_WAIT_RESPONSE after issuing build command
+                    main_state_next = MAIN_WAIT_RESPONSE;
+                    
                     `ifdef ENABLE_DEBUG
                         if (!builder_start_issued) begin
-                            // Bridge error response
+                            // Bridge starting response
                         end
                     `endif
                 end else begin
-                    // Normal response
-                    builder_status_code = axi_status;
-                    builder_is_read_response = captured_cmd[7];  // 修正: parser_cmd[7] → captured_cmd[7]
-                    `ifdef ENABLE_DEBUG
-                        if (!builder_start_issued) begin
-                            // Bridge normal response
-                        end
-                    `endif
-                    
-                    if (captured_cmd[7]) begin  // 修正: parser_cmd[7] → captured_cmd[7]
-                        if (axi_status == 8'h00) begin  // Success
-                            builder_response_data_count = captured_read_data_count;
-                        end else begin  // Error
-                            builder_response_data_count = 7'd0;
-                        end
-                    end else begin  // Write response
-                        builder_response_data_count = 7'd0;
-                    end
+                    // Builder busy - stay in this state
+                    main_state_next = MAIN_BUILD_RESPONSE;
                 end
-                
-                main_state_next = MAIN_WAIT_RESPONSE;
             end
             
             MAIN_WAIT_RESPONSE: begin
@@ -593,13 +657,21 @@ module Uart_Axi4_Bridge #(
             end
 
             MAIN_DISABLED_RESPONSE: begin
-                builder_build_response = !builder_start_issued;
-                builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
-                builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
-                builder_status_code = STATUS_BUSY_CODE;
-                builder_is_read_response = captured_cmd[7]; // 修正: parser_cmd[7] → captured_cmd[7]
-                builder_response_data_count = 7'd0;
-                main_state_next = MAIN_WAIT_RESPONSE;
+                // Wait for builder to be ready before issuing response
+                if (!builder_busy) begin
+                    builder_build_response = !builder_start_issued;
+                    builder_cmd_echo = captured_cmd;  // 修正: parser_cmd → captured_cmd
+                    builder_addr_echo = captured_addr; // 修正: parser_addr → captured_addr
+                    builder_status_code = STATUS_BUSY_CODE;
+                    builder_is_read_response = captured_cmd[7]; // 修正: parser_cmd[7] → captured_cmd[7]
+                    builder_response_data_count = 7'd0;
+                    
+                    // Advance to wait state
+                    main_state_next = MAIN_WAIT_RESPONSE;
+                end else begin
+                    // Builder busy - stay in this state
+                    main_state_next = MAIN_DISABLED_RESPONSE;
+                end
             end
         endcase
     end
@@ -612,8 +684,8 @@ module Uart_Axi4_Bridge #(
             rx_valid && !rx_error |-> !rx_fifo_full
         ) else $warning("UART_Bridge: RX data lost due to FIFO overflow");
 
-        localparam int BIT_TIME_CYCLES = (BAUD_RATE > 0) ? (CLK_FREQ_HZ / BAUD_RATE) : 1;
-        localparam int PARSER_STALL_LIMIT = (BIT_TIME_CYCLES < 1) ? 1 : BIT_TIME_CYCLES * (PARSER_TIMEOUT_BYTE_TIMES + 2) * 12;
+    localparam int MAX_BIT_TIME_CYCLES = (MAX_BAUD_DIVISOR < 1) ? 1 : MAX_BAUD_DIVISOR;
+    localparam int PARSER_STALL_LIMIT = MAX_BIT_TIME_CYCLES * (PARSER_TIMEOUT_BYTE_TIMES + 2) * 12;
 
         // Frame parser should eventually become non-busy
         generate
