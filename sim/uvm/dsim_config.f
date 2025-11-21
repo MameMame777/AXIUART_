@@ -18,6 +18,11 @@
 +define+COVERAGE_ENHANCED
 +define+ERROR_INJECTION_ENABLED
 
+# ★ UVM Hang Detection (Objection/Phase/Sequence Tracing)
++UVM_OBJECTION_TRACE
++UVM_PHASE_TRACE
++UVM_SEQ_CHECKS
+
 # Include paths for file resolution (corrected paths)
 +incdir+.
 +incdir+env

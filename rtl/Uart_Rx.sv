@@ -2,9 +2,10 @@
 
 // UART Receiver Module for UART-AXI4 Bridge
 // 8N1 format with 16x oversampling, LSB-first transmission
+// FIXED BAUD RATE: 115200 bps
 module Uart_Rx #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 9600,          // UART baud rate
+    parameter int BAUD_RATE = 115200,          // UART baud rate (FIXED)
     parameter int OVERSAMPLE = 16              // Oversampling factor
 )(
     input  logic       clk,
@@ -32,6 +33,10 @@ module Uart_Rx #(
     logic [15:0] baud_counter;
     logic        baud_tick;
     
+    // Oversampling counter (0 to OVERSAMPLE-1)
+    logic [4:0] oversample_counter;  // 5 bits to hold 0-16
+    logic       sample_enable;        // Trigger at center of bit (oversample_counter == OVERSAMPLE/2)
+    
     // Bit counter
     logic [3:0] bit_counter;
     
@@ -43,7 +48,7 @@ module Uart_Rx #(
         STOP_BIT
     } rx_state_t;
     
-    rx_state_t rx_state, rx_state_next;
+    rx_state_t rx_state, rx_state_next, rx_state_prev;
 
     function automatic string rx_state_to_string(rx_state_t state);
         case (state)
@@ -72,6 +77,9 @@ module Uart_Rx #(
     end
     assign rx_synced = rx_sync[1];
 
+    // Baud divisor change detection for debug logging
+    logic [15:0] prev_baud_divisor;
+    
     always_comb begin
         int unsigned candidate;
 
@@ -82,26 +90,34 @@ module Uart_Rx #(
             candidate = 16'hFFFF;
         end
 
-    config_baud_divisor = 16'(candidate);
+        config_baud_divisor = 16'(candidate);
+    end
+    
+    // Debug: Monitor baud divisor configuration
+    initial begin
+        $display("[UART_RX_INIT] DEFAULT_BAUD_DIVISOR=%0d (CLK_FREQ=%0d / BAUD_RATE=%0d)", 
+                 DEFAULT_BAUD_DIVISOR, CLK_FREQ_HZ, BAUD_RATE);
+        $display("[UART_RX_INIT] Expected active_bit_cycles=%0d (DEFAULT_BAUD_DIVISOR / OVERSAMPLE)", 
+                 DEFAULT_BAUD_DIVISOR / OVERSAMPLE);
     end
 
-    // Baud divisor change detection
-    logic [15:0] prev_baud_divisor;
-    
+    // Active bit cycles update and debug logging
     always_ff @(posedge clk) begin
         if (rst) begin
-            active_bit_cycles <= DEFAULT_BAUD_DIVISOR;
+            active_bit_cycles <= DEFAULT_BAUD_DIVISOR / OVERSAMPLE;
             prev_baud_divisor <= DEFAULT_BAUD_DIVISOR;
-        end else if (soft_reset_request || (config_baud_divisor != prev_baud_divisor)) begin
-            // Update on soft reset OR baud divisor change
-            active_bit_cycles <= config_baud_divisor;
+        end else begin
+            // Debug: Log whenever config changes or active_bit_cycles is suspiciously low
+            if (config_baud_divisor != prev_baud_divisor || active_bit_cycles <= 16'd1) begin
+                $display("[%0t][UART_RX_BAUD] baud_divisor_in=%0d config=%0d active_bit_cycles=%0d baud_limit=%0d",
+                         $time, baud_divisor, config_baud_divisor, active_bit_cycles, baud_limit);
+            end
+            
+            // Always update active_bit_cycles based on current config
+            active_bit_cycles <= config_baud_divisor / OVERSAMPLE;
             prev_baud_divisor <= config_baud_divisor;
         end
-    end
-
-    // Baud limit calculation - simplified to match Uart_Tx design
-    // active_bit_cycles already includes OVERSAMPLE factor
-    // No need to divide by OVERSAMPLE again
+    end    // Baud limit calculation
     always_comb begin
         baud_limit = (active_bit_cycles > 16'd0) ? (active_bit_cycles - 16'd1) : 16'd0;
     end
@@ -110,10 +126,7 @@ module Uart_Rx #(
     always_ff @(posedge clk) begin
         if (rst) begin
             baud_counter <= '0;
-        end else if (soft_reset_request) begin
-            // SOFT RESET: Clear baud counter to resync timing
-            baud_counter <= '0;
-        end else if (baud_counter == baud_limit) begin
+        end else if (baud_counter >= baud_limit) begin
             baud_counter <= '0;
         end else begin
             baud_counter <= baud_counter + 16'd1;
@@ -121,26 +134,68 @@ module Uart_Rx #(
     end
     assign baud_tick = (baud_counter == baud_limit);
     
+    // Oversampling counter management
+    always_ff @(posedge clk) begin
+        if (rst || soft_reset_request) begin
+            oversample_counter <= '0;
+        end else if ((rx_state == STOP_BIT) && (rx_state_next == IDLE)) begin
+            // At transition from STOP_BIT to IDLE, reset counter for next byte
+            // This ensures counter starts at 0 when next START_BIT is detected
+            oversample_counter <= '0;
+            $display("[%0t][UART_RX_OVERSAMPLE] Counter reset on STOP_BIT->IDLE transition", $time);
+        end else if (rx_state == IDLE) begin
+            // Remain in IDLE - keep counter at 0
+            oversample_counter <= '0;
+        end else if (baud_tick) begin
+            // Increment on each baud tick
+            if (oversample_counter == (OVERSAMPLE - 1)) begin
+                oversample_counter <= '0;
+                // DEBUG: Wrap-around during reception
+                if (rx_state != IDLE) begin
+                    $display("[%0t][UART_RX_OVERSAMPLE] Counter wrapped in %s", $time, rx_state.name());
+                end
+            end else begin
+                oversample_counter <= oversample_counter + 1;
+            end
+        end
+    end
+    
+    // Sample at middle of bit period (oversample_counter == OVERSAMPLE/2)
+    assign sample_enable = baud_tick && (oversample_counter == (OVERSAMPLE / 2));
+    
     // State machine (sequential part)
     always_ff @(posedge clk) begin
         if (rst) begin
             rx_state <= IDLE;
+            rx_state_prev <= IDLE;
             bit_counter <= '0;
             rx_shift_reg <= '0;
         end else if (soft_reset_request) begin
             // SOFT RESET: Return to IDLE state, abort current reception
             rx_state <= IDLE;
+            rx_state_prev <= rx_state;
             bit_counter <= '0;
             rx_shift_reg <= '0;
             $display("[%0t][UART_RX_SOFT_RESET] RX state cleared, active_bit_cycles=%0d", $time, config_baud_divisor);
         end else begin
+            rx_state_prev <= rx_state;
+            
+            // DEBUG: Monitor state transitions and critical signals
+            if (rx_state != rx_state_next) begin
+                $display("[%0t][UART_RX_STATE] %s -> %s rx_synced=%b oversample_counter=%0d sample_enable=%b", 
+                         $time, rx_state.name(), rx_state_next.name(), rx_synced, oversample_counter, sample_enable);
+            end
+            if (rx_state == IDLE && !rx_synced) begin
+                $display("[%0t][UART_RX_IDLE] START_BIT detected rx_synced=%b", $time, rx_synced);
+            end
+            
             rx_state <= rx_state_next;
             rx_shift_reg <= rx_shift_reg_next;
             
             if (rx_state == IDLE || rx_state == START_BIT) begin
                 bit_counter <= '0;
                 rx_shift_reg <= '0;  // Clear shift register when idle or in start bit
-            end else if (baud_tick && (rx_state == DATA_BITS)) begin
+            end else if (sample_enable && (rx_state == DATA_BITS)) begin
                 bit_counter <= bit_counter + 1;
             end
         end
@@ -159,20 +214,23 @@ module Uart_Rx #(
             end
             
             START_BIT: begin
-                if (baud_tick) begin
-                    // Sample and validate start bit
+                if (sample_enable) begin
+                    // Sample and validate start bit at center of bit period
+                    $display("[%0t][UART_RX_START_SAMPLE] oversample_counter=%0d rx_synced=%b", 
+                             $time, oversample_counter, rx_synced);
                     if (!rx_synced) begin  // Valid start bit (should be 0)
                         rx_state_next = DATA_BITS;
                     end else begin
                         // Invalid start bit, return to idle
+                        $display("[%0t][UART_RX_START_INVALID] Expected LOW, got HIGH - returning to IDLE", $time);
                         rx_state_next = IDLE;
                     end
                 end
             end
             
             DATA_BITS: begin
-                if (baud_tick) begin
-                    // Sample data bit (LSB first) and store at bit position indicated by bit_counter
+                if (sample_enable) begin
+                    // Sample data bit at center of bit period (LSB first)
                     rx_shift_reg_next = rx_shift_reg;
                     rx_shift_reg_next[bit_counter] = rx_synced;
                     `ifdef ENABLE_DEBUG

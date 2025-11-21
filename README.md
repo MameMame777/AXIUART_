@@ -1,5 +1,10 @@
 # UART AXI4 Bridge SystemVerilog UVM Verification Project
 
+## ⚡ **FIXED BAUD RATE: 115200 bps**
+
+**Configuration locked to 115200 bps for stability.**  
+All RTL modules, UVM testbench, and tests use **115200 baud rate** exclusively.
+
 ## 🚀 **FastMCP Enhanced Environment (October 2025 - Phase 1 Complete)**
 
 This project features a **FastMCP-powered MCP Server** with enhanced debugging capabilities and 98% best practice compliance.

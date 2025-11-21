@@ -12,11 +12,11 @@ package uart_axi4_test_pkg;
     `uvm_analysis_imp_decl(_axi)
     `uvm_analysis_imp_decl(_dut)
 
-    // Protocol constants (derived from DUT clock and oversampling ratio)
+    // Protocol constants (FIXED BAUD RATE: 115200 bps)
     parameter int CLK_FREQ_HZ = 125_000_000;
     parameter int UART_OVERSAMPLE = 16;
-    parameter int BAUD_RATE = CLK_FREQ_HZ / UART_OVERSAMPLE;
-    parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;
+    parameter int BAUD_RATE = 115200;  // FIXED: 115200 bps
+    parameter int BIT_TIME_NS = 1_000_000_000 / BAUD_RATE;  // 8680 ns per bit
     parameter int BYTE_TIME_NS = BIT_TIME_NS * 10; // 8 data + 1 start + 1 stop
 
     // Configuration class (must appear before any component that consumes it)
@@ -64,6 +64,7 @@ package uart_axi4_test_pkg;
     parameter logic [7:0] STATUS_BUSY       = 8'h06;
     parameter logic [7:0] STATUS_LEN_RANGE  = 8'h07;
     parameter logic [7:0] STATUS_MONITOR_PARSE_FAIL = 8'hF0;
+    parameter logic [7:0] STATUS_MONITOR_TIMEOUT    = 8'hF1;
 
     typedef enum logic [2:0] {
         PARSE_ERROR_NONE,
@@ -71,7 +72,8 @@ package uart_axi4_test_pkg;
         PARSE_ERROR_LENGTH,
         PARSE_ERROR_STOP_BIT,
         PARSE_ERROR_CRC,
-        PARSE_ERROR_PAYLOAD
+        PARSE_ERROR_PAYLOAD,
+        PARSE_ERROR_TIMEOUT
     } uart_monitor_parse_error_e;
     
     // Additional enum types for QA-2.1 Enhanced Scoreboard and DUT Monitor  

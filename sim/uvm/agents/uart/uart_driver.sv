@@ -1,5 +1,8 @@
 `timescale 1ns / 1ps
 
+// Import protocol constants from test package
+import uart_axi4_test_pkg::*;
+
 // UART Driver for UART-AXI4 Bridge UVM Testbench
 class uart_driver extends uvm_driver #(uart_frame_transaction);
     
@@ -94,8 +97,18 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         `uvm_info("UART_DRIVER_DEBUG", $sformatf("VIF check OK, clk=%0b", vif.clk), UVM_LOW)
         
         // Wait for a few clocks to verify clock is running
-        repeat (5) @(posedge vif.clk);
-        `uvm_info("UART_DRIVER_DEBUG", "Clock verified - 5 edges detected", UVM_LOW)
+        // FIX: Add timeout to detect dead clock
+        fork
+            begin
+                repeat (5) @(posedge vif.clk);
+                `uvm_info("UART_DRIVER_DEBUG", "Clock verified - 5 edges detected", UVM_LOW)
+            end
+            begin
+                #100us; // Timeout if clock doesn't toggle
+                `uvm_fatal("UART_DRIVER", "Clock signal (vif.clk) is not toggling! Simulation cannot proceed.")
+            end
+        join_any
+        disable fork;
         
         // Initialize UART interface signals
         vif.uart_rx = 1'b1;      // RX line idle (high)
@@ -113,6 +126,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 UVM_LOW)
             `uvm_info("UART_DRIVER_DEBUG", "get_next_item() returned - transaction received", UVM_LOW)
             
+            // CRITICAL DIAGNOSTIC: Check data array state immediately after handshake
+            if (req.data == null) begin
+                `uvm_fatal("UART_DRIVER_DATA_NULL", 
+                    $sformatf("req.data is NULL after get_next_item() at time=%0t", $time))
+            end else begin
+                `uvm_info("UART_DRIVER_DATA_CHECK",
+                    $sformatf("req.data.size()=%0d immediately after get_next_item() at time=%0t", 
+                              req.data.size(), $time), UVM_LOW)
+            end
+            
             driver_runtime_log("UART_DRIVER",
                 $sformatf("Driving transaction: CMD=0x%02X, ADDR=0x%08X", req.cmd, req.addr));
 
@@ -120,8 +143,13 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
             if (tx_request_ap != null) begin
                 uart_frame_transaction req_copy;
+                driver_forced_log("UART_DRIVER_DEBUG", "About to call req.clone()");
                 $cast(req_copy, req.clone());
+                driver_forced_log("UART_DRIVER_DEBUG", 
+                    $sformatf("About to call tx_request_ap.write() at time=%0t", $time));
                 tx_request_ap.write(req_copy);
+                driver_forced_log("UART_DRIVER_DEBUG", 
+                    $sformatf("tx_request_ap.write() completed at time=%0t", $time));
                 driver_debug_log("UART_DRIVER_METADATA",
                     $sformatf("Published metadata: CMD=0x%02X ADDR=0x%08X expect_error=%0b time=%0t",
                               req_copy.cmd, req_copy.addr, req_copy.expect_error, $realtime));
@@ -130,12 +158,20 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             if (tx_response_fifo != null) begin
                 int pre_drive_depth;
                 bit skip_response;
+                driver_forced_log("UART_DRIVER_DEBUG", 
+                    $sformatf("Entering monitored response path at time=%0t", $time));
                 pre_drive_depth = (tx_response_fifo != null) ? tx_response_fifo.used() : 0;
+                driver_forced_log("UART_DRIVER_DEBUG",
+                    $sformatf("FIFO depth query completed: depth=%0d", pre_drive_depth));
                 driver_debug_log("UART_DRIVER_FIFO",
                     $sformatf("Entering monitored response path: fifo_depth=%0d", pre_drive_depth),
                     UVM_HIGH);
+                driver_forced_log("UART_DRIVER_DEBUG", "About to call flush_monitor_responses()");
                 flush_monitor_responses();
+                driver_forced_log("UART_DRIVER_DEBUG", "flush_monitor_responses() completed");
+                driver_forced_log("UART_DRIVER_DEBUG", "About to call drive_frame()");
                 drive_frame(req);
+                driver_forced_log("UART_DRIVER_DEBUG", "drive_frame() completed");
                 
                 // Determine if response collection should be skipped:
                 // 1. RESET command (CMD=0xFF): Triggers soft reset, no response frame
@@ -191,11 +227,21 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         int payload_bytes;
         bit is_write_cmd;
         
-        driver_runtime_log("UART_DRIVER",
-            $sformatf("Starting frame transmission: SOF=0x%02X, CMD=0x%02X, ADDR=0x%08X",
-                      SOF_HOST_TO_DEVICE, tr.cmd, tr.addr), UVM_LOW);
+        // CRITICAL: Null check with fatal
+        if (tr.data == null) begin
+            `uvm_fatal("UART_DRIVER_FATAL", "tr.data is NULL!")
+        end
         
+        // DSIM BUG WORKAROUND: NO $display() calls before CHECKPOINT_B
+        // DSIM crashes with ANY display after tr.data access
         payload_bytes = tr.data.size();
+        
+        // Validation without display
+        if (payload_bytes > 256) begin
+            `uvm_fatal("UART_DRIVER_FATAL", 
+                $sformatf("Payload size=%0d exceeds maximum (256)", payload_bytes))
+        end
+        
         is_write_cmd = (tr.cmd[7] == 1'b0);
 
         // RESET command special handling (CMD=0xFF)
@@ -232,6 +278,15 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                           frame_bytes[1], frame_bytes[2], frame_bytes[3], frame_bytes[4], frame_bytes[5], calculated_crc));
         end else begin // Write command
             byte_count = 7 + tr.data.size(); // SOF + CMD + ADDR(4) + DATA + CRC
+            
+            $display("[%0t] CHECKPOINT_C: Write command - allocating frame", $time);
+            $display("  byte_count = %0d (7 + %0d)", byte_count, tr.data.size());
+            
+            if (byte_count > 1024) begin
+                `uvm_fatal("UART_DRIVER_FATAL",
+                    $sformatf("Frame size %0d exceeds limit (1024)", byte_count))
+            end
+            
             frame_bytes = new[byte_count];
             frame_bytes[0] = SOF_HOST_TO_DEVICE;
             frame_bytes[1] = tr.cmd;
@@ -240,64 +295,58 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             frame_bytes[4] = tr.addr[23:16];
             frame_bytes[5] = tr.addr[31:24];
             
+            $display("[%0t] CHECKPOINT_D: Writing DATA bytes (count=%0d)", $time, tr.data.size());
             for (int i = 0; i < tr.data.size(); i++) begin
+                $display("[%0t]   D_%0d: frame_bytes[%0d] = tr.data[%0d] = 0x%02X",
+                         $time, i, 6+i, i, tr.data[i]);
                 frame_bytes[6 + i] = tr.data[i];
-                driver_debug_log("UART_DRIVER_DATA",
-                    $sformatf("Data[%0d] = 0x%02X", i, tr.data[i]));
             end
+            $display("[%0t] CHECKPOINT_E: DATA write completed", $time);
             // CRC calculation excludes SOF (starts from index 1)
+            $display("[%0t] CHECKPOINT_F: Preparing CRC data", $time);
             crc_data = new[byte_count - 2];
             for (int i = 0; i < byte_count - 2; i++) begin
                 crc_data[i] = frame_bytes[1 + i];
             end
-            calculated_crc = calculate_crc(crc_data, byte_count - 2);
-            frame_bytes[byte_count - 1] = calculated_crc;
-            driver_debug_log("UART_DRIVER_CRC",
-                $sformatf("Write CRC: byte_count=%0d, crc_len=%0d -> CRC=0x%02X",
-                          byte_count, byte_count - 2, calculated_crc));
+            $display("  CRC input length = %0d bytes", byte_count - 2);
             
-            // Print full frame for debugging
-            begin
-                string frame_str = "Frame: ";
-                for (int i = 0; i < byte_count; i++) begin
-                    frame_str = {frame_str, $sformatf("0x%02X ", frame_bytes[i])};
-                end
-                driver_debug_log("UART_DRIVER_FRAME", frame_str);
-            end
+            $display("[%0t] CHECKPOINT_G: Calling calculate_crc()", $time);
+            calculated_crc = calculate_crc(crc_data, byte_count - 2);
+            $display("[%0t] CHECKPOINT_H: CRC = 0x%02X", $time, calculated_crc);
+            
+            frame_bytes[byte_count - 1] = calculated_crc;
         end
         
-        driver_forced_log("UART_DRIVER_DIAG",
-            $sformatf("drive_frame summary: cmd=0x%02X data_size=%0d byte_count=%0d", tr.cmd, payload_bytes, byte_count));
+        $display("[%0t] CHECKPOINT_I: Frame validation", $time);
+        $display("  cmd=0x%02X payload_bytes=%0d byte_count=%0d", tr.cmd, payload_bytes, byte_count);
 
         // Frame validation: RESET=3 bytes, Read=7 bytes, Write>=7 bytes
         if (tr.cmd == 8'hFF) begin  // RESET command
             if (byte_count != 3) begin
-                `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("RESET frame byte_count=%0d (expected 3)", byte_count))
+                `uvm_fatal("UART_DRIVER_FATAL", $sformatf("RESET frame byte_count=%0d (expected 3)", byte_count))
             end
         end else if (is_write_cmd) begin
             if (payload_bytes <= 0) begin
-                `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("Write frame missing payload bytes (cmd=0x%02X)", tr.cmd))
+                `uvm_fatal("UART_DRIVER_FATAL", $sformatf("Write frame missing payload bytes (cmd=0x%02X)", tr.cmd))
             end
             if (byte_count < 7) begin
-                `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("Write frame byte_count=%0d (expected >=7) payload=%0d cmd=0x%02X", byte_count, payload_bytes, tr.cmd))
+                `uvm_fatal("UART_DRIVER_FATAL", $sformatf("Write frame byte_count=%0d (expected >=7) payload=%0d cmd=0x%02X", byte_count, payload_bytes, tr.cmd))
             end
         end else begin
             if (byte_count != 7) begin
-                `uvm_fatal("UART_DRIVER_ASSERT", $sformatf("Read frame byte_count=%0d (expected 7) cmd=0x%02X", byte_count, tr.cmd))
+                `uvm_fatal("UART_DRIVER_FATAL", $sformatf("Read frame byte_count=%0d (expected 7) cmd=0x%02X", byte_count, tr.cmd))
             end
         end
+        $display("[%0t] CHECKPOINT_J: Validation passed", $time);
 
         // Send frame byte by byte
+        $display("[%0t] CHECKPOINT_K: Starting UART transmission (%0d bytes)", $time, byte_count);
         for (int i = 0; i < byte_count; i++) begin
-            driver_forced_log("UART_DRIVER_BYTE_FORCED",
-                $sformatf("Begin byte[%0d/%0d]=0x%02X at time=%0t",
-                          i, byte_count - 1, frame_bytes[i], $time));
+            $display("[%0t]   K_%0d: Calling drive_uart_byte(0x%02X)", $time, i, frame_bytes[i]);
 
             drive_uart_byte(frame_bytes[i]);
 
-            driver_forced_log("UART_DRIVER_BYTE_FORCED",
-                $sformatf("End byte[%0d/%0d]=0x%02X at time=%0t",
-                          i, byte_count - 1, frame_bytes[i], $time));
+            $display("[%0t]   K_%0d: drive_uart_byte() completed", $time, i);
             
             // Add inter-byte gap (random between min and max idle cycles)
             if (i < byte_count - 1) begin
@@ -305,6 +354,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 int max_gap_cycles;
                 int idle_cycles;
                 int swap_value;
+                bit gap_timeout;
+                time gap_start_time;
+                time gap_timeout_ns;
+                int cycles_waited;
 
                 min_gap_cycles = cfg.min_idle_cycles;
                 max_gap_cycles = cfg.max_idle_cycles;
@@ -336,20 +389,73 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                     idle_cycles = max_gap_cycles;
                 end
 
-                driver_debug_log("UART_DRIVER_IDLE_GAP",
-                    $sformatf("Inter-byte idle cycles=%0d (min=%0d max=%0d)",
-                        idle_cycles, min_gap_cycles, max_gap_cycles));
-
-                repeat (idle_cycles) begin
-                    @(posedge vif.clk);
+                // Safety check: clamp to reasonable maximum
+                if (idle_cycles < 0) begin
+                    `uvm_warning("UART_DRIVER_GAP",
+                        $sformatf("idle_cycles=%0d is negative, forcing to 0", idle_cycles));
+                    idle_cycles = 0;
                 end
+                
+                if (idle_cycles > 100000) begin
+                    `uvm_warning("UART_DRIVER_GAP",
+                        $sformatf("idle_cycles=%0d exceeds safety limit, clamping to 100000", idle_cycles));
+                    idle_cycles = 100000;
+                end
+
+                driver_debug_log("UART_DRIVER_GAP",
+                    $sformatf("Inter-byte gap START: idle_cycles=%0d (min=%0d max=%0d) between byte[%0d] and byte[%0d] at time=%0t",
+                        idle_cycles, min_gap_cycles, max_gap_cycles, i, i+1, $time));
+
+                // Inter-byte gap with timeout protection
+                gap_timeout = 0;
+                gap_start_time = $time;
+                gap_timeout_ns = (cfg.byte_time_ns > 0) ? (cfg.byte_time_ns * 100) : 10_000_000;
+                cycles_waited = 0;
+
+                // Refactored to avoid fork/join_any instability
+                while (cycles_waited < idle_cycles) begin
+                    @(posedge vif.clk);
+                    cycles_waited++;
+                    if (($time - gap_start_time) > gap_timeout_ns) begin
+                        gap_timeout = 1;
+                        `uvm_fatal("UART_DRIVER_GAP_TIMEOUT",
+                            $sformatf("Inter-byte gap timeout after %0t ns: target_cycles=%0d, waited_cycles=%0d, elapsed_time=%0t, between byte[%0d] and byte[%0d]",
+                                      gap_timeout_ns, idle_cycles, cycles_waited, $time - gap_start_time, i, i+1));
+                    end
+                end
+
+                driver_debug_log("UART_DRIVER_GAP",
+                    $sformatf("Inter-byte gap COMPLETE: elapsed=%0t ns, cycles_waited=%0d/%0d at time=%0t",
+                              $time - gap_start_time, cycles_waited, idle_cycles, $time));
             end
         end
+        $display("[%0t] CHECKPOINT_L: UART transmission completed", $time);
         
         // Add inter-frame gap (much longer than inter-byte gap)
-        repeat (cfg.max_idle_cycles * 5) begin
-            @(posedge vif.clk);
+        $display("[%0t] CHECKPOINT_M: Starting inter-frame gap", $time);
+        begin
+            int inter_frame_cycles = cfg.max_idle_cycles * 5;
+            int cycles_counted = 0;
+            time inter_frame_start = $time;
+            time inter_frame_timeout_ns = (cfg.frame_timeout_ns > 0) ? cfg.frame_timeout_ns : 10_000_000; // 10ms fallback
+            
+            $display("  inter_frame_cycles = %0d", inter_frame_cycles);
+            $display("  inter_frame_timeout_ns = %0d ns", inter_frame_timeout_ns);
+            
+            while (cycles_counted < inter_frame_cycles) begin
+                @(posedge vif.clk);
+                cycles_counted++;
+                if (($time - inter_frame_start) > inter_frame_timeout_ns) begin
+                    `uvm_fatal("UART_DRIVER_FATAL",
+                        $sformatf("Inter-frame gap timeout after %0t ns: target_cycles=%0d, counted=%0d, elapsed=%0t",
+                                  inter_frame_timeout_ns, inter_frame_cycles, cycles_counted, $time - inter_frame_start))
+                end
+            end
+            $display("[%0t] CHECKPOINT_N: Inter-frame gap completed (%0d cycles)", $time, cycles_counted);
         end
+        
+        $display("[%0t] CHECKPOINT_Z: drive_frame() EXIT", $time);
+        $display("==========================================");
         
         driver_runtime_log("UART_DRIVER",
             $sformatf("Frame transmission complete: %0d bytes sent", byte_count),
@@ -396,10 +502,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         end
 
         // TEMPORARY DEBUG: Always emit timing logs (remove debug_byte_count restriction)
-        emit_debug = 1'b1;
+        emit_debug = 0;
 
         if (emit_debug) begin
-            driver_forced_log("UART_DRIVER_TIMING",
+            driver_debug_log("UART_DRIVER_TIMING",
                 $sformatf("drive_uart_byte setup: data=0x%02X bit_time_cycles=%0d base_guard_ns=%0t watchdog_delay_ns=%0t",
                           data,
                           bit_time_cycles,
@@ -410,63 +516,83 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         byte_done = 0;
         start_time = $time;
 
-        fork
-            begin : drive_thread
+        // Refactored to avoid fork/join_any instability with DSIM
+        // Replaced parallel watchdog thread with inline deadline checks
+        begin : drive_thread_single
+            int cycle_count;
+            
             driver_runtime_log("UART_DRIVER_BYTE",
                 $sformatf("Driving UART byte: 0x%02X", data),
                 UVM_LOW);
 
             // Start bit
             vif.uart_rx = 1'b0;
-            repeat (bit_time_cycles) @(posedge vif.clk);
+            cycle_count = 0;
+            while (cycle_count < bit_time_cycles) begin
+                @(posedge vif.clk);
+                cycle_count++;
+                if (($time - start_time) > watchdog_delay_ns) begin
+                     `uvm_fatal("UART_DRIVER_BYTE_TIMEOUT",
+                        $sformatf("drive_uart_byte timeout (start bit) after %0t ns (guard=%0t ns)", 
+                                  $time - start_time, watchdog_delay_ns));
+                end
+            end
+            
             if (emit_debug) begin
-                driver_forced_log("UART_DRIVER_BYTE_STATE",
-                    $sformatf("start bit complete: data=0x%02X time=%0t", data, $time));
+                driver_debug_log("UART_DRIVER_BYTE_STATE",
+                    $sformatf("start bit complete: data=0x%02X time=%0t cycles=%0d", data, $time, cycle_count));
             end
 
             // Data bits (LSB first)
-                for (int i = 0; i < 8; i++) begin
-                    vif.uart_rx = data[i];
-                    repeat (bit_time_cycles) @(posedge vif.clk);
-                    if (emit_debug && i == 7) begin
-                        driver_forced_log("UART_DRIVER_BYTE_STATE",
-                            $sformatf("final data bit complete: bit[%0d]=%0b data=0x%02X time=%0t", i, data[i], data, $time));
+            for (int i = 0; i < 8; i++) begin
+                vif.uart_rx = data[i];
+                cycle_count = 0;
+                while (cycle_count < bit_time_cycles) begin
+                    @(posedge vif.clk);
+                    cycle_count++;
+                    if (($time - start_time) > watchdog_delay_ns) begin
+                         `uvm_fatal("UART_DRIVER_BYTE_TIMEOUT",
+                            $sformatf("drive_uart_byte timeout (bit %0d) after %0t ns (guard=%0t ns)", 
+                                      i, $time - start_time, watchdog_delay_ns));
                     end
                 end
-
-                // Stop bit
-                vif.uart_rx = 1'b1;
-                repeat (bit_time_cycles) @(posedge vif.clk);
-                if (emit_debug) begin
-                    driver_forced_log("UART_DRIVER_BYTE_STATE",
-                        $sformatf("stop bit complete: data=0x%02X time=%0t", data, $time));
-                end
-
-                byte_done = 1;
-                if (emit_debug) begin
-                    driver_forced_log("UART_DRIVER_BYTE_STATE",
-                        $sformatf("byte_done asserted for data=0x%02X at time=%0t", data, $time));
+                
+                if (emit_debug && i == 7) begin
+                    driver_debug_log("UART_DRIVER_BYTE_STATE",
+                        $sformatf("final data bit complete: bit[%0d]=%0b data=0x%02X time=%0t", i, data[i], data, $time));
                 end
             end
-            begin : watchdog_thread
-                #(watchdog_delay_ns);
-                if (!byte_done) begin
-                    `uvm_fatal("UART_DRIVER_BYTE_TIMEOUT",
-                        $sformatf(
-                            "drive_uart_byte timeout after %0t ns (guard=%0t ns) data=0x%02X cfg.byte_time_ns=%0d bit_time_cycles=%0d start_time=%0t",
-                            watchdog_delay_ns,
-                            base_guard_ns,
-                            data,
-                            cfg.byte_time_ns,
-                            bit_time_cycles,
-                            start_time));
+
+            // Stop bit
+            vif.uart_rx = 1'b1;
+            cycle_count = 0;
+            while (cycle_count < bit_time_cycles) begin
+                @(posedge vif.clk);
+                cycle_count++;
+                if (($time - start_time) > watchdog_delay_ns) begin
+                     `uvm_fatal("UART_DRIVER_BYTE_TIMEOUT",
+                        $sformatf("drive_uart_byte timeout (stop bit) after %0t ns (guard=%0t ns)", 
+                                  $time - start_time, watchdog_delay_ns));
                 end
             end
-        join_any
-        disable fork;
+            
+            if (emit_debug) begin
+                driver_debug_log("UART_DRIVER_BYTE_STATE",
+                    $sformatf("stop bit complete: data=0x%02X time=%0t cycles=%0d", data, $time, cycle_count));
+            end
+
+            byte_done = 1;
+            if (emit_debug) begin
+                driver_debug_log("UART_DRIVER_BYTE_STATE",
+                    $sformatf("byte_done asserted for data=0x%02X at time=%0t", data, $time));
+            end
+        end
+        
+        driver_debug_log("UART_DRIVER_BYTE",
+            $sformatf("drive_uart_byte completed for data=0x%02X at time=%0t", data, $time));
 
         if (emit_debug) begin
-            driver_forced_log("UART_DRIVER_BYTE_STATE",
+            driver_debug_log("UART_DRIVER_BYTE_STATE",
                 $sformatf("drive_uart_byte completed: data=0x%02X total_time=%0t", data, $time - start_time));
         end
 
@@ -483,14 +609,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             return;
         end
 
-        begin
-            int initial_depth;
-            initial_depth = tx_response_fifo.used();
-            `uvm_info("UART_DRIVER_FIFO_FORCE",
-                $sformatf("flush_monitor_responses invoked at %0t initial_depth=%0d",
-                          $time, initial_depth),
-                UVM_NONE)
-        end
+        driver_debug_log("UART_DRIVER_FIFO",
+            $sformatf("flush_monitor_responses invoked at %0t initial_depth=%0d",
+                      $time, tx_response_fifo.used()));
 
         dropped = 0;
         have_item = tx_response_fifo.try_get(stale);
@@ -517,14 +638,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             driver_runtime_log("UART_DRIVER",
                 $sformatf("Flushed %0d stale response transaction(s) before driving new frame", dropped),
                 UVM_DEBUG);
-            `uvm_info("UART_DRIVER_FIFO_FORCE",
+            driver_debug_log("UART_DRIVER_FIFO",
                 $sformatf("flush_monitor_responses dropped=%0d final_depth=%0d time=%0t",
-                          dropped, tx_response_fifo.used(), $time),
-                UVM_NONE)
-        end else begin
-            `uvm_info("UART_DRIVER_FIFO_FORCE",
-                $sformatf("flush_monitor_responses found FIFO empty at %0t", $time),
-                UVM_NONE)
+                          dropped, tx_response_fifo.used(), $time));
         end
     endtask
 
@@ -546,12 +662,8 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             UVM_LOW);
         if (tx_response_fifo != null) begin
             driver_debug_log("UART_DRIVER_FIFO",
-                $sformatf("Initial FIFO depth=%0d", tx_response_fifo.used()),
-                UVM_HIGH);
-            `uvm_info("UART_DRIVER_FIFO_FORCE",
                 $sformatf("collect_response_from_fifo start: depth=%0d expect_error=%0b time=%0t",
-                          tx_response_fifo.used(), tr.expect_error, $time),
-                UVM_NONE)
+                          tx_response_fifo.used(), tr.expect_error, $time));
         end
 
         resp = null;
@@ -578,10 +690,9 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                             $sformatf("Guard timeout fired after %0dns (expect_error=%0b)",
                                       guard_timeout_ns, tr.expect_error),
                             UVM_LOW);
-                        `uvm_info("UART_DRIVER_FIFO_FORCE",
+                        driver_debug_log("UART_DRIVER_FIFO",
                             $sformatf("Guard timer fired at %0t depth=%0d expect_error=%0b",
-                                      $time, guard_depth_snapshot, tr.expect_error),
-                            UVM_NONE)
+                                      $time, guard_depth_snapshot, tr.expect_error));
                         apply_timeout_result(tr);
 
                         if (tr.expect_error) begin
@@ -595,9 +706,13 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         join_any
         disable fork;
         if (!wait_task_completed) begin
-            if (guard_fired && !tr.expect_error) begin
+            // CRITICAL: Always report timeout, even for expect_error cases
+            if (!tr.expect_error) begin
                 `uvm_fatal("UART_DRIVER_TIMEOUT",
-                    $sformatf("Guard timeout fired after %0dns waiting for monitor response", guard_timeout_ns));
+                    $sformatf("Guard timeout fired after %0dns waiting for monitor response - DUT did not respond", guard_timeout_ns));
+            end else begin
+                `uvm_warning("UART_DRIVER_TIMEOUT",
+                    $sformatf("Expected timeout occurred after %0dns (expect_error=1)", guard_timeout_ns));
             end
             return;
         end
@@ -606,11 +721,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             $sformatf("wait_for_monitor_response returned: success=%0b, resp=%s, wait=%0dns",
                       success, (resp == null) ? "NULL" : "VALID", wait_time_ns),
             UVM_LOW);
-        `uvm_info("UART_DRIVER_FIFO_FORCE",
+        driver_debug_log("UART_DRIVER_FIFO",
             $sformatf("wait_for_monitor_response completed: success=%0b guard_fired=%0b wait=%0dns fifo_depth=%0d time=%0t",
                       success, guard_fired, wait_time_ns,
-                      (tx_response_fifo != null) ? tx_response_fifo.used() : -1, $time),
-            UVM_NONE)
+                      (tx_response_fifo != null) ? tx_response_fifo.used() : -1, $time));
         if (tx_response_fifo != null) begin
             driver_debug_log("UART_DRIVER_FIFO",
                 $sformatf("FIFO depth after wait=%0d", tx_response_fifo.used()),
@@ -618,9 +732,14 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         end
 
         if (guard_fired) begin
+            // CRITICAL: Report guard timeout with clear diagnostic
             if (!tr.expect_error) begin
                 `uvm_fatal("UART_DRIVER_TIMEOUT",
-                    $sformatf("Guard timeout fired after %0dns waiting for monitor response", guard_timeout_ns));
+                    $sformatf("Guard timeout fired after %0dns - DUT failed to respond. Check RTL state machine.", guard_timeout_ns));
+            end else begin
+                `uvm_info("UART_DRIVER_EXPECTED_TIMEOUT",
+                    $sformatf("Expected timeout after %0dns (expect_error=1)", guard_timeout_ns),
+                    UVM_MEDIUM);
             end
             return;
         end
@@ -630,11 +749,13 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
             if (tr.expect_error) begin
                 driver_runtime_log("UART_DRIVER",
-                    $sformatf("[expect_error=1] No DUT response within %0dns (CRC error等の意図的エラー)。UVM_ERRORを抑制し警告のみ出力。",
+                    $sformatf("[expect_error=1] No DUT response within %0dns (CRC error等の意図的エラー)。",
                               wait_time_ns),
                     UVM_LOW);
             end else begin
-                `uvm_fatal("UART_DRIVER_TIMEOUT", $sformatf("Timed out waiting for monitor response within %0dns", wait_time_ns));
+                `uvm_fatal("UART_DRIVER_TIMEOUT",
+                    $sformatf("Monitor response timeout after %0dns - Check: 1) DUT state machine stuck? 2) Monitor not detecting TX? 3) FIFO connection broken?",
+                              wait_time_ns));
             end
             return;
         end
@@ -671,6 +792,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         if (resp.parse_error_kind != PARSE_ERROR_NONE) begin
             time fallback_start_timeout;
             time fallback_inter_byte_timeout;
+
+            // CRITICAL: Distinguish monitor timeout from parse errors
+            if (resp.parse_error_kind == PARSE_ERROR_TIMEOUT) begin
+                `uvm_warning("UART_DRIVER", $sformatf("Monitor timeout - DUT failed to respond after %0dns", cfg.frame_timeout_ns * 4));
+                tr.response_received = 0;
+                tr.response_status = STATUS_MONITOR_TIMEOUT;
+                tr.crc_valid = 0;
+                tr.timeout_error = 1;
+                return; // No fallback for timeout - DUT didn't transmit anything
+            end
 
             `uvm_warning("UART_DRIVER", $sformatf("Monitor reported TX parse failure (%s); attempting direct fallback", resp.parse_error_kind.name()));
             tr.response_received = 0;
@@ -731,12 +862,11 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             $sformatf("Entering wait_for_monitor_response, timeout=%0dns, poll=%0dns",
                       timeout_ns, poll_interval_ns),
             UVM_LOW);
-        `uvm_info("UART_DRIVER_WAIT_FORCE",
+        driver_debug_log("UART_DRIVER_WAIT",
             $sformatf("wait_for_monitor_response start: timeout=%0dns poll=%0dns fifo_depth=%0d time=%0t",
                       timeout_ns, poll_interval_ns,
                       (tx_response_fifo != null) ? tx_response_fifo.used() : -1,
-                      $time),
-            UVM_NONE)
+                      $time));
 
         status_log_interval_ns = (timeout_ns >= 4) ? timeout_ns / 4 : timeout_ns;
         if (status_log_interval_ns < poll_interval_ns) begin
@@ -751,17 +881,20 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         end
 
         start_time = $time;
+        
+        // PERFORMANCE FIX: Use event-driven wait instead of fixed polling delay
+        // Original: #(poll_interval_ns) caused 270,000x slowdown (86.8µs taking 1.25s real time)
+        // New: @(posedge vif.clk) allows simulation to run at full speed
         while (($time - start_time) < timeout_ns) begin
             if (tx_response_fifo.try_get(item)) begin
                 driver_runtime_log("UART_DRIVER_WAIT",
                     $sformatf("FIFO returned item: %s", (item == null) ? "NULL" : "VALID"),
                     UVM_LOW);
-                `uvm_info("UART_DRIVER_WAIT_FORCE",
+                driver_debug_log("UART_DRIVER_WAIT",
                     $sformatf("try_get returned %s at %0t depth_after=%0d",
                               (item == null) ? "NULL" : "VALID",
                               $time,
-                              (tx_response_fifo != null) ? tx_response_fifo.used() : -1),
-                    UVM_NONE)
+                              (tx_response_fifo != null) ? tx_response_fifo.used() : -1));
 
                 if (item == null) begin
                     driver_runtime_log("UART_DRIVER_WAIT", "FIFO returned NULL item - ignoring", UVM_LOW);
@@ -776,15 +909,10 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
                 if (item.direction != UART_TX) begin
                     discarded_non_tx++;
-                    driver_runtime_log("UART_DRIVER_WAIT",
-                        $sformatf("Discarded non-TX transaction (direction=%s, parse_error=%s, status=0x%02X, length=%0d)",
-                                  item.direction.name(), item.parse_error_kind.name(), item.response_status, item.frame_length),
-                        UVM_HIGH);
-                    `uvm_info("UART_DRIVER_WAIT_FORCE",
+                    driver_debug_log("UART_DRIVER_WAIT",
                         $sformatf("Discarded non-TX item at %0t dir=%s status=0x%02X depth_now=%0d",
                                   $time, item.direction.name(), item.response_status,
-                                  (tx_response_fifo != null) ? tx_response_fifo.used() : -1),
-                        UVM_NONE)
+                                  (tx_response_fifo != null) ? tx_response_fifo.used() : -1));
                     continue;
                 end
 
@@ -799,30 +927,25 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 driver_runtime_log("UART_DRIVER_WAIT",
                     $sformatf("Valid response observed after %0dns", waited_ns),
                     UVM_LOW);
-                `uvm_info("UART_DRIVER_WAIT_FORCE",
+                driver_debug_log("UART_DRIVER_WAIT",
                     $sformatf("Valid TX response observed after %0dns at %0t depth_after=%0d",
                               waited_ns, $time,
-                              (tx_response_fifo != null) ? tx_response_fifo.used() : -1),
-                    UVM_NONE)
+                              (tx_response_fifo != null) ? tx_response_fifo.used() : -1));
                 return;
             end
 
             if ($time >= next_status_log_time) begin
-                driver_runtime_log("UART_DRIVER_WAIT",
-                    $sformatf("Still waiting (%0dns elapsed), FIFO depth=%0d, discarded_non_tx=%0d", $time - start_time,
-                              (tx_response_fifo != null) ? tx_response_fifo.used() : -1, discarded_non_tx),
-                    UVM_MEDIUM);
-                `uvm_info("UART_DRIVER_WAIT_FORCE",
+                driver_debug_log("UART_DRIVER_WAIT",
                     $sformatf("Waiting (%0dns elapsed) depth=%0d discarded_non_tx=%0d time=%0t",
                               $time - start_time,
                               (tx_response_fifo != null) ? tx_response_fifo.used() : -1,
                               discarded_non_tx,
-                              $time),
-                    UVM_NONE)
+                              $time));
                 next_status_log_time += status_log_interval_ns;
             end
 
-            #(poll_interval_ns);
+            // CRITICAL PERF FIX: Clock-edge wait instead of delay (eliminates 270,000x slowdown)
+            @(posedge vif.clk);
         end
 
         waited_ns = timeout_ns;
@@ -832,13 +955,12 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         driver_runtime_log("UART_DRIVER_WAIT",
             $sformatf("Monitor response timeout expired after %0dns", waited_ns),
             UVM_LOW);
-        `uvm_info("UART_DRIVER_WAIT_FORCE",
+        driver_debug_log("UART_DRIVER_WAIT",
             $sformatf("Timeout expired after %0dns depth=%0d discarded_non_tx=%0d time=%0t",
                       waited_ns,
                       (tx_response_fifo != null) ? tx_response_fifo.used() : -1,
                       discarded_non_tx,
-                      $time),
-            UVM_NONE)
+                      $time));
 
         if (discarded_non_tx > 0) begin
             driver_runtime_log("UART_DRIVER_WAIT",
@@ -885,11 +1007,40 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         
         // Monitor-style immediate response detection (no fork delay)
         // Wait for TX line to go low (response start bit) - immediate detection like Monitor
-    wait (vif.uart_tx == 1'b1);
-    @(negedge vif.uart_tx);
-        response_detected = 1;
-    driver_runtime_log("UART_DRIVER",
-        $sformatf("Response start detected at time %0t", $realtime));
+        // FIX: Add timeout protection for start bit detection
+        fork
+            begin
+                // CRITICAL FIX: Use clocked loop instead of wait to avoid blocking at time 0
+                time tx_wait_start = $time;
+                while (vif.uart_tx != 1'b1) begin
+                    @(posedge vif.clk);
+                    if (($time - tx_wait_start) > timeout_ns) break;
+                end
+                if (vif.uart_tx == 1'b1) begin
+                    @(negedge vif.uart_tx);
+                    response_detected = 1;
+                end
+            end
+            begin
+                #(timeout_ns);
+                response_detected = 0;
+            end
+        join_any
+        disable fork;
+
+        if (!response_detected) begin
+            if (tr.expect_error) begin
+                driver_runtime_log("UART_DRIVER", "[expect_error=1] No response start bit detected (timeout)", UVM_LOW);
+            end else begin
+                `uvm_error("UART_DRIVER", $sformatf("Timeout waiting for response start bit after %0t ns", timeout_ns));
+            end
+            tr.response_received = 0;
+            tr.response_status = 8'hFF;
+            return;
+        end
+
+        driver_runtime_log("UART_DRIVER",
+            $sformatf("Response start detected at time %0t", $realtime));
         
         // Hardware Spec: Collect response bytes using precise timing
         response_bytes = new[20]; // Allocate reasonable size
@@ -910,14 +1061,24 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 // Collect remaining 3 bytes (STATUS, CMD, CRC)
                 for (int i = 1; i < expected_response_length; i++) begin
                     // Hardware Spec: Wait for next byte start bit with inter-byte timeout
+                    time inter_byte_timeout_ns;
+                    inter_byte_timeout_ns = (cfg.byte_time_ns > 0) ? time'(cfg.byte_time_ns * 12) : 200_000; // 200µs default
                     fork : inter_byte_wait
                         begin
-                            wait (vif.uart_tx == 1'b1);
-                            @(negedge vif.uart_tx);
+                            // CRITICAL FIX: Use clocked loop instead of wait
+                            time tx_wait_start = $time;
+                            while (vif.uart_tx != 1'b1) begin
+                                @(posedge vif.clk);
+                                if (($time - tx_wait_start) > inter_byte_timeout_ns) break;
+                            end
+                            if (vif.uart_tx == 1'b1) begin
+                                @(negedge vif.uart_tx);
+                            end else begin
+                                timeout_occurred = 1;
+                            end
                         end
                         begin
-                            // Hardware Spec: 200µs max inter-byte gap
-                            repeat (10000) @(posedge vif.clk); // 200µs @ 50MHz
+                            #(inter_byte_timeout_ns);
                             timeout_occurred = 1;
                         end
                     join_any
@@ -942,18 +1103,28 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 // Continue collecting bytes until no more are available
                 while (byte_count < 20) begin
                     // Wait for next byte start bit with timeout
-                    fork
-                            begin
-                                wait (vif.uart_tx == 1'b1);
+                    time read_continuation_timeout_ns;
+                    read_continuation_timeout_ns = (cfg.byte_time_ns > 0) ? time'(cfg.byte_time_ns * 50) : 5_000_000; // 5ms default
+                    fork : read_byte_wait
+                        begin
+                            // CRITICAL FIX: Use clocked loop instead of wait
+                            time tx_wait_start = $time;
+                            while (vif.uart_tx != 1'b1) begin
+                                @(posedge vif.clk);
+                                if (($time - tx_wait_start) > read_continuation_timeout_ns) break;
+                            end
+                            if (vif.uart_tx == 1'b1) begin
                                 @(negedge vif.uart_tx);
+                            end else begin
+                                timeout_occurred = 1;
+                            end
                         end
                         begin
-                            // 5ms timeout for additional bytes
-                            repeat (250000) @(posedge vif.clk);
+                            #(read_continuation_timeout_ns);
                             timeout_occurred = 1;
                         end
                     join_any
-                    disable fork;
+                    disable read_byte_wait;
                     
                     if (timeout_occurred) begin
                         driver_runtime_log("UART_DRIVER",
@@ -1030,28 +1201,32 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     endtask
     // Collect a single UART byte from TX line (Monitor's exact pattern)
     virtual task collect_uart_byte(output logic [7:0] data);
-        int bit_time_ns_local = (cfg.bit_time_ns > 0) ? cfg.bit_time_ns : (1_000_000_000 / cfg.baud_rate);
-        int half_bit_ns = bit_time_ns_local >> 1;
-        if (half_bit_ns == 0) begin
-            half_bit_ns = 1;
-        end
+        int bit_time_cycles_local;
 
-        // Monitor pattern: NO additional start bit detection - caller already detected it
-        // Sample start bit - be more tolerant of timing variations
-        #(half_bit_ns);
+        bit_time_cycles_local = (cfg.bit_time_cycles > 0) ? cfg.bit_time_cycles : 1;
+
+        // CRITICAL FIX: Use clock-synchronized sampling like Monitor (uart_monitor.sv line 350-370)
+        // Caller already detected @(negedge vif.uart_tx) - we are at start bit edge
+        // Move to start bit midpoint for verification
+        repeat (bit_time_cycles_local / 2) @(posedge vif.clk);
         if (vif.uart_tx != 1'b0) begin
             `uvm_info("UART_DRIVER", "TX start bit timing variation detected", UVM_DEBUG);
         end
 
-        // Sample data bits (LSB first) at true bit centers
-        for (int i = 0; i < 8; i++) begin
-            #(bit_time_ns_local);
+        // Advance one full bit period to center of data[0]
+        repeat (bit_time_cycles_local) @(posedge vif.clk);
+        data[0] = vif.uart_tx;
+        `uvm_info("UART_DRIVER", $sformatf("Sampled TX data[0]=%0b at %0t", data[0], $realtime), UVM_DEBUG);
+
+        // Sample remaining data bits at full bit intervals
+        for (int i = 1; i < 8; i++) begin
+            repeat (bit_time_cycles_local) @(posedge vif.clk);
             data[i] = vif.uart_tx;
-            `uvm_info("UART_DRIVER", $sformatf("Bit[%0d]: %b", i, data[i]), UVM_DEBUG);
+            `uvm_info("UART_DRIVER", $sformatf("Sampled TX data[%0d]=%0b at %0t", i, data[i], $realtime), UVM_DEBUG);
         end
 
-        // Sample stop bit - be more tolerant of timing variations
-        #(bit_time_ns_local);
+        // Sample stop bit midpoint
+        repeat (bit_time_cycles_local) @(posedge vif.clk);
         if (vif.uart_tx != 1'b1) begin
             `uvm_info("UART_DRIVER", "TX stop bit timing variation detected", UVM_DEBUG);
         end
@@ -1063,7 +1238,24 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Simple CRC-8 calculation (polynomial 0x07)
     virtual function logic [7:0] calculate_crc(logic [7:0] data[], int length);
         logic [7:0] crc = 8'h00;
-        logic [7:0] crc_temp;
+        logic [7:8] crc_temp;
+        
+        $display("[%0t] CRC_CALC: Entry - length=%0d", $time, length);
+        
+        // Input validation with fatal
+        if (length < 0) begin
+            `uvm_fatal("UART_DRIVER_FATAL", 
+                $sformatf("calculate_crc: Invalid length=%0d (negative)", length))
+        end
+        
+        if (length > 1024) begin
+            `uvm_fatal("UART_DRIVER_FATAL",
+                $sformatf("calculate_crc: Invalid length=%0d (exceeds 1024)", length))
+        end
+        
+        if (data == null) begin
+            `uvm_fatal("UART_DRIVER_FATAL", "calculate_crc: data array is NULL")
+        end
         
         for (int i = 0; i < length; i++) begin
             // Match RTL implementation: XOR entire byte first, then process 8 bits
@@ -1082,6 +1274,7 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             crc = crc_temp;
         end
         
+        $display("[%0t] CRC_CALC: Exit - crc=0x%02X", $time, crc);
         return crc;
     endfunction
 
@@ -1127,8 +1320,14 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
 
             fork
                 begin : wait_for_low
-                    wait (vif.uart_tx == 1'b1);
-                    @(negedge vif.uart_tx);
+                    // CRITICAL FIX: Don't wait for HIGH if already LOW - just wait for negedge
+                    if (vif.uart_tx == 1'b1) begin
+                        @(negedge vif.uart_tx);
+                    end else begin
+                        // Already LOW - wait for return to IDLE then next negedge
+                        @(posedge vif.uart_tx);
+                        @(negedge vif.uart_tx);
+                    end
                 end
                 begin : timeout_guard_thread
                     #(timeout_limit);
@@ -1184,17 +1383,26 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
                 // Collect remaining 3 bytes (STATUS, CMD, CRC)
                 for (int i = 1; i < expected_response_length; i++) begin
                     // Hardware Spec: Wait for next byte start bit with inter-byte timeout
-                    fork
+                    fork : metadata_inter_byte_wait
                         begin
-                            wait (vif.uart_tx == 1'b1);
-                            @(negedge vif.uart_tx);
+                            // CRITICAL FIX: Use clocked loop instead of wait
+                            time tx_wait_start = $time;
+                            while (vif.uart_tx != 1'b1) begin
+                                @(posedge vif.clk);
+                                if (($time - tx_wait_start) > inter_byte_timeout) break;
+                            end
+                            if (vif.uart_tx == 1'b1) begin
+                                @(negedge vif.uart_tx);
+                            end else begin
+                                timeout_occurred = 1;
+                            end
                         end
                         begin
                             #(inter_byte_timeout);
                             timeout_occurred = 1;
                         end
                     join_any
-                    disable fork;
+                    disable metadata_inter_byte_wait;
 
                     if (timeout_occurred) begin
                         `uvm_warning("UART_DRIVER", $sformatf("Inter-byte timeout after %0d bytes", byte_count));
@@ -1272,26 +1480,52 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     virtual task wait_for_rts(bit expected_state, int timeout_cycles = 1000);
         logic expected_rts_n = expected_state ? 1'b0 : 1'b1;  // Active low logic
         int cycle_count = 0;
+        bit rts_detected = 0;
+        time timeout_ns = timeout_cycles * (1_000_000_000 / cfg.clk_freq_hz);
+        time start_time = $time;
         
+        // FIX: Add time-based timeout protection
+        // Refactored to avoid fork/join_any instability
         while (vif.uart_rts_n !== expected_rts_n && cycle_count < timeout_cycles) begin
             @(posedge vif.clk);
             cycle_count++;
+            if (($time - start_time) > timeout_ns) begin
+                break; // Timeout
+            end
         end
+        rts_detected = (vif.uart_rts_n === expected_rts_n);
         
-        if (cycle_count >= timeout_cycles) begin
-            `uvm_warning("UART_DRIVER", $sformatf("Timeout waiting for RTS %s", expected_state ? "assertion" : "deassertion"));
+        if (!rts_detected) begin
+            `uvm_warning("UART_DRIVER", $sformatf("Timeout waiting for RTS %s (cycles=%0d, time=%0t ns)", 
+                expected_state ? "assertion" : "deassertion", cycle_count, timeout_ns));
         end else begin
-            `uvm_info("UART_DRIVER", $sformatf("RTS %s detected", expected_state ? "asserted" : "deasserted"), UVM_MEDIUM);
+            `uvm_info("UART_DRIVER", $sformatf("RTS %s detected after %0d cycles", 
+                expected_state ? "asserted" : "deasserted", cycle_count), UVM_MEDIUM);
         end
     endtask
 
     // Task to simulate flow control scenario
     virtual task simulate_flow_control_backpressure(int hold_cycles);
+        time hold_time_ns = hold_cycles * (1_000_000_000 / cfg.clk_freq_hz);
+        time max_hold_time = hold_time_ns * 2; // Safety margin
+        time start_time = $time;
+        int current_cycle = 0;
+        
         `uvm_info("UART_DRIVER", $sformatf("Simulating flow control backpressure for %0d cycles", hold_cycles), UVM_MEDIUM);
         
         // Assert CTS to prevent transmission
         assert_cts(1'b0);  // Deassert CTS (high) to block transmission
-        repeat (hold_cycles) @(posedge vif.clk);
+        
+        // FIX: Add time-based timeout protection
+        // Refactored to avoid fork/join_any instability
+        while (current_cycle < hold_cycles) begin
+            @(posedge vif.clk);
+            current_cycle++;
+            if (($time - start_time) > max_hold_time) begin
+                `uvm_fatal("UART_DRIVER", $sformatf("Clock stopped during flow control backpressure (expected %0d cycles, %0t ns)", 
+                    hold_cycles, max_hold_time));
+            end
+        end
         
         // Release CTS to allow transmission
         assert_cts(1'b1);  // Assert CTS (low) to allow transmission

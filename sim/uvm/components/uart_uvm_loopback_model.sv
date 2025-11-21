@@ -138,9 +138,33 @@ class uart_uvm_loopback_model extends uvm_component;
 
     protected task process_requests();
         uart_frame_transaction req;
+        bit got_request;
 
         forever begin
-            request_mb.get(req);
+            // CRITICAL FIX: Non-blocking mailbox access with timeout
+            fork : mailbox_get_timeout
+                begin
+                    got_request = 0;
+                    while (!got_request) begin
+                        if (request_mb.try_get(req)) begin
+                            got_request = 1;
+                        end else begin
+                            @(posedge vif.clk);
+                        end
+                    end
+                end
+                begin
+                    // 10ms timeout for mailbox get
+                    #10ms;
+                    `uvm_warning("UART_LOOPBACK", "Mailbox get timeout (10ms) - no request received")
+                end
+            join_any
+            disable fork;
+
+            if (!got_request) begin
+                `uvm_info("UART_LOOPBACK", "Exiting due to mailbox timeout", UVM_LOW)
+                break;
+            end
 
             if (!cfg.enable_uvm_loopback_mode || !vif.tb_loopback_active) begin
                 `uvm_info("UART_LOOPBACK", "Loopback disabled - discarding queued request", UVM_LOW)

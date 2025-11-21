@@ -142,16 +142,25 @@ class axi4_lite_monitor extends uvm_monitor;
                 fork : write_data_collection
                     begin
                         @(posedge vif.aclk);
-                        wait (vif.wvalid && vif.wready);
+                        fork : wdata_wait
+                            begin
+                                wait (vif.wvalid && vif.wready);
+                            end
+                            begin
+                                repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                                `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for write data valid")
+                            end
+                        join_any
+                        disable fork;
                         tr.data = vif.wdata;
                         tr.wdata = vif.wdata;
                         tr.strb = vif.wstrb;
                         tr.wstrb = vif.wstrb;
                         `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write data: 0x%08X, strb=0x%X", 
-                                  tr.data, tr.strb), UVM_DEBUG)
+                                  tr.data, tr.strb), UVM_DEBUG);
                     end
                     begin
-                        repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                        repeat (cfg.axi_timeout_cycles * 2) @(posedge vif.aclk);
                         `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for write data")
                     end
                 join_any
@@ -161,14 +170,23 @@ class axi4_lite_monitor extends uvm_monitor;
                 fork : write_response_collection
                     begin
                         @(posedge vif.aclk);
-                        wait (vif.bvalid && vif.bready);
+                        fork : bresp_wait
+                            begin
+                                wait (vif.bvalid && vif.bready);
+                            end
+                            begin
+                                repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                                `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for write response valid")
+                            end
+                        join_any
+                        disable fork;
                         tr.resp = vif.bresp;
                         tr.bresp = vif.bresp;
                         tr.completed = 1;
-                        `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write response: 0x%X", tr.resp), UVM_DEBUG)
+                        `uvm_info("AXI4_LITE_MONITOR", $sformatf("Write response: 0x%X", tr.resp), UVM_DEBUG);
                     end
                     begin
-                        repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                        repeat (cfg.axi_timeout_cycles * 2) @(posedge vif.aclk);
                         `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for write response")
                         tr.completed = 0;
                     end
@@ -224,17 +242,26 @@ class axi4_lite_monitor extends uvm_monitor;
                 fork : read_response_collection
                     begin
                         @(posedge vif.aclk);
-                        wait (vif.rvalid && vif.rready);
+                        fork : rresp_wait
+                            begin
+                                wait (vif.rvalid && vif.rready);
+                            end
+                            begin
+                                repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                                `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for read response valid")
+                            end
+                        join_any
+                        disable fork;
                         tr.data = vif.rdata;
                         tr.rdata = vif.rdata;
                         tr.resp = vif.rresp;
                         tr.rresp = vif.rresp;
                         tr.completed = 1;
                         `uvm_info("AXI4_LITE_MONITOR", $sformatf("Read response: DATA=0x%08X, RESP=0x%X", 
-                                  tr.data, tr.resp), UVM_DEBUG)
+                                  tr.data, tr.resp), UVM_DEBUG);
                     end
                     begin
-                        repeat (cfg.axi_timeout_cycles) @(posedge vif.aclk);
+                        repeat (cfg.axi_timeout_cycles * 2) @(posedge vif.aclk);
                         `uvm_error("AXI4_LITE_MONITOR", "Timeout waiting for read response")
                         tr.completed = 0;
                     end

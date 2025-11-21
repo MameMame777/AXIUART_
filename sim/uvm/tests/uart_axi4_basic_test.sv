@@ -32,12 +32,12 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         cfg.enable_coverage = 1;
         cfg.enable_scoreboard = 1;
         cfg.enable_protocol_checking = 1;
-        cfg.enable_driver_runtime_logs = 1'b1;  // Force driver visibility during hang debug
-        cfg.enable_driver_debug_logs = 1'b1;
+        cfg.enable_driver_runtime_logs = basic_verbose_mode ? 1'b1 : 1'b0;  // Disable for performance unless verbose mode
+        cfg.enable_driver_debug_logs = basic_verbose_mode ? 1'b1 : 1'b0;
         cfg.enable_scoreboard_runtime_logs = basic_verbose_mode;
         cfg.enable_scoreboard_metadata_logs = basic_verbose_mode;
-        cfg.driver_runtime_verbosity = UVM_MEDIUM;
-        cfg.driver_debug_verbosity = UVM_HIGH;
+        cfg.driver_runtime_verbosity = UVM_LOW;  // Reduced from UVM_MEDIUM
+        cfg.driver_debug_verbosity = UVM_MEDIUM;  // Reduced from UVM_HIGH
         cfg.scoreboard_runtime_verbosity = basic_verbose_mode ? UVM_MEDIUM : UVM_LOW;
     // Keep the driver watchdog comfortably above the longest UART frame (8 bytes @115.2kbaud ~0.7ms)
         cfg.frame_timeout_ns = cfg.byte_time_ns * 32;
@@ -99,11 +99,24 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
     int objection_total;
     int objection_local;
     uvm_objection run_phase_objection;
+        bit run_phase_timeout_hit = 0;
+        time run_phase_watchdog_ns = 10_000_000;  // 10ms absolute timeout
 
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
         `uvm_info("BASIC_TEST", "     UART-AXI4 BASIC FUNCTIONAL TEST", UVM_LOW)
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
         `uvm_info("BASIC_TEST", "Test started with comprehensive UVM reporting", UVM_LOW)
+
+        // ★ CRITICAL: Fork watchdog BEFORE raise_objection
+        fork
+            begin : run_phase_watchdog
+                #(run_phase_watchdog_ns);
+                run_phase_timeout_hit = 1;
+                `uvm_fatal("RUN_PHASE_TIMEOUT", 
+                    $sformatf("run_phase exceeded %0dns - HANG DETECTED at time=%0t", 
+                              run_phase_watchdog_ns, $time))
+            end
+        join_none
 
     phase.raise_objection(this, "Basic test running");
     run_phase_objection = phase.get_objection();
@@ -369,6 +382,9 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         repeat (100) @(posedge uart_axi4_tb_top.clk);
         `uvm_info("BASIC_TEST", "=== Basic Test Completed Successfully ===", UVM_LOW)
 
+        // Disable watchdog before dropping objection
+        disable run_phase_watchdog;
+        
         phase.drop_objection(this, "Basic test completed");
     endtask
 

@@ -89,7 +89,8 @@ class uart_transaction extends uvm_sequence_item;
     
     constraint valid_frame_length_c {
         frame_length inside {[4:16]}; // Valid frame sizes
-        frame_data.size() == frame_length;
+        // NOTE: DSIM cannot handle dynamic array size() comparisons in constraints
+        // Validation moved to post_randomize() to avoid "Comparison between arrays of different size" error
     }
     
     constraint protocol_frame_c {
@@ -100,6 +101,14 @@ class uart_transaction extends uvm_sequence_item;
             frame_length >= 4; // Minimum read frame size
         }
     }
+    
+    // Post-randomization hook to enforce array size without constraint solver
+    function void post_randomize();
+        // Resize frame_data to match frame_length without triggering DSIM array comparison
+        if (frame_data.size() != frame_length) begin
+            frame_data = new[frame_length];
+        end
+    endfunction
     
     // Utility functions
     virtual function string convert2string();

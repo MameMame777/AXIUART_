@@ -1,6 +1,0 @@
-2025-10-18 18:22:58,888 - dsim-fastmcp-server - INFO - Auto-configured DSIM_LICENSE: C:\Users\Nautilus\AppData\Local\metrics-ca\dsim-license.json
-2025-10-18 18:22:58,897 - dsim-fastmcp-server - INFO - Removed old DSIM log: axiuart_system_test_20251018_084801.log
-2025-10-18 18:22:58,897 - dsim-fastmcp-server - INFO - Executing DSIM: C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\bin\dsim.exe -f dsim_config.f +UVM_TESTNAME=uart_axi4_minimal_test +UVM_VERBOSITY=UVM_MEDIUM -sv_seed 1 -l ../exec/logs/uart_axi4_minimal_test_20251018_182258.log -image compiled_image
-2025-10-18 18:23:00,932 - dsim-fastmcp-server - INFO - DSIM command completed successfully
-2025-10-18 18:23:05,949 - dsim-fastmcp-server - INFO - Removed old DSIM log: axiuart_system_test_20251018_085011.log
-2025-10-18 18:23:05,949 - dsim-fastmcp-server - INFO - Executing DSIM: C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0\bin\dsim.exe -f dsim_config.f +UVM_TESTNAME=uart_axi4_basic_test +UVM_VERBOSITY=UVM_MEDIUM -sv_seed 1 -l ../exec/logs/uart_axi4_basic_test_20251018_182305.log -image compiled_image

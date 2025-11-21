@@ -2,13 +2,14 @@
 
 // Frame Parser Module for UART-AXI4 Bridge
 // Implements state machine from Section 6.6 of protocol specification
+// FIXED BAUD RATE: 115200 bps
 //
 // Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md  
 // Phase 1&2 signals: debug_rx_sof_raw, debug_rx_sof_proc, debug_crc_match,
 //                    debug_status_gen, debug_error_cause
 module Frame_Parser #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
-    parameter int BAUD_RATE = CLK_FREQ_HZ / 16,
+    parameter int BAUD_RATE = 115200,          // UART baud rate (FIXED)
     parameter int TIMEOUT_BYTE_TIMES = 5,      // Reduced timeout: 5 byte times for faster simulation
     parameter bit ENABLE_TIMEOUT = 1'b0,       // Disable timeout for faster simulation
     parameter bit ENABLE_ASSERTIONS = 1'b1     // Enable SystemVerilog assertions for integrated debugging

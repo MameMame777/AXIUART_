@@ -125,13 +125,27 @@ class uart_axi4_basic_115200_test extends uart_axi4_basic_test;
             UVM_MEDIUM)
 
         idle_counter = 0;
-        while (idle_counter < idle_cycles_required) begin
-            @(posedge vif.clk);
-            if ((vif.uart_tx === 1'b1) && (vif.uart_rx === 1'b1) &&
-                (vif.tx_busy === 1'b0) && (vif.rx_valid === 1'b0)) begin
-                idle_counter++;
-            end else begin
-                idle_counter = 0;
+        // CRITICAL FIX: Add time-based timeout protection (UVM best practice)
+        begin
+            time idle_wait_start = $time;
+            time idle_wait_timeout_ns = idle_cycles_required * (1_000_000_000 / cfg.clk_freq_hz) * 10; // 10x expected time
+            int total_cycles = 0;
+            
+            while (idle_counter < idle_cycles_required) begin
+                @(posedge vif.clk);
+                total_cycles++;
+                if ((vif.uart_tx === 1'b1) && (vif.uart_rx === 1'b1) &&
+                    (vif.tx_busy === 1'b0) && (vif.rx_valid === 1'b0)) begin
+                    idle_counter++;
+                end else begin
+                    idle_counter = 0;
+                end
+                
+                // Timeout protection
+                if (($time - idle_wait_start) > idle_wait_timeout_ns) begin
+                    `uvm_fatal(caller_id, $sformatf("Idle wait timeout after %0t ns (%0d cycles, idle_counter=%0d/%0d)", 
+                        idle_wait_timeout_ns, total_cycles, idle_counter, idle_cycles_required))
+                end
             end
         end
 

@@ -218,11 +218,8 @@ module uart_axi4_tb_top;
             scenario_enables_wave_dump = 1'b1;
         end
 
-        // Wait for reset to be released
-        wait (rst_n == 1'b1);
-        // Give some extra cycles for UVM/bench to finish initialization
-        repeat (50) @(posedge clk);
-
+        // Start waveform dumping immediately to capture entire simulation
+        // No delay - ensures we capture early reset behavior and first transactions
         enable_wave_dump = 1'b1;
 
         if (!waves_on_flag) begin
@@ -281,6 +278,9 @@ module uart_axi4_tb_top;
 
         #(sim_timeout_value);
         `uvm_error("TB_TOP", $sformatf("Test timeout - simulation exceeded %0t", sim_timeout_value))
+        // Flush waveform before finish to ensure data is written
+        $dumpflush;
+        #1ns;  // Brief delay to allow flush completion
         $finish;
     end
     

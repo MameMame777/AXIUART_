@@ -69,9 +69,21 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
     
     // Drive write response (slave behavior)
     virtual task drive_write_response(axi4_lite_transaction tr);
+        bit timeout_occurred = 0;
         // Wait for address and data phases to complete
         @(posedge vif.aclk);
-        wait (vif.awvalid && vif.awready && vif.wvalid && vif.wready);
+        fork : write_response_wait
+            begin
+                wait (vif.awvalid && vif.awready && vif.wvalid && vif.wready);
+            end
+            begin
+                #1ms; // 1ms timeout
+                timeout_occurred = 1;
+                `uvm_error("AXI4_LITE_DRIVER", "Write response wait timeout (1ms)")
+            end
+        join_any
+        disable fork;
+        if (timeout_occurred) return;
         
         // Add configurable delay before response
         repeat ($urandom_range(cfg.min_axi_response_delay, cfg.max_axi_response_delay)) begin
@@ -84,7 +96,18 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
         
         // Wait for response handshake
         @(posedge vif.aclk);
-        wait (vif.bready);
+        timeout_occurred = 0;
+        fork : bready_wait
+            begin
+                wait (vif.bready);
+            end
+            begin
+                #1ms;
+                timeout_occurred = 1;
+                `uvm_error("AXI4_LITE_DRIVER", "BREADY wait timeout (1ms)")
+            end
+        join_any
+        disable fork;
         
         // Deassert response
         @(posedge vif.aclk);
@@ -96,9 +119,21 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
     
     // Drive read response (slave behavior)
     virtual task drive_read_response(axi4_lite_transaction tr);
+        bit timeout_occurred = 0;
         // Wait for address phase to complete
         @(posedge vif.aclk);
-        wait (vif.arvalid && vif.arready);
+        fork : read_address_wait
+            begin
+                wait (vif.arvalid && vif.arready);
+            end
+            begin
+                #1ms;
+                timeout_occurred = 1;
+                `uvm_error("AXI4_LITE_DRIVER", "Read address wait timeout (1ms)")
+            end
+        join_any
+        disable fork;
+        if (timeout_occurred) return;
         
         // Add configurable delay before response
         repeat ($urandom_range(cfg.min_axi_response_delay, cfg.max_axi_response_delay)) begin
@@ -112,7 +147,18 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
         
         // Wait for response handshake
         @(posedge vif.aclk);
-        wait (vif.rready);
+        timeout_occurred = 0;
+        fork : rready_wait
+            begin
+                wait (vif.rready);
+            end
+            begin
+                #1ms;
+                timeout_occurred = 1;
+                `uvm_error("AXI4_LITE_DRIVER", "RREADY wait timeout (1ms)")
+            end
+        join_any
+        disable fork;
         
         // Deassert response
         @(posedge vif.aclk);
@@ -156,7 +202,16 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
                         vif.bresp <= resp;
                         
                         @(posedge vif.aclk);
-                        wait (vif.bready);
+                        fork : mem_bready_wait
+                            begin
+                                wait (vif.bready);
+                            end
+                            begin
+                                #1ms;
+                                `uvm_error("AXI4_LITE_DRIVER", "Memory write BREADY timeout (1ms)")
+                            end
+                        join_any
+                        disable fork;
                         
                         @(posedge vif.aclk);
                         vif.bvalid <= 1'b0;
@@ -187,7 +242,16 @@ class axi4_lite_driver extends uvm_driver #(axi4_lite_transaction);
                         vif.rresp <= resp;
                         
                         @(posedge vif.aclk);
-                        wait (vif.rready);
+                        fork : mem_rready_wait
+                            begin
+                                wait (vif.rready);
+                            end
+                            begin
+                                #1ms;
+                                `uvm_error("AXI4_LITE_DRIVER", "Memory read RREADY timeout (1ms)")
+                            end
+                        join_any
+                        disable fork;
                         
                         @(posedge vif.aclk);
                         vif.rvalid <= 1'b0;

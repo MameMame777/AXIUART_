@@ -57,11 +57,14 @@ class uart_monitor extends uvm_monitor;
     endfunction
     
     virtual task run_phase(uvm_phase phase);
+        `uvm_info("UART_MONITOR", "=== RUN_PHASE STARTED ===", UVM_LOW)
+        `uvm_info("UART_MONITOR", "About to fork monitor tasks", UVM_LOW)
         fork
             collect_rx_transactions();
             collect_tx_transactions();
             monitor_rts_cts_signals();  // Add flow control monitoring
-        join
+        join_none
+        `uvm_info("UART_MONITOR", "Monitor tasks forked - run_phase returning", UVM_LOW)
     endtask
     
     // Monitor RX path (host to device)
@@ -83,7 +86,33 @@ class uart_monitor extends uvm_monitor;
             
             if (waiting_for_sof) begin
                 // Wait for UART start bit and collect byte
-                wait (vif.uart_rx == 1'b0);
+                // CRITICAL FIX: Use clocked loop with timeout instead of wait to avoid blocking
+                begin
+                    time rx_wait_start = $time;
+                    time rx_wait_timeout_ns = (cfg.frame_timeout_ns > 0) ? cfg.frame_timeout_ns : 10_000_000;
+                    bit timeout_occurred = 0;
+                    
+                    fork
+                        begin
+                            while (vif.uart_rx != 1'b0) begin
+                                @(posedge vif.clk);
+                                if (($time - rx_wait_start) >= rx_wait_timeout_ns) begin
+                                    timeout_occurred = 1;
+                                    break;
+                                end
+                            end
+                        end
+                        begin
+                            #rx_wait_timeout_ns;
+                        end
+                    join_any
+                    disable fork;
+                    
+                    if (timeout_occurred) begin
+                        `uvm_warning("UART_MONITOR", $sformatf("RX start bit timeout after %0t ns", rx_wait_timeout_ns))
+                        continue; // Skip this iteration
+                    end
+                end
                 collect_uart_rx_byte(temp_byte);
                 
                 // Check if this is a SOF marker
@@ -101,7 +130,33 @@ class uart_monitor extends uvm_monitor;
                 end
             end else begin
                 // Collecting frame bytes after SOF
-                wait (vif.uart_rx == 1'b0);
+                // CRITICAL FIX: Use clocked loop with timeout (UVM best practice)
+                begin
+                    time rx_wait_start = $time;
+                    time rx_wait_timeout_ns = (cfg.byte_time_ns > 0) ? (cfg.byte_time_ns * 20) : 2_000_000; // 20 byte times or 2ms
+                    bit timeout_occurred = 0;
+                    
+                    fork
+                        begin
+                            while (vif.uart_rx != 1'b0) begin
+                                @(posedge vif.clk);
+                                if (($time - rx_wait_start) >= rx_wait_timeout_ns) begin
+                                    timeout_occurred = 1;
+                                    break;
+                                end
+                            end
+                        end
+                        begin
+                            #rx_wait_timeout_ns;
+                        end
+                    join_any
+                    disable fork;
+                    
+                    if (timeout_occurred) begin
+                        `uvm_info("UART_MONITOR", $sformatf("Multi-byte timeout after %0d bytes - frame complete", byte_count), UVM_MEDIUM)
+                        break; // Exit frame collection
+                    end
+                end
                 collect_uart_rx_byte(temp_byte);
                 collected_bytes[byte_count] = temp_byte;
                 byte_count++;
@@ -144,13 +199,13 @@ class uart_monitor extends uvm_monitor;
                             UVM_LOW)
                         last_rx_publish_time = $time;
                         item_collected_port.write(tr);
-                        // Force-print push metadata so FIFO ordering can be reconstructed from logs
+                        // FIFO push metadata for debug (config-controlled)
                         `uvm_info("UART_MONITOR_FIFO",
                             $sformatf("PUSH dir=RX idx=%0d fifo_conn=%s time=%0t",
                                 rx_publish_count,
                                 (item_collected_port != null) ? "analysis_port" : "NULL",
                                 $time),
-                            UVM_NONE)
+                            UVM_DEBUG)
 
                         // Collect coverage
                         if (coverage != null) begin
@@ -180,22 +235,89 @@ class uart_monitor extends uvm_monitor;
         uart_frame_transaction tr;
         logic [7:0] collected_bytes[];
         logic [7:0] temp_byte;
-    int byte_count;
-    int expected_length;
-    bit collect_more;
-    int bit_time_cycles;
-    int inter_byte_timeout_cycles;
-    time tx_delta;
+        int byte_count;
+        int expected_length;
+        bit collect_more;
+        int bit_time_cycles;
+        int inter_byte_timeout_cycles;
+        time tx_delta;
+        time tx_wait_start;
+        time tx_wait_timeout_ns;
+        bit tx_start_detected;
+        
+        `uvm_info("UART_MONITOR_TX_DEBUG", "=== ENTERING collect_tx_transactions() - Before forever loop ===", UVM_LOW)
+        `uvm_info("UART_MONITOR_TX", "=== COLLECT_TX_TRANSACTIONS TASK STARTED ===", UVM_LOW)
+        `uvm_info("UART_MONITOR_TX_DEBUG", "Variables initialized - Entering forever loop", UVM_LOW)
         
         forever begin
+            `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Forever loop iteration start @%0t - monitor_enabled=%0b", $time, monitor_enabled), UVM_MEDIUM)
+            
             if (!monitor_enabled) begin
                 @(posedge vif.clk);
                 continue;
             end
             
-            // Wait for the line to return to idle high, then detect the start edge
-            wait (vif.uart_tx == 1'b1);
-            @(negedge vif.uart_tx);
+            // CRITICAL FIX: Add timeout to TX wait to prevent infinite blocking
+            // If DUT never responds, this prevents monitor from hanging forever
+            tx_wait_start = $time;
+            tx_wait_timeout_ns = (cfg.frame_timeout_ns > 0) ? time'(cfg.frame_timeout_ns * 4) : 10_000_000; // 4x frame timeout or 10ms
+            `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Timeout calculation: cfg.frame_timeout_ns=%0d, calculated tx_wait_timeout_ns=%0d ns", cfg.frame_timeout_ns, tx_wait_timeout_ns), UVM_LOW)
+            tx_start_detected = 0;
+            
+            `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("About to fork TX wait @%0t - uart_tx=%0b", $time, vif.uart_tx), UVM_LOW)
+            fork
+                begin
+                    `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("TX wait thread started @%0t", $time), UVM_MEDIUM)
+                    // CRITICAL FIX: Advance at least 1 clock before wait to avoid blocking at time 0
+                    @(posedge vif.clk);
+                    // Wait for TX idle (high) before detecting start bit
+                    while (vif.uart_tx != 1'b1) begin
+                        @(posedge vif.clk);
+                        if (($time - tx_wait_start) >= tx_wait_timeout_ns) break;
+                    end
+                    if (vif.uart_tx == 1'b1) begin
+                        `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("TX idle detected @%0t", $time), UVM_MEDIUM)
+                        @(negedge vif.uart_tx);
+                        `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("TX start bit detected @%0t", $time), UVM_MEDIUM)
+                        tx_start_detected = 1;
+                    end
+                end
+                begin
+                    `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Timeout thread started @%0t", $time), UVM_MEDIUM)
+                    while (($time - tx_wait_start) < tx_wait_timeout_ns && !tx_start_detected) begin
+                        @(posedge vif.clk);
+                    end
+                    `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Timeout thread finished @%0t - detected=%0b", $time, tx_start_detected), UVM_MEDIUM)
+                end
+            join_any
+            `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Fork completed @%0t - tx_start_detected=%0b", $time, tx_start_detected), UVM_LOW)
+            disable fork;
+            
+            if (!tx_start_detected) begin
+                // CRITICAL: Publish timeout error transaction instead of continue
+                // This unblocks driver waiting on tx_response_fifo
+                tr = uart_frame_transaction::type_id::create("uart_tx_timeout_tr");
+                tr.direction = UART_TX;
+                tr.timestamp = $realtime;
+                tr.response_received = 0;
+                tr.response_status = STATUS_MONITOR_TIMEOUT; // New status code
+                tr.crc_valid = 0;
+                tr.parse_error_kind = PARSE_ERROR_TIMEOUT;
+                tr.frame_data = new[0];
+                tr.frame_length = 0;
+                tr.response_data = new[0];
+                
+                tx_publish_count++;
+                tx_delta = (last_tx_publish_time != 0) ? ($time - last_tx_publish_time) : 0;
+                `uvm_warning("UART_MONITOR_TX_TIMEOUT",
+                    $sformatf("No TX response after %0t ns - publishing timeout error transaction (#%0d)", 
+                              tx_wait_timeout_ns, tx_publish_count))
+                last_tx_publish_time = $time;
+                item_collected_port.write(tr); // Publish timeout transaction to unblock driver
+                
+                // Continue waiting for next potential TX (don't block forever)
+                continue;
+            end
             
             `uvm_info("UART_MONITOR_TX", $sformatf("Detected TX start edge at %0t", $time), UVM_LOW)
             
@@ -231,9 +353,19 @@ class uart_monitor extends uvm_monitor;
 
                     fork : tx_frame_collection
                         begin
-                            wait (vif.uart_tx == 1'b1);
-                            @(negedge vif.uart_tx); // Next start bit
-                            next_byte_pending = 1;
+                            // CRITICAL FIX: Use clocked loop with timeout (UVM best practice)
+                            time tx_idle_wait_start = $time;
+                            time tx_idle_timeout_ns = (cfg.byte_time_ns > 0) ? (cfg.byte_time_ns * 20) : 2_000_000;
+                            while (vif.uart_tx != 1'b1) begin
+                                @(posedge vif.clk);
+                                if (($time - tx_idle_wait_start) >= tx_idle_timeout_ns) break;
+                            end
+                            if (vif.uart_tx == 1'b1) begin
+                                @(negedge vif.uart_tx); // Next start bit
+                                next_byte_pending = 1;
+                            end else begin
+                                next_byte_pending = 0; // Timeout - no more bytes
+                            end
                         end
                         begin
                             // Use a timeout aligned with UART bit timing to avoid premature termination
@@ -290,21 +422,21 @@ class uart_monitor extends uvm_monitor;
                     $time, tx_publish_count, tx_delta, tr.cmd, tr.addr, tr.frame_length, tr.response_status,
                     tr.parse_error_kind.name(), tr.crc_valid, tr.timestamp),
                 UVM_LOW)
-            // Hard log even when verbosity filters are high so DSIM captures the publish event.
+            // TX publish event for debug (config-controlled)
             `uvm_info("UART_MONITOR_TX_PUBLISH",
-                $sformatf("TX publish forced log: time=%0t idx=%0d len=%0d status=0x%02X parse_err=%s subscribers=%0d",
+                $sformatf("TX publish log: time=%0t idx=%0d len=%0d status=0x%02X parse_err=%s subscribers=%0d",
                     $time, tx_publish_count, tr.frame_length, tr.response_status,
                     tr.parse_error_kind.name(), item_collected_port.size()),
-                UVM_NONE)
+                UVM_DEBUG)
             last_tx_publish_time = $time;
             item_collected_port.write(tr);
-            // Force-print push metadata so FIFO ordering can be reconstructed from logs
+            // FIFO push metadata for debug (config-controlled)
             `uvm_info("UART_MONITOR_FIFO",
                 $sformatf("PUSH dir=TX idx=%0d fifo_conn=%s time=%0t",
                     tx_publish_count,
                     (item_collected_port != null) ? "analysis_port" : "NULL",
                     $time),
-                UVM_NONE)
+                UVM_DEBUG)
             `uvm_info("UART_MONITOR_DBG", $sformatf("analysis_port.write() done for TX #%0d ts=%0t", tx_publish_count, $time), UVM_LOW)
             
             // Collect coverage
@@ -342,7 +474,7 @@ class uart_monitor extends uvm_monitor;
         // Sample start bit midpoint
         repeat (cfg.bit_time_cycles / 2) @(posedge vif.clk);
         `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
-                  $sformatf("Start bit check @ %0t: uart_tx=%0b", $realtime, vif.uart_tx), UVM_NONE)
+                  $sformatf("Start bit check @ %0t: uart_tx=%0b", $realtime, vif.uart_tx), UVM_DEBUG)
         if (vif.uart_tx != 1'b0) begin
             `uvm_info("UART_MONITOR", "TX start bit timing variation detected", UVM_DEBUG)
         end
@@ -352,7 +484,7 @@ class uart_monitor extends uvm_monitor;
         repeat (cfg.bit_time_cycles) @(posedge vif.clk);
         data[0] = vif.uart_tx;
         `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
-                  $sformatf("data[0]=%0b @ %0t", data[0], $realtime), UVM_NONE)
+                  $sformatf("data[0]=%0b @ %0t", data[0], $realtime), UVM_DEBUG)
         `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", 0, data[0], $realtime), UVM_MEDIUM)
 
         // Sample remaining data bits at full bit intervals.
@@ -360,7 +492,7 @@ class uart_monitor extends uvm_monitor;
             repeat (cfg.bit_time_cycles) @(posedge vif.clk);
             data[i] = vif.uart_tx;
             `uvm_info("UART_MONITOR_SAMPLE_DEBUG", 
-                      $sformatf("data[%0d]=%0b @ %0t", i, data[i], $realtime), UVM_NONE)
+                      $sformatf("data[%0d]=%0b @ %0t", i, data[i], $realtime), UVM_DEBUG)
             `uvm_info("UART_MONITOR", $sformatf("Sampled TX data[%0d]=%0b at %0t", i, data[i], $realtime), UVM_MEDIUM)
         end
 
@@ -371,7 +503,7 @@ class uart_monitor extends uvm_monitor;
         end
 
         `uvm_info("UART_MONITOR_RESULT_DEBUG", 
-                  $sformatf("Collected byte=0x%02X (binary: %08b) @ %0t", data, data, $realtime), UVM_NONE)
+                  $sformatf("Collected byte=0x%02X (binary: %08b) @ %0t", data, data, $realtime), UVM_DEBUG)
         `uvm_info("UART_MONITOR", $sformatf("TX byte: 0x%02X", data), UVM_DEBUG)
     endtask
     

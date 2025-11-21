@@ -293,7 +293,7 @@ module Register_Block #(
     always_ff @(posedge clk) begin
         if (rst) begin
             control_reg <= 32'h0000_0000;  // Default control register value
-            config_reg <= 32'h0000_0010;   // Initial: divisor=16 for 7.8125Mbps @ 125MHz (matches UVM default: 125M/(7.8125M)=16)
+            config_reg <= 32'h0000_043D;   // Initial: divisor=1085 for 115200bps @ 125MHz (125M/115200=1085)
             debug_reg <= 32'h0000_0000;
             
             // Test register initialization - SAFE INITIAL VALUES (not test patterns)

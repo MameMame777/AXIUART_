@@ -2,6 +2,7 @@
 
 // Top-level UART-AXI4-Lite Bridge Module
 // Implements complete protocol per AXIUART_/docs/uart_axi4_protocol.md
+// FIXED BAUD RATE: 115200 bps
 //
 // Debug instrumentation added 2025-10-05 per fpga_debug_work_plan.md
 // Phase 3&4 signals: debug_uart_tx_data, debug_uart_tx_valid, debug_uart_rx_data,
@@ -9,7 +10,7 @@
 //                    debug_axi_bresp, debug_axi_araddr, debug_axi_rresp, debug_axi_state
 module Uart_Axi4_Bridge #(
     parameter int CLK_FREQ_HZ = 125_000_000,    // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 9600,           // UART baud rate
+    parameter int BAUD_RATE = 115200,           // UART baud rate (FIXED)
     parameter int AXI_TIMEOUT = 2500,           // AXI timeout in clock cycles (20μs @ 125MHz)
     parameter int UART_OVERSAMPLE = 16,         // UART oversampling factor
     parameter int RX_FIFO_DEPTH = 64,           // RX FIFO depth

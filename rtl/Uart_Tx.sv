@@ -1,10 +1,11 @@
 `timescale 1ns / 1ps
 
 // UART Transmitter Module for UART-AXI4 Bridge
-// 8N1 format with configurable baud rate, LSB-first transmission
+// 8N1 format with FIXED baud rate, LSB-first transmission
+// FIXED BAUD RATE: 115200 bps
 module Uart_Tx #(
     parameter int CLK_FREQ_HZ = 125_000_000,   // System clock frequency (125MHz)
-    parameter int BAUD_RATE = 9600,           // UART baud rate
+    parameter int BAUD_RATE = 115200,          // UART baud rate (FIXED)
     parameter int OVERSAMPLE = 16              // Oversampling factor (must match Uart_Rx)
 )(
     input  logic       clk,
@@ -71,9 +72,8 @@ module Uart_Tx #(
         if (rst) begin
             active_baud_divisor <= DEFAULT_BAUD_DIVISOR;
         end else if (!tx_busy) begin
-            // baud_divisor is per-bit value WITHOUT oversampling factor
-            // Multiply by OVERSAMPLE to get total cycles per bit period
-            active_baud_divisor <= config_baud_divisor * OVERSAMPLE;
+            // TX uses baud_divisor directly (no OVERSAMPLE multiplication)
+            active_baud_divisor <= config_baud_divisor;
         end
     end
 
