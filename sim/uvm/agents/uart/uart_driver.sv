@@ -86,13 +86,16 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         // Initialize interface signals
         initialize_interface();
         
+        `uvm_info("UART_DRIVER", $sformatf("[OK] %s run_phase START (phase=%s)", get_full_name(), phase.get_name()), UVM_LOW);
         `uvm_info("UART_DRIVER", "Run phase started - ready for transactions", UVM_LOW);
         
         // Simple forever loop (UVM Cookbook pattern)
         // No reset handling - test controls reset via sequence
         forever begin
             // Blocking get (IEEE 1800.2 / UVM Cookbook standard)
+            `uvm_info("UART_DRIVER", "[DIAGNOSTIC] About to call get_next_item()...", UVM_LOW);
             seq_item_port.get_next_item(req);
+            `uvm_info("UART_DRIVER", $sformatf("[OK] Got item of type %s", req.get_type_name()), UVM_LOW);
             
             `uvm_info("UART_DRIVER", $sformatf("Got transaction: CMD=0x%02X ADDR=0x%08X", 
                       req.cmd, req.addr), UVM_MEDIUM);

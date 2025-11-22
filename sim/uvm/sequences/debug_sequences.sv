@@ -22,10 +22,10 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
     virtual task body();
         uart_frame_transaction req;
         
-        // Raise objection if started from test's run_phase
-        if (starting_phase != null)
-            starting_phase.raise_objection(this, "debug_write_seq starting");
+        // NOTE: Objection management handled by calling test - do NOT raise here
+        // This sequence is called from test's run_phase where objection is already raised
         
+        `uvm_info("DEBUG_WRITE_SEQ", "[OK] ===== DEBUG_SEQ BODY ENTERED =====", UVM_LOW)
         `uvm_info("DEBUG_WRITE_SEQ", "Starting single write transaction", UVM_LOW)
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before create at time=%0t", $time), UVM_LOW)
         
@@ -35,7 +35,9 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After create at time=%0t", $time), UVM_LOW)
         
         // Start the transaction (signals sequencer)
+        `uvm_info("DEBUG_WRITE_SEQ", "[DIAGNOSTIC] About to call start_item()...", UVM_LOW);
         start_item(req);
+        `uvm_info("DEBUG_WRITE_SEQ", "[OK] start_item() returned", UVM_LOW);
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After start_item at time=%0t", $time), UVM_LOW)
         
@@ -59,9 +61,7 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
                   
         `uvm_info("DEBUG_WRITE_SEQ", "Single write sequence completed", UVM_LOW)
         
-        // Drop objection if we raised it
-        if (starting_phase != null)
-            starting_phase.drop_objection(this, "debug_write_seq done");
+        // NOTE: Objection dropped by calling test - do NOT drop here
     endtask
     
 endclass

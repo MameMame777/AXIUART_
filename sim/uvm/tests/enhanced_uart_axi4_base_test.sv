@@ -82,16 +82,10 @@ class enhanced_uart_axi4_base_test extends uart_axi4_base_test;
         `uvm_info("REPORTING_CONFIG", $sformatf("Report server: %s", server.get_name()), UVM_MEDIUM)
     endfunction
     
-    // Enhanced test startup with reporting announcement
-    virtual task run_phase(uvm_phase phase);
-        `uvm_info("ENHANCED_TEST_START", 
-                 $sformatf("Starting enhanced test: %s with mandatory reporting", get_name()), UVM_LOW)
-        
-        // Call parent run_phase
-        super.run_phase(phase);
-        
-        `uvm_info("ENHANCED_TEST_COMPLETE", "Enhanced test execution completed", UVM_LOW)
-    endtask
+    // NOTE: run_phase is NOT defined in this class
+    // Derived classes (uart_axi4_basic_test) provide their own run_phase implementation
+    // If run_phase were defined here as empty or minimal, it would prevent
+    // derived class run_phase from executing unless they call super.run_phase()
     
     // Enhanced final phase with report summary
     virtual function void final_phase(uvm_phase phase);

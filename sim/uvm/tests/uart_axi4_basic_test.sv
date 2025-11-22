@@ -74,9 +74,7 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
     endfunction
 
     // UVM-compliant run_phase: reset then sequence execution
-    // Standard pattern: test controls reset via sequence, then runs functional tests
     virtual task run_phase(uvm_phase phase);
-        uart_reset_seq reset_seq;
         uart_debug_simple_write_seq debug_seq;
         
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
@@ -89,26 +87,14 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         end
         
         // ========================================================================
-        // STEP 1: Execute DUT reset via interface (UVM standard pattern)
+        // STEP 1: Execute DUT reset via interface (Direct call pattern)
         // ========================================================================
-        phase.raise_objection(this, "Executing DUT reset");
+        phase.raise_objection(this, "Executing DUT reset and functional test");
         
-        reset_seq = uart_reset_seq::type_id::create("reset_seq");
-        if (reset_seq == null) begin
-            `uvm_fatal("BASIC_TEST", "Failed to create reset sequence")
-        end
+        `uvm_info("BASIC_TEST", "Executing DUT reset (direct interface call)", UVM_MEDIUM)
         
-        // Set virtual interface for reset sequence
-        if (!uvm_config_db#(virtual uart_if)::get(this, "", "vif", reset_seq.vif)) begin
-            `uvm_fatal("BASIC_TEST", "Failed to get virtual interface for reset sequence")
-        end
-        
-        `uvm_info("BASIC_TEST", "Executing DUT reset sequence", UVM_MEDIUM)
-        
-        // Execute reset - use sequencer to ensure proper UVM phase management
-        // Even though reset doesn't generate transactions, using sequencer ensures
-        // proper blocking behavior and phase synchronization
-        reset_seq.start(env.uart_agt.sequencer);
+        // Direct reset - use inherited uart_vif from base class
+        uart_vif.reset_dut();
         
         `uvm_info("BASIC_TEST", "Reset completed - preparing functional test", UVM_MEDIUM)
         
@@ -120,6 +106,17 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         debug_seq = uart_debug_simple_write_seq::type_id::create("debug_seq");
         if (debug_seq == null) begin
             `uvm_fatal("BASIC_TEST", "Failed to create debug sequence")
+        end
+        
+        // DIAGNOSTIC: Check sequencer handle before start()
+        if (env == null) `uvm_fatal("BASIC_TEST", "env is null")
+        if (env.uart_agt == null) `uvm_fatal("BASIC_TEST", "env.uart_agt is null")
+        if (env.uart_agt.sequencer == null) begin
+            `uvm_error("BASIC_TEST", $sformatf("sequencer is NULL! env.uart_agt=%0p", env.uart_agt))
+        end else begin
+            `uvm_info("BASIC_TEST", $sformatf("[OK] Sequencer found: %s (type=%s)",
+                         env.uart_agt.sequencer.get_full_name(),
+                         env.uart_agt.sequencer.get_type_name()), UVM_LOW)
         end
         
         `uvm_info("BASIC_TEST", "Starting debug write sequence", UVM_MEDIUM)

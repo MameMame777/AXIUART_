@@ -1,7 +1,0 @@
-2025-10-11 13:39:34 [INFO][PIPELINE] Starting CI/CD pipeline execution
-2025-10-11 13:39:34 [INFO][PIPELINE] Pipeline ID: pipeline_20251011_133934
-2025-10-11 13:39:34 [STAGE][Environment_Setup] Starting stage: Environment_Setup
-2025-10-11 13:39:34 [INFO][Environment_Setup] Validating environment dependencies
-2025-10-11 13:39:34 [INFO][Environment_Setup] DSIM environment validated: C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0
-2025-10-11 13:39:34 [ERROR][Environment_Setup] Stage failed: Environment_Setup - Required directory missing: rtl
-2025-10-11 13:39:34 [ERROR][PIPELINE] Pipeline execution failed: Required directory missing: rtl

@@ -6,10 +6,8 @@
 # Do not use +timescale+ syntax in config file (not supported by DSIM)
 
 # UVM Library and include paths
-+define+UVM_NO_DEPRECATED
 +define+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR
 +define+DEFINE_SIM
-+define+UVM_NO_DPI
 +define+WAVES
 +define+SIM_DEBUG_BRIDGE
 +define+ENABLE_DEBUG
@@ -17,6 +15,11 @@
 +define+ENABLE_ASSERTIONS
 +define+COVERAGE_ENHANCED
 +define+ERROR_INJECTION_ENABLED
+
+# ★ UVM Debug and Diagnostics (Critical for troubleshooting)
++define+UVM_ENABLE_DEPRECATED_API    # Allow legacy patterns if needed
++define+UVM_REGEX_NO_DPI              # Use non-DPI regex (fallback)
+# NOTE: UVM_NO_DPI removed - DPI is REQUIRED for proper objection/phase management
 
 # ★ UVM Hang Detection (Objection/Phase/Sequence Tracing)
 +UVM_OBJECTION_TRACE

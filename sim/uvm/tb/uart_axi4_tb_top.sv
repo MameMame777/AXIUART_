@@ -130,9 +130,14 @@ module uart_axi4_tb_top;
     // Clock generation (matches DUT parameter: 125MHz)
     initial begin
         clk = 1'b0;
+        $display("[CLOCK_GEN @ %0t] Clock generation started, initial clk=%b", $time, clk);
         forever begin
             #(4.0ns);
             clk = ~clk;
+            // Periodic clock activity indicator (every 100 cycles = 800ns)
+            if (($time % 800000) == 0) begin
+                $display("[CLOCK_GEN @ %0t] Clock still running (clk=%b)", $time, clk);
+            end
         end
     end
     
