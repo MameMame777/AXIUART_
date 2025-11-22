@@ -427,8 +427,6 @@ module Uart_Axi4_Bridge #(
     `ifdef ENABLE_DEBUG
         always_ff @(posedge clk) begin
             if (tx_start_req) begin
-                $display("[%0t][BRIDGE_TX_START] tx_start_req=1 tx_data=0x%02h tx_fifo_empty=%0b tx_busy=%0b tx_start_reg=%0b",
-                         $time, tx_fifo_rd_data, tx_fifo_empty, tx_busy, tx_start_reg);
             end
         end
     `endif
@@ -568,19 +566,11 @@ module Uart_Axi4_Bridge #(
             MAIN_IDLE: begin
                 if (parser_frame_valid) begin
                     main_state_next = MAIN_AXI_TRANSACTION;
-                    $display("[%0t][BRIDGE_DEBUG] MAIN_IDLE -> %s (parser_frame_valid=1 error=%0b busy=%0b cmd=0x%02h addr=0x%08h)",
-                             $time,
-                             main_state_to_string(main_state_next),
-                             parser_frame_error,
-                             parser_busy,
-                             parser_cmd,
-                             parser_addr);
                 end else if (parser_frame_error) begin
                     main_state_next = MAIN_BUILD_RESPONSE;
                 end
 
                 if (parser_frame_valid && main_state_next == MAIN_IDLE) begin
-                    $display("[%0t][BRIDGE_DEBUG] MAIN_IDLE WARNING: parser_frame_valid observed but next state stuck in IDLE", $time);
                 end
             end
             
@@ -894,152 +884,79 @@ module Uart_Axi4_Bridge #(
             end
 
             if (main_state != main_state_q) begin
-                $display("[%0t][BRIDGE_DEBUG] main_state %s -> %s (frame_valid=%0b error=%0b axi_done=%0b builder_done=%0b)",
-                         $time,
-                         main_state_to_string(main_state_q),
-                         main_state_to_string(main_state),
-                         parser_frame_valid,
-                         parser_frame_error,
-                         axi_transaction_done,
-                         builder_response_complete);
             end
             if (main_state == MAIN_BUILD_RESPONSE && main_state_q != MAIN_BUILD_RESPONSE) begin
                 build_state_entry_count <= build_state_entry_count + 1;
                 build_state_wait_logged <= 1'b0;
-                $display("[%0t][BRIDGE_DEBUG] MAIN_BUILD_RESPONSE entry #%0d: start_issued=%0b builder_busy=%0b build_req=%0b status=0x%02h cmd=0x%02h frame_err=%0b axi_done=%0b",
-                         $time,
-                         build_state_entry_count + 1,
-                         builder_start_issued,
-                         builder_busy,
-                         builder_build_response,
-                         builder_status_code,
-                         captured_cmd,
-                         parser_frame_error,
-                         axi_transaction_done);
             end
 
             if (main_state == MAIN_BUILD_RESPONSE && builder_start_issued && !builder_build_response && !build_state_wait_logged) begin
                 build_state_wait_logged <= 1'b1;
-                $display("[%0t][BRIDGE_DEBUG][WARN] Builder start already issued; build_response held low (cmd=0x%02h status=0x%02h busy=%0b)",
-                         $time,
-                         captured_cmd,
-                         builder_status_code,
-                         builder_busy);
             end
 
             if (parser_frame_valid && !parser_frame_valid_q) begin
                 parser_frame_valid_count <= parser_frame_valid_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] parser_frame_valid pulse #%0d cmd=0x%02h addr=0x%08h main_state=%s",
-                         $time,
-                         parser_frame_valid_count,
-                         captured_cmd,
-                         captured_addr,
-                         main_state_to_string(main_state));
                 if (main_state == MAIN_IDLE) begin
-                    $display("[%0t][BRIDGE_DEBUG][WARNING] Parser reported a valid frame while MAIN_IDLE persists", $time);
                 end
             end
 
             if (parser_frame_error && !parser_frame_error_q) begin
                 parser_frame_error_count <= parser_frame_error_count + 1;
-                $display("[%0t][BRIDGE_DEBUG][ERROR] parser_frame_error pulse #%0d status=0x%02h main_state=%s",
-                         $time,
-                         parser_frame_error_count,
-                         parser_error_status,
-                         main_state_to_string(main_state));
                 if (parser_error_status == STATUS_TIMEOUT_CODE) begin
-                    $display("[%0t][BRIDGE_DEBUG][TIMEOUT] Parser timeout detected; scheduling error response", $time);
                 end
             end
 
             if (parser_busy && !parser_busy_q) begin
                 parser_busy_count <= parser_busy_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] parser_busy asserted #%0d main_state=%s", $time, parser_busy_count, main_state_to_string(main_state));
             end
 
             if (!parser_busy && parser_busy_q) begin
-                $display("[%0t][BRIDGE_DEBUG] parser_busy deasserted main_state=%s frame_valid=%0b frame_error=%0b", $time, main_state_to_string(main_state), parser_frame_valid, parser_frame_error);
             end
 
             if (rx_valid && !rx_valid_q) begin
                 rx_valid_count <= rx_valid_count + 1;
                 if (rx_valid_count < 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_valid #%0d data=0x%02h error=%0b fifo_full=%0b fifo_count=%0d busy=%0b",
-                             $time,
-                             rx_valid_count + 1,
-                             rx_data,
-                             rx_error,
-                             rx_fifo_full,
-                             rx_fifo_count,
-                             rx_busy);
                 end else if (rx_valid_count == 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_valid activity exceeds 16 events, further logs suppressed", $time);
                 end
             end
 
             if (rx_fifo_wr_en && !rx_fifo_wr_en_q) begin
                 rx_fifo_write_count <= rx_fifo_write_count + 1;
                 if (rx_fifo_write_count < 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_fifo_wr_en #%0d data=0x%02h fifo_count=%0d",
-                             $time,
-                             rx_fifo_write_count + 1,
-                             rx_data,
-                             rx_fifo_count);
                 end else if (rx_fifo_write_count == 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_fifo_wr_en activity exceeds 16 events, further logs suppressed", $time);
                 end
             end
 
             if (rx_fifo_rd_en && !rx_fifo_rd_en_q) begin
                 rx_fifo_read_count <= rx_fifo_read_count + 1;
                 if (rx_fifo_read_count < 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_fifo_rd_en #%0d data=0x%02h fifo_count=%0d state=%s",
-                             $time,
-                             rx_fifo_read_count + 1,
-                             rx_fifo_rd_data,
-                             rx_fifo_count,
-                             main_state_to_string(main_state));
                 end else if (rx_fifo_read_count == 16) begin
-                    $display("[%0t][BRIDGE_RX] rx_fifo_rd_en activity exceeds 16 events, further logs suppressed", $time);
                 end
             end
 
             if (rx_error && !rx_error_q) begin
                 rx_error_count <= rx_error_count + 1;
                 if (rx_error_count < 8) begin
-                    $display("[%0t][BRIDGE_RX][ERROR] rx_error asserted #%0d data=0x%02h fifo_count=%0d",
-                             $time,
-                             rx_error_count + 1,
-                             rx_data,
-                             rx_fifo_count);
                 end else if (rx_error_count == 8) begin
-                    $display("[%0t][BRIDGE_RX][ERROR] rx_error observed more than 8 times, further logs suppressed", $time);
                 end
             end
 
             if (axi_start_transaction && !axi_start_transaction_q) begin
                 axi_start_transaction_count <= axi_start_transaction_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] axi_start_transaction pulse #%0d cmd=0x%02h addr=0x%08h", $time, axi_start_transaction_count, captured_cmd, captured_addr);
             end
 
             if (axi_transaction_done && !axi_transaction_done_q) begin
                 axi_transaction_done_count <= axi_transaction_done_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] axi_transaction_done pulse #%0d status=0x%02h", $time, axi_transaction_done_count, axi_status);
             end
 
             if (builder_build_response && !builder_build_response_q) begin
-                $display("[%0t][BRIDGE_DEBUG] builder_build_response asserted (status=0x%02h cmd_echo=0x%02h start_issued=%0b builder_busy=%0b)",
-                         $time, builder_status_code, builder_cmd_echo, builder_start_issued, builder_busy);
             end
 
             if (builder_start_issued && !builder_start_issued_q) begin
-                $display("[%0t][BRIDGE_DEBUG] builder_start_issued asserted (captured_cmd=0x%02h status=0x%02h)",
-                         $time, captured_cmd, builder_status_code);
             end
 
             if (builder_response_complete && !builder_response_complete_q) begin
                 builder_response_complete_count <= builder_response_complete_count + 1;
-                $display("[%0t][BRIDGE_DEBUG] builder_response_complete pulse #%0d status=0x%02h cmd_echo=0x%02h", $time, builder_response_complete_count, builder_status_code, builder_cmd_echo);
             end
 
             main_state_q <= main_state;

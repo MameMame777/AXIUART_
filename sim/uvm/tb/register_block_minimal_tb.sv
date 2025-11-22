@@ -43,7 +43,7 @@ module register_block_minimal_tb;
     // Clock generation - 100MHz
     initial begin
         clk = 0;
-        forever #5 clk = ~clk;
+        forever #5ns clk = ~clk;
     end
     
     // Reset sequence

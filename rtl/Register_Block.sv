@@ -354,8 +354,6 @@ module Register_Block #(
                 test_reg_5 <= '0;
                 test_reg_6 <= '0;
                 test_reg_7 <= '0;
-                
-                $display("[%0t][REGISTER_BLOCK_SOFT_RESET] All registers cleared except CONFIG", $time);
             end else if (aw_handshake) begin
                 write_addr_reg <= axi.awaddr;
                 write_resp <= RESP_OKAY;
@@ -573,25 +571,14 @@ module Register_Block #(
     // Critical debugging only - AXI handshakes and state transitions
     always_ff @(posedge clk) begin
         if (!rst && aw_handshake) begin
-            $display("DEBUG: AW handshake addr=0x%08X at time %0t", axi.awaddr, $time);
         end
         if (!rst && ar_handshake) begin
-            $display("DEBUG: AR handshake addr=0x%08X at time %0t", axi.araddr, $time);
-        end
-        // Only show critical register writes (control/status registers)
-        if (!rst && write_enable && is_write_access_valid(write_addr_reg[11:0], axi.wstrb)) begin
-            case ({write_addr_reg[11:2], 2'b00})
-                REG_CONTROL: $display("DEBUG: CONTROL write=0x%08X", axi.wdata);
-                REG_CONFIG: $display("DEBUG: CONFIG write=0x%08X", axi.wdata);
-                default: begin end // Suppress test register spam
-            endcase
         end
     end
     `endif
 
     // Debug output
     initial begin
-        $display("REGISTER_BLOCK: FIXED version instantiated with BASE_ADDR=0x%08X", BASE_ADDR);
     end
 
 endmodule

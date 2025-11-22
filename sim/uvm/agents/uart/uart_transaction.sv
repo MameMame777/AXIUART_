@@ -104,10 +104,9 @@ class uart_transaction extends uvm_sequence_item;
     
     // Post-randomization hook to enforce array size without constraint solver
     function void post_randomize();
-        // Resize frame_data to match frame_length without triggering DSIM array comparison
-        if (frame_data.size() != frame_length) begin
-            frame_data = new[frame_length];
-        end
+        // Unconditionally resize to avoid DSIM array .size() comparison error
+        // DSIM limitation: Cannot use .size() == or != in ANY context (constraint/if/etc)
+        frame_data = new[frame_length];
     endfunction
     
     // Utility functions

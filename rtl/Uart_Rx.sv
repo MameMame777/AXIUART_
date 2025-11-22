@@ -93,13 +93,7 @@ module Uart_Rx #(
         config_baud_divisor = 16'(candidate);
     end
     
-    // Debug: Monitor baud divisor configuration
-    initial begin
-        $display("[UART_RX_INIT] DEFAULT_BAUD_DIVISOR=%0d (CLK_FREQ=%0d / BAUD_RATE=%0d)", 
-                 DEFAULT_BAUD_DIVISOR, CLK_FREQ_HZ, BAUD_RATE);
-        $display("[UART_RX_INIT] Expected active_bit_cycles=%0d (DEFAULT_BAUD_DIVISOR / OVERSAMPLE)", 
-                 DEFAULT_BAUD_DIVISOR / OVERSAMPLE);
-    end
+    // Baud divisor configuration (debug removed)
 
     // Active bit cycles update and debug logging
     always_ff @(posedge clk) begin
@@ -109,8 +103,6 @@ module Uart_Rx #(
         end else begin
             // Debug: Log whenever config changes or active_bit_cycles is suspiciously low
             if (config_baud_divisor != prev_baud_divisor || active_bit_cycles <= 16'd1) begin
-                $display("[%0t][UART_RX_BAUD] baud_divisor_in=%0d config=%0d active_bit_cycles=%0d baud_limit=%0d",
-                         $time, baud_divisor, config_baud_divisor, active_bit_cycles, baud_limit);
             end
             
             // Always update active_bit_cycles based on current config
@@ -142,7 +134,6 @@ module Uart_Rx #(
             // At transition from STOP_BIT to IDLE, reset counter for next byte
             // This ensures counter starts at 0 when next START_BIT is detected
             oversample_counter <= '0;
-            $display("[%0t][UART_RX_OVERSAMPLE] Counter reset on STOP_BIT->IDLE transition", $time);
         end else if (rx_state == IDLE) begin
             // Remain in IDLE - keep counter at 0
             oversample_counter <= '0;
@@ -150,10 +141,7 @@ module Uart_Rx #(
             // Increment on each baud tick
             if (oversample_counter == (OVERSAMPLE - 1)) begin
                 oversample_counter <= '0;
-                // DEBUG: Wrap-around during reception
-                if (rx_state != IDLE) begin
-                    $display("[%0t][UART_RX_OVERSAMPLE] Counter wrapped in %s", $time, rx_state.name());
-                end
+                // Wrap-around during reception
             end else begin
                 oversample_counter <= oversample_counter + 1;
             end
@@ -176,18 +164,10 @@ module Uart_Rx #(
             rx_state_prev <= rx_state;
             bit_counter <= '0;
             rx_shift_reg <= '0;
-            $display("[%0t][UART_RX_SOFT_RESET] RX state cleared, active_bit_cycles=%0d", $time, config_baud_divisor);
         end else begin
             rx_state_prev <= rx_state;
             
-            // DEBUG: Monitor state transitions and critical signals
-            if (rx_state != rx_state_next) begin
-                $display("[%0t][UART_RX_STATE] %s -> %s rx_synced=%b oversample_counter=%0d sample_enable=%b", 
-                         $time, rx_state.name(), rx_state_next.name(), rx_synced, oversample_counter, sample_enable);
-            end
-            if (rx_state == IDLE && !rx_synced) begin
-                $display("[%0t][UART_RX_IDLE] START_BIT detected rx_synced=%b", $time, rx_synced);
-            end
+            // State transition monitoring
             
             rx_state <= rx_state_next;
             rx_shift_reg <= rx_shift_reg_next;
@@ -216,13 +196,10 @@ module Uart_Rx #(
             START_BIT: begin
                 if (sample_enable) begin
                     // Sample and validate start bit at center of bit period
-                    $display("[%0t][UART_RX_START_SAMPLE] oversample_counter=%0d rx_synced=%b", 
-                             $time, oversample_counter, rx_synced);
                     if (!rx_synced) begin  // Valid start bit (should be 0)
                         rx_state_next = DATA_BITS;
                     end else begin
                         // Invalid start bit, return to idle
-                        $display("[%0t][UART_RX_START_INVALID] Expected LOW, got HIGH - returning to IDLE", $time);
                         rx_state_next = IDLE;
                     end
                 end
@@ -326,49 +303,22 @@ module Uart_Rx #(
                 stop_bit_debug_count <= '0;
             end else begin
                 if (rx_synced_prev != rx_synced && debug_event_count < 128) begin
-                    $display(
-                        "[%0t][UART_RX_DEBUG] rx_synced change %0b -> %0b state=%s baud_counter=%0d",
-                        $time,
-                        rx_synced_prev,
-                        rx_synced,
-                        rx_debug_state(rx_state),
-                        baud_counter
-                    );
                     debug_event_count <= debug_event_count + 1;
                 end
                 rx_synced_prev <= rx_synced;
 
                 if (rx_state_prev != rx_state) begin
                     if (debug_event_count < 128) begin
-                        $display(
-                            "[%0t][UART_RX_DEBUG] state %s -> %s rx_synced=%0b baud_counter=%0d",
-                            $time,
-                            rx_debug_state(rx_state_prev),
-                            rx_debug_state(rx_state),
-                            rx_synced,
-                            baud_counter
-                        );
                         debug_event_count <= debug_event_count + 1;
                     end
                     rx_state_prev <= rx_state;
                 end
 
                 if (baud_tick && (debug_event_count < 128)) begin
-                    $display(
-                        "[%0t][UART_RX_DEBUG] baud_tick state=%s rx_synced=%0b bit_counter=%0d",
-                        $time,
-                        rx_debug_state(rx_state),
-                        rx_synced,
-                        bit_counter
-                    );
                     debug_event_count <= debug_event_count + 1;
                 end
 
                 if ((rx_state == STOP_BIT) && baud_tick && (stop_bit_debug_count < 32)) begin
-                    $display(
-                        "[%0t][UART_RX_DEBUG] stop_bit_tracking baud_tick=1",
-                        $time
-                    );
                     stop_bit_debug_count <= stop_bit_debug_count + 1;
                 end
             end

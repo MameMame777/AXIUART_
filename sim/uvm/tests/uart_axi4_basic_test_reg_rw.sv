@@ -22,7 +22,7 @@ class uart_axi4_basic_test_reg_rw extends uart_axi4_basic_test;
         super.new(name, parent);
     endfunction
 
-    protected virtual task run_primary_sequence(output bit sequence_completed);
+    protected virtual task run_primary_sequence(uvm_event seq_done_ev);
         test_reg_rw_sequence seq;
 
         if (env == null || env.uart_agt == null || env.uart_agt.sequencer == null) begin
@@ -37,7 +37,7 @@ class uart_axi4_basic_test_reg_rw extends uart_axi4_basic_test;
         `uvm_info("BASIC_TEST_REG_RW", "Starting TEST_REG read/write validation sequence", UVM_LOW)
         seq.start(env.uart_agt.sequencer);
         `uvm_info("BASIC_TEST_REG_RW", "TEST_REG read/write validation sequence completed", UVM_LOW)
-        sequence_completed = 1;
+        seq_done_ev.trigger();
     endtask
 
 endclass

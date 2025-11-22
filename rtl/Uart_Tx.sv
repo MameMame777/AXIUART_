@@ -114,23 +114,16 @@ module Uart_Tx #(
             tx_state <= IDLE;
             bit_counter <= '0;
             tx_shift_reg <= '0;
-            $display("[%0t][UART_TX_SOFT_RESET] TX state cleared", $time);
         end else begin
             tx_state <= tx_state_next;
             tx_shift_reg <= tx_shift_reg_next; // Use combinationally computed next value
             
             `ifdef ENABLE_DEBUG
                 if (tx_start) begin
-                    $display("[%0t][UART_TX_SEQ_LATCH] tx_data=0x%02h tx_shift_reg_next=0x%02h -> tx_shift_reg@next_clk", 
-                             $time, tx_data, tx_shift_reg_next);
                 end
                 if (tx_state_next == START_BIT && tx_state == IDLE) begin
-                    $display("[%0t][UART_TX_STATE_TRANSITION] IDLE -> START_BIT, tx_shift_reg_next=0x%02h will be latched", 
-                             $time, tx_shift_reg_next);
                 end
                 if (tx_state == DATA_BITS) begin
-                    $display("[%0t][UART_TX_DATA_BITS] tx_shift_reg=0x%02h bit_counter=%0d baud_counter=%0d uart_tx=%b", 
-                             $time, tx_shift_reg, bit_counter, baud_counter, uart_tx_int);
                 end
             `endif
             
@@ -155,8 +148,6 @@ module Uart_Tx #(
                     tx_state_next = START_BIT;
                     tx_shift_reg_next = tx_data; // Latch data combinationally for same-cycle use
                     `ifdef ENABLE_DEBUG
-                        $display("[%0t][UART_TX_COMB] tx_start detected: tx_data=0x%02h -> tx_shift_reg_next", 
-                                 $time, tx_data);
                     `endif
                 end
             end

@@ -129,33 +129,20 @@ module uart_axi4_tb_top;
     // Clock generation (matches DUT parameter: 125MHz)
     initial begin
         clk = 1'b0;
-        forever #4ns clk = ~clk; // 125MHz clock
+        forever begin
+            #(4.0ns);
+            clk = ~clk;
+        end
     end
     
-    // Reset generation - EXTENDED RESET for stability
-    initial begin
-        rst   = 1'b1;
-        rst_n = 1'b0;
-        repeat (100) @(posedge clk);  // 100 clock cycles = 2us reset
-        rst   = 1'b0;
-        rst_n = 1'b1;
-        `uvm_info("TB_TOP", "Reset released after extended period", UVM_MEDIUM)
-        
-        // Additional stability wait after reset release
-        repeat (50) @(posedge clk);   // Additional 1us stability period
-        `uvm_info("TB_TOP", "System stability period completed", UVM_MEDIUM)
-    end
-    
-    // UVM testbench initialization
-    initial begin
-        // Import the test package to ensure all classes are registered
-        import uart_axi4_test_pkg::*;
-        
-        // Capture UVM test selection and optional scenario plusargs
+    // UVM configuration at time 0 (CRITICAL: UVM requires run_test() at time 0)
+    initial begin : uvm_config_block
         string scenario_arg;
         string testname_arg;
         bit scenario_enables_wave;
         int loopback_flag;
+        
+        // Capture UVM test selection and optional scenario plusargs
         if ($value$plusargs("TEST_SCENARIO=%s", scenario_arg)) begin
             test_scenario = scenario_arg;
         end
@@ -172,7 +159,7 @@ module uart_axi4_tb_top;
         uart_if_inst.tb_uart_tx_override = 1'b1;
 
         if (tb_loopback_mode) begin
-            `uvm_info("TB_TOP", "UVM loopback mode enabled: DUT instance held in reset and UART_TX overridden", UVM_LOW)
+            $display("[TB_TOP] UVM loopback mode enabled");
         end
 
         // Set virtual interfaces in config database
@@ -190,11 +177,29 @@ module uart_axi4_tb_top;
         // Default policy: enable waveform dumping unless explicitly disabled via scenario name
         scenario_enables_wave = (test_scenario != "none");
         uvm_config_db#(bit)::set(null, "uvm_test_top", "scenario_enable_wave_dump", scenario_enables_wave);
-        // Phase 4.3: Set AXI monitoring interface for AXI transaction detection
         
-        // Start UVM test
+        // Start UVM test at time 0 (UVM requirement)
+        $display("[TB_TOP] Starting UVM test at time=%0t (reset will run in parallel)", $time);
         run_test();
-    end
+    end : uvm_config_block
+    
+    // Reset generation in parallel (separate initial block)
+    // Executes concurrently with UVM phases - driver/test wait via @(negedge rst)
+    initial begin : reset_generation_block
+        // Explicit initialization BEFORE run_test() can start driver
+        rst   = 1'b1;
+        rst_n = 1'b0;
+        #1ps;  // Ensure initialization completes before any @(negedge) evaluation
+        
+        repeat (100) @(posedge clk);  // Reset asserted for 100 cycles (800ns)
+        
+        rst   = 1'b0;
+        rst_n = 1'b1;
+        $display("[TB_TOP] Reset released at time=%0t", $time);
+        
+        repeat (50) @(posedge clk);   // Stabilization period (400ns)
+        $display("[TB_TOP] Reset stabilization complete at time=%0t", $time);
+    end : reset_generation_block
 
     // Defer waveform dumping until after reset release and stability
     // This prevents large recursive dump registration during reset and

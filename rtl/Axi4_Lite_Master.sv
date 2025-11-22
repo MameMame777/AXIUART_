@@ -177,7 +177,6 @@ module Axi4_Lite_Master #(
                 cmd_reg <= cmd;
                 `ifdef ENABLE_DEBUG
                     // Simulation-only trace to confirm master sees start_transaction
-                    $display("%0t AXI_MASTER: start_transaction sampled: cmd=0x%0h addr=0x%0h", $time, cmd, addr);
                 `endif
             end
             
@@ -233,7 +232,6 @@ module Axi4_Lite_Master #(
             if ((state == DONE) || (state == ERROR)) begin
                 transaction_done_reg <= 1'b1;
                 `ifdef ENABLE_DEBUG
-                    $display("%0t AXI_MASTER: transaction_done state=%s status=0x%0h", $time, axi_master_state_to_string(state), status_reg);
                 `endif
             end
             
@@ -390,7 +388,6 @@ module Axi4_Lite_Master #(
             end
         endcase
         `ifdef ENABLE_DEBUG
-            $display("[%0t] AXI_MASTER_DEBUG: start_transaction asserted cmd=0x%0h addr=0x%08h", $time, cmd, addr);
         `endif
     end
     

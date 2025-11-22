@@ -47,7 +47,10 @@ class uart_uvm_loopback_model extends uvm_component;
         fork
             maintain_idle_override();
             process_requests();
-        join
+        join_none
+        
+        // Loopback model runs indefinitely until simulation ends
+        // Test controls simulation end via its own objection management
     endtask
 
     // TLM write implementation: clone transaction and queue for processing

@@ -62,6 +62,18 @@ interface uart_if (
         input  rx_error;
     endclocking
     
+    // Clocking block for monitor synchronization
+    clocking monitor_cb @(posedge clk);
+        input  uart_rx;
+        input  uart_tx;
+        input  uart_rts_n;
+        input  uart_cts_n;
+        input  tx_busy;
+        input  rx_valid;
+        input  rx_data;
+        input  rx_error;
+    endclocking
+    
     // Driver modport - for UVM driver (active agent)
     modport driver (
         clocking driver_cb,
@@ -78,6 +90,7 @@ interface uart_if (
     
     // Monitor modport - for UVM monitor
     modport monitor (
+        clocking monitor_cb,
         input uart_tx,
         input uart_rx,
         input uart_rts_n,       // Monitor RTS signal
@@ -137,5 +150,16 @@ interface uart_if (
     function automatic int get_byte_period_ns(input int baud_rate);
         return get_bit_period_ns(baud_rate) * 10; // 8 data + 1 start + 1 stop
     endfunction
+
+    // Reset task following uvm-basics reference pattern
+    // Reference: https://github.com/amamory-verification/uvm-basics/mult/tb/booth_mult/dut_if.sv
+    task reset_dut();
+        // Assert reset for 2 clock cycles (active high)
+        // NOTE: Interface does not drive rst directly - this is called by driver
+        // to synchronize with reset completion, not to generate reset.
+        @(negedge clk);
+        @(negedge clk);
+        // Reset is assumed to be de-asserted by TB before run_test()
+    endtask : reset_dut
 
 endinterface

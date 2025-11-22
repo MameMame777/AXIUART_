@@ -128,7 +128,6 @@ module Frame_Builder (
             data_count_reg <= '0;
             data_index <= '0;
             is_read_reg <= 1'b0;
-            $display("[%0t][FRAME_BUILDER_SOFT_RESET] Builder state cleared", $time);
             data_index <= '0;
             is_read_reg <= 1'b0;
             build_response_prev <= 1'b0;
@@ -241,16 +240,6 @@ module Frame_Builder (
                 
                 // Track how many times the builder is kicked off
                 debug_build_count <= debug_build_count + 1;
-                $display("[%0t][FRAME_BUILDER_DEBUG] build_response_edge #%0d status=0x%02h cmd=0x%02h read=%0b data_count=%0d fifo_full=%0b fifo_count=%0d req_space=%0d",
-                         $time,
-                         debug_build_count + 1,
-                         status_code,
-                         cmd_echo,
-                         is_read_response,
-                         response_data_count,
-                         tx_fifo_full,
-                         tx_fifo_count,
-                         7'd8 + response_data_count);
                 // Reset byte counter for the new frame
                 debug_tx_write_count <= 0;
             end
@@ -258,23 +247,11 @@ module Frame_Builder (
             if (tx_fifo_wr_en_next && !tx_fifo_full) begin
                 debug_tx_write_count <= debug_tx_write_count + 1;
                 if (debug_tx_write_count <= 16) begin
-                    $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE #%0d state=%0d byte=0x%02h fifo_full=%0b",
-                             $time,
-                             debug_tx_write_count,
-                             state,
-                             tx_fifo_data_next,
-                             tx_fifo_full);
                 end else if (debug_tx_write_count == 17) begin
-                    $display("[%0t][FRAME_BUILDER_DEBUG] TX_FIFO_WRITE limit reached, suppressing additional byte logs",
-                             $time);
                 end
             end
 
             if (response_complete && !response_complete_q) begin
-                $display("[%0t][FRAME_BUILDER_DEBUG] response_complete asserted after %0d tx writes (state=%0d)",
-                         $time,
-                         debug_tx_write_count,
-                         state);
             end
         end
     end

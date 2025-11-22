@@ -24,7 +24,8 @@ class uart_axi4_base_sequence extends uvm_sequence #(uart_frame_transaction);
         bit [7:0] crc = 8'h00;
         int actual_count;
         
-        if (byte_count == -1) actual_count = data_bytes.size();
+        // DSIM fix: avoid signed/unsigned comparison with .size()
+        if (byte_count < 0) actual_count = data_bytes.size();
         else actual_count = byte_count;
         
         // CRC8 calculation with polynomial 0x07 (matching Frame_Parser.sv)

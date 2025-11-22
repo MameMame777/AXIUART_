@@ -43,7 +43,7 @@ module frame_builder_debug_test;
     // Clock generation
     initial begin
         clk = 0;
-        forever #5 clk = ~clk; // 100MHz clock
+        forever #5ns clk = ~clk; // 100MHz clock
     end
     
     // Test sequence

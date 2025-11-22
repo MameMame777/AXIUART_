@@ -1,0 +1,3 @@
+https://github.com/amamory-verification/uvm-basics
+https://github.com/accellera-official/uvm-core
+https://github.com/darthsider/UART

@@ -2,8 +2,8 @@
 # This file specifies all source files for compilation
 # Updated: 2025-10-13 - Fixed file paths for FastMCP compatibility
 
-# Timescale specification
-+timescale+1ns/1ps
+# NOTE: Timescale is specified via command-line -timescale option
+# Do not use +timescale+ syntax in config file (not supported by DSIM)
 
 # UVM Library and include paths
 +define+UVM_NO_DEPRECATED

@@ -78,10 +78,7 @@ class axi4_lite_monitor extends uvm_monitor;
         
         `uvm_info("AXI4_LITE_MONITOR", "=== STARTING MONITORING TASKS ===", UVM_LOW)
         
-        fork
-            super.run_phase(phase);
-        join_none
-        
+        // Fork monitoring tasks in background (UVM standard pattern)
         fork
             begin
                 `uvm_info("AXI4_LITE_MONITOR", "Starting collect_write_transactions task", UVM_LOW)
@@ -91,9 +88,11 @@ class axi4_lite_monitor extends uvm_monitor;
                 `uvm_info("AXI4_LITE_MONITOR", "Starting collect_read_transactions task", UVM_LOW)
                 collect_read_transactions();
             end
-        join
+        join_none
         
-        `uvm_info("AXI4_LITE_MONITOR", "=== RUN_PHASE COMPLETED ===", UVM_LOW)
+        // run_phase must NOT return immediately - wait for phase objection drop
+        // Monitor tasks continue running in background until end_of_elaboration
+        `uvm_info("AXI4_LITE_MONITOR", "=== RUN_PHASE COMPLETED (monitors running in background) ===", UVM_LOW)
     endtask
     
     // Monitor write transactions

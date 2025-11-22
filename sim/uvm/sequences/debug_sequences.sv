@@ -20,9 +20,12 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         uart_frame_transaction req;
         
         `uvm_info("DEBUG_WRITE_SEQ", "Starting single write transaction", UVM_LOW)
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before uvm_create at time=%0t", $time), UVM_LOW)
         
         // Create exactly one write transaction
         `uvm_create(req)
+        
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After uvm_create at time=%0t", $time), UVM_LOW)
         
         // CRITICAL FIX: Set SOF value (missing and causing Frame_Parser to never detect frames)
         req.sof = SOF_HOST_TO_DEVICE;  // 0xA5 - required for Frame_Parser to detect start of frame
@@ -33,7 +36,9 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         req.data = new[1];
         req.data[0] = 8'h42;  // Predictable data
         
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before uvm_send at time=%0t", $time), UVM_LOW)
         `uvm_send(req)
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After uvm_send at time=%0t", $time), UVM_LOW)
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Sent: CMD=0x%02X, ADDR=0x%08X, DATA=0x%02X", 
                   req.cmd, req.addr, req.data[0]), UVM_LOW)
