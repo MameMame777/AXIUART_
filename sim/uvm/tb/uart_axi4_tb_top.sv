@@ -10,10 +10,8 @@ import uart_axi4_test_pkg::*;
 // Top-level testbench for AXIUART_Top system-level verification
 module uart_axi4_tb_top;
     
-    // Clock and reset
+    // Clock generation only (reset managed by interface)
     logic clk;
-    logic rst;
-    logic rst_n;
     
     // System status signals from DUT (simulation only)
     `ifdef DEFINE_SIM
@@ -23,7 +21,11 @@ module uart_axi4_tb_top;
     `endif
     
     // Interface instances
-    uart_if uart_if_inst(clk, rst);
+    // UART interface owns reset signals (UVM-compliant pattern)
+    uart_if uart_if_inst(clk);
+    
+    // Legacy bridge_status_if still uses separate reset (not modified yet)
+    logic rst_n = 1'b0;  // Temporary until bridge_status_if migrated
     bridge_status_if status_if(clk, rst_n);
     
     // AXI4-Lite interface for monitoring - will connect directly to DUT's internal interface
@@ -49,7 +51,6 @@ module uart_axi4_tb_top;
     logic dut_uart_rts_n;
     logic dut_uart_cts_n;
     logic dut_led;
-    logic dut_rst;
 
     // Ensure the RX line idles high until the driver starts toggling it
     initial begin
@@ -69,7 +70,7 @@ module uart_axi4_tb_top;
         .REG_BASE_ADDR(32'h0000_1000)
     ) dut (
         .clk(clk),
-        .rst(dut_rst),
+        .rst(uart_if_inst.rst),  // Connect to interface-owned reset signal
 
         // UART interface - external connections
         .uart_rx(dut_uart_rx),
@@ -98,7 +99,7 @@ module uart_axi4_tb_top;
     assign uart_if_inst.rx_data = dut.uart_bridge_inst.rx_data;
     assign uart_if_inst.rx_error = dut.uart_bridge_inst.rx_error;
     assign uart_if_inst.tb_loopback_active = tb_loopback_mode;
-    assign dut_rst = tb_loopback_mode ? 1'b1 : rst;
+    // dut_rst removed - DUT reset controlled by interface
 
     // Connect DUT AXI interface directly to UVM monitor - no signal copying needed
     // UVM monitor will access dut.axi_internal directly via virtual interface
@@ -179,27 +180,17 @@ module uart_axi4_tb_top;
         uvm_config_db#(bit)::set(null, "uvm_test_top", "scenario_enable_wave_dump", scenario_enables_wave);
         
         // Start UVM test at time 0 (UVM requirement)
-        $display("[TB_TOP] Starting UVM test at time=%0t (reset will run in parallel)", $time);
+        // Reset will be controlled by UVM reset sequence via interface
+        $display("[TB_TOP] Starting UVM test at time=%0t", $time);
+        $display("[TB_TOP] Reset will be executed by UVM reset sequence");
         run_test();
     end : uvm_config_block
     
-    // Reset generation in parallel (separate initial block)
-    // Executes concurrently with UVM phases - driver/test wait via @(negedge rst)
-    initial begin : reset_generation_block
-        // Explicit initialization BEFORE run_test() can start driver
-        rst   = 1'b1;
-        rst_n = 1'b0;
-        #1ps;  // Ensure initialization completes before any @(negedge) evaluation
-        
-        repeat (100) @(posedge clk);  // Reset asserted for 100 cycles (800ns)
-        
-        rst   = 1'b0;
-        rst_n = 1'b1;
-        $display("[TB_TOP] Reset released at time=%0t", $time);
-        
-        repeat (50) @(posedge clk);   // Stabilization period (400ns)
-        $display("[TB_TOP] Reset stabilization complete at time=%0t", $time);
-    end : reset_generation_block
+    // ========================================================================
+    // NOTE: Reset generation REMOVED
+    // UVM-compliant pattern: reset sequence calls uart_if.reset_dut()
+    // This eliminates race conditions between TB and UVM reset control
+    // ========================================================================
 
     // Defer waveform dumping until after reset release and stability
     // This prevents large recursive dump registration during reset and

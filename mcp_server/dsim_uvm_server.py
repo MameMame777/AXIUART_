@@ -471,7 +471,7 @@ async def run_uvm_simulation(
         )
         
     uvm_dir = workspace_root / "sim" / "uvm"
-    config_file = uvm_dir / "dsim_config.f"
+    config_file = uvm_dir / "config" /  "dsim_config.f"
     
     if not config_file.exists():
         raise DSIMError(

@@ -409,6 +409,7 @@ package uart_axi4_test_pkg;
     
     // Sequence libraries (need transaction classes to be defined first)
     `include "sequences/basic_func_sequence.sv"
+    `include "sequences/uart_reset_seq.sv"  // UVM-compliant DUT reset sequence (interface-based)
     `include "sequences/debug_single_write_sequence.sv"
     `include "sequences/debug_dual_write_sequence.sv"
     `include "sequences/metadata_read_sequence_20251015.sv"

@@ -12,6 +12,9 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
     
     `uvm_object_utils(uart_debug_simple_write_seq)
     
+    // UVM phase handle for objection management
+    uvm_phase starting_phase;
+    
     function new(string name = "uart_debug_simple_write_seq");
         super.new(name);
     endfunction
@@ -19,13 +22,22 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
     virtual task body();
         uart_frame_transaction req;
         
+        // Raise objection if started from test's run_phase
+        if (starting_phase != null)
+            starting_phase.raise_objection(this, "debug_write_seq starting");
+        
         `uvm_info("DEBUG_WRITE_SEQ", "Starting single write transaction", UVM_LOW)
-        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before uvm_create at time=%0t", $time), UVM_LOW)
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before create at time=%0t", $time), UVM_LOW)
         
         // Create exactly one write transaction
-        `uvm_create(req)
+        req = uart_frame_transaction::type_id::create("req");
         
-        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After uvm_create at time=%0t", $time), UVM_LOW)
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After create at time=%0t", $time), UVM_LOW)
+        
+        // Start the transaction (signals sequencer)
+        start_item(req);
+        
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After start_item at time=%0t", $time), UVM_LOW)
         
         // CRITICAL FIX: Set SOF value (missing and causing Frame_Parser to never detect frames)
         req.sof = SOF_HOST_TO_DEVICE;  // 0xA5 - required for Frame_Parser to detect start of frame
@@ -36,14 +48,20 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         req.data = new[1];
         req.data[0] = 8'h42;  // Predictable data
         
-        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before uvm_send at time=%0t", $time), UVM_LOW)
-        `uvm_send(req)
-        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After uvm_send at time=%0t", $time), UVM_LOW)
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before finish_item at time=%0t", $time), UVM_LOW)
         
+        // Send transaction to driver
+        finish_item(req);
+        
+        `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After finish_item at time=%0t", $time), UVM_LOW)
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Sent: CMD=0x%02X, ADDR=0x%08X, DATA=0x%02X", 
                   req.cmd, req.addr, req.data[0]), UVM_LOW)
                   
         `uvm_info("DEBUG_WRITE_SEQ", "Single write sequence completed", UVM_LOW)
+        
+        // Drop objection if we raised it
+        if (starting_phase != null)
+            starting_phase.drop_objection(this, "debug_write_seq done");
     endtask
     
 endclass

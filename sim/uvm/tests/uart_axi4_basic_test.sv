@@ -73,35 +73,44 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         end
     endfunction
 
-    // UVM-compliant run_phase: simple sequence execution
-    // Following UVM best practices - test only launches sequences and manages objections
-    // Signal-level synchronization is handled by driver/monitor components
+    // UVM-compliant run_phase: reset then sequence execution
+    // Standard pattern: test controls reset via sequence, then runs functional tests
     virtual task run_phase(uvm_phase phase);
-        phase.raise_objection(this, "uart_axi4_basic_test running");
+        uart_reset_seq reset_seq;
+        uart_debug_simple_write_seq debug_seq;
         
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
         `uvm_info("BASIC_TEST", "     UART-AXI4 BASIC FUNCTIONAL TEST", UVM_LOW)
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
         
-        // Wait for reset de-assertion (UVM-compliant pattern)
-        // Use @(posedge clk) to advance time (avoid #0 infinite loop)
-        begin
-            int reset_wait_count = 0;
-            while (uart_vif.rst !== 1'b0) begin
-                @(posedge uart_vif.clk);
-                reset_wait_count++;
-                if (reset_wait_count > 200) `uvm_fatal("BASIC_TEST", "Reset timeout - rst never de-asserted")
-            end
-            `uvm_info("BASIC_TEST", $sformatf("Reset de-asserted after %0d clocks", reset_wait_count), UVM_MEDIUM)
-        end
-        
-        repeat (5) @(posedge uart_vif.clk);  // Minimal stabilization (reduced for performance)
-        `uvm_info("BASIC_TEST", $sformatf("Test starting at time=%0t (reset complete)", $time), UVM_MEDIUM)
-        
         // Validate environment was built correctly
         if (env == null || env.uart_agt == null || env.uart_agt.sequencer == null) begin
             `uvm_fatal("BASIC_TEST", "Environment not built correctly - sequencer unavailable")
         end
+        
+        // ========================================================================
+        // STEP 1: Execute DUT reset via interface (UVM standard pattern)
+        // ========================================================================
+        phase.raise_objection(this, "Executing DUT reset");
+        
+        reset_seq = uart_reset_seq::type_id::create("reset_seq");
+        if (reset_seq == null) begin
+            `uvm_fatal("BASIC_TEST", "Failed to create reset sequence")
+        end
+        
+        // Set virtual interface for reset sequence
+        if (!uvm_config_db#(virtual uart_if)::get(this, "", "vif", reset_seq.vif)) begin
+            `uvm_fatal("BASIC_TEST", "Failed to get virtual interface for reset sequence")
+        end
+        
+        `uvm_info("BASIC_TEST", "Executing DUT reset sequence", UVM_MEDIUM)
+        reset_seq.start(null);  // Reset doesn't need sequencer
+        
+        phase.drop_objection(this, "DUT reset completed");
+        
+        // ========================================================================
+        // STEP 2: Execute functional test sequences
+        // ========================================================================
         
         // Create sequence using correct class name
         debug_seq = uart_debug_simple_write_seq::type_id::create("debug_seq");
@@ -111,14 +120,14 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         
         `uvm_info("BASIC_TEST", "Starting debug write sequence", UVM_MEDIUM)
         
+        // Set starting_phase so sequence can manage objections (UVM standard pattern)
+        debug_seq.starting_phase = phase;
+        
         // Start sequence - this is a blocking call that returns when sequence completes
-        // The driver will automatically wait for reset and handle clock synchronization
         debug_seq.start(env.uart_agt.sequencer);
         
         `uvm_info("BASIC_TEST", "Sequence completed successfully", UVM_LOW)
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
-        
-        phase.drop_objection(this, "uart_axi4_basic_test done");
     endtask
 
 endclass
