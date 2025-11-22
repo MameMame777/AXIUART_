@@ -472,7 +472,7 @@ async def run_uvm_simulation(
         
     uvm_dir = workspace_root / "sim" / "uvm"
     config_file = uvm_dir / "config" /  "dsim_config.f"
-    
+
     if not config_file.exists():
         raise DSIMError(
             f"DSIM configuration file not found: {config_file}",
@@ -498,7 +498,7 @@ async def run_uvm_simulation(
         str(dsim_exe),
         "-uvm", "1.2",  # CRITICAL: UVM library version (DSIM official requirement)
         "-timescale", "1ns/1ps",  # Global timescale to fix 1000x slowdown issue
-        "-f", "dsim_config.f",
+        "-f", "config/dsim_config.f",  # Fixed path: config file is in config/ subdirectory
         "-top", "work.uart_axi4_tb_top",  # Top-level module specification
         f"+UVM_TESTNAME={test_name}",
         f"+UVM_VERBOSITY={verbosity}",

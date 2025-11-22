@@ -104,9 +104,13 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         end
         
         `uvm_info("BASIC_TEST", "Executing DUT reset sequence", UVM_MEDIUM)
-        reset_seq.start(null);  // Reset doesn't need sequencer
         
-        phase.drop_objection(this, "DUT reset completed");
+        // Execute reset - use sequencer to ensure proper UVM phase management
+        // Even though reset doesn't generate transactions, using sequencer ensures
+        // proper blocking behavior and phase synchronization
+        reset_seq.start(env.uart_agt.sequencer);
+        
+        `uvm_info("BASIC_TEST", "Reset completed - preparing functional test", UVM_MEDIUM)
         
         // ========================================================================
         // STEP 2: Execute functional test sequences
@@ -120,14 +124,14 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         
         `uvm_info("BASIC_TEST", "Starting debug write sequence", UVM_MEDIUM)
         
-        // Set starting_phase so sequence can manage objections (UVM standard pattern)
-        debug_seq.starting_phase = phase;
-        
-        // Start sequence - this is a blocking call that returns when sequence completes
+        // Start sequence - objection already raised at phase start
         debug_seq.start(env.uart_agt.sequencer);
         
         `uvm_info("BASIC_TEST", "Sequence completed successfully", UVM_LOW)
         `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
+        
+        // Drop objection after all sequences complete
+        phase.drop_objection(this, "All test sequences completed");
     endtask
 
 endclass

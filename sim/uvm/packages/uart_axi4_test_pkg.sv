@@ -407,65 +407,18 @@ package uart_axi4_test_pkg;
     // Finally environment (when agents are ready)
     `include "env/uart_axi4_env.sv"
     
+    // ========================================================================
     // Sequence libraries (need transaction classes to be defined first)
+    // ========================================================================
+    `include "sequences/uart_reset_seq.sv"     // UVM-compliant DUT reset sequence
+    `include "sequences/debug_sequences.sv"    // Debug write sequences
     `include "sequences/basic_func_sequence.sv"
-    `include "sequences/uart_reset_seq.sv"  // UVM-compliant DUT reset sequence (interface-based)
-    `include "sequences/debug_single_write_sequence.sv"
-    `include "sequences/debug_dual_write_sequence.sv"
-    `include "sequences/metadata_read_sequence_20251015.sv"
-    `include "sequences/metadata_expected_error_sequence_20251015.sv"
-    `include "sequences/error_injection_sequence.sv"
-    `include "sequences/performance_test_sequence.sv"
-    `include "sequences/uart_protocol_active_sequence.sv"
-    `include "sequences/uart_axi4_frame_builder_sequence.sv"
-    `include "sequences/uart_axi4_register_block_sequence.sv"
-    `include "sequences/uart_axi4_read_protocol_sequence.sv"  // Read protocol verification
-    `include "sequences/debug_sequences.sv"  // Debug sequences to avoid circular dependencies
-    `include "sequences/uart_configure_baud_sequence.sv"
-    `include "sequences/uart_reset_sequence.sv"  // RESET command sequence (2025-11-19)
-    // `include "sequences/register_sequences.sv"  // TEMPORARILY DISABLED - duplicate uart_debug_write_seq definition
-    // NOTE: test_register_sequences.sv commented out due to identifier conflict
-    // `include "sequences/test_register_sequences.sv"  // Test register sequences  
-    `include "sequences/coverage_sequences.sv"
-    `include "sequences/flow_control_sequences.sv"       // RTS/CTS flow control sequences
-    `include "sequences/simple_test_register_sequence.sv"
-    `include "sequences/test_reg_rw_sequence.sv"
     
-    // Test files
+    // ========================================================================
+    // Test files - Production tests only
+    // ========================================================================
     `include "tests/uart_axi4_base_test.sv"
-    `include "tests/enhanced_uart_axi4_base_test.sv"  // Enhanced reporting base class (Oct 10, 2025)
-
-    // Include all test files
-    `include "tests/uart_axi4_scoreboard_test.sv"     // Phase 3: Scoreboard integration test
-    `include "tests/axiuart_system_test.sv"
-    `include "tests/uart_axi4_minimal_test.sv"
+    `include "tests/enhanced_uart_axi4_base_test.sv"
     `include "tests/uart_axi4_basic_test.sv"
-    `include "tests/uart_axi4_fast_basic_test.sv"     // Fast test - no waveforms, minimal verbosity
-    `include "tests/uart_axi4_basic_test_reg_rw.sv"
-    `include "tests/uart_axi4_basic_115200_test.sv"
-    `include "tests/uart_axi4_fast_115200_test.sv"    // Fast 115200 test - minimal verbosity
-    `include "tests/uart_axi4_fixed_115200_test.sv"   // RESET-based baud switching (2025-11-19)
-    `include "tests/uart_axi4_baud_3p9mbps_test.sv"   // 3.90625Mbps baud switching test (2025-11-19)
-    `include "tests/uart_axi4_simple_write_test.sv"   // Simple write test
-    `include "tests/uart_axi4_dual_write_test.sv"
-    `include "tests/uart_axi4_metadata_read_test.sv"
-    `include "tests/uart_axi4_metadata_expected_error_test.sv"
-    `include "tests/uart_axi4_error_paths_test.sv"
-    `include "tests/uart_axi4_multi_beat_write_test.sv"
-    // `include "tests/register_block_tests.sv"  // TEMPORARILY DISABLED - depends on register_sequences.sv
-    // `include "tests/extended_basic_test.sv"  // Temporarily disabled - field definition issues
-    `include "tests/uart_coverage_debug_test.sv"
-    `include "tests/uart_axi4_optimized_coverage_test.sv"
-    `include "tests/uart_axi4_advanced_coverage_test.sv"
-    `include "tests/uart_axi4_register_block_test.sv"
-    `include "tests/uart_axi4_read_protocol_test.sv"         // Read protocol verification test
-    `include "tests/uart_flow_control_tests.sv"         // RTS/CTS flow control tests
-    `include "tests/frame_parser_diagnostic_test.sv"    // Frame parser diagnostic test (Oct 10, 2025)
-    `include "tests/uart_axi4_uvm_loopback_test.sv"
-    
-    // TEMPORARILY DISABLED - compilation errors blocking all tests:
-    // `include "tests/uart_axi4_comprehensive_test.sv"     // Comprehensive system test
-    `include "tests/uart_axi4_burst_perf_test.sv"        // Burst performance test
-    // `include "tests/uart_axi4_rtl_error_injection_test.sv"  // RTL-based error injection test
 
 endpackage

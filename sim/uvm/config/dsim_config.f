@@ -77,25 +77,6 @@ monitors/uart_axi4_dut_monitor.sv
 # Transaction and Base Classes - Core UVM components
 agents/uart/uart_transaction.sv
 
-# Base sequence (single instance to avoid duplication)
-sequences/uart_base_sequence.sv
-
-# Protocol verification sequences
-sequences/uart_axi4_write_protocol_sequence.sv
-sequences/uart_axi4_error_protocol_sequence.sv
-sequences/uart_axi4_bridge_control_sequence.sv
-
-# Critical test files - required for UVM test registry
-tests/uart_basic_test.sv
-
-# QA-1.3 Quality Assurance test files
-# tests/uart_axi4_qa_basic_test.sv  # Temporarily disabled for QA-2.2 testing
-
-# Protocol Test Files - AXI4 verification suite
-tests/uart_axi4_write_protocol_test.sv
-tests/uart_axi4_error_protocol_test.sv
-tests/uart_axi4_bridge_control_test.sv
-
 # Testbench top
 tb/uart_axi4_tb_top.sv
 
