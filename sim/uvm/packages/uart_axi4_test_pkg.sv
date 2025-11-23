@@ -135,6 +135,10 @@ package uart_axi4_test_pkg;
         rand logic [1:0] size;  // 00=8bit, 01=16bit, 10=32bit, 11=reserved
         rand logic [3:0] length; // 0-15 (actual length is length+1)
         
+        // Reset transaction fields
+        bit is_reset = 0;           // Flag indicating this is a reset transaction
+        int reset_cycles = 100;     // Number of clock cycles to hold reset
+        
         // Transaction direction and timing
         uart_direction_t direction;
         realtime timestamp;
@@ -187,6 +191,8 @@ package uart_axi4_test_pkg;
             `uvm_field_int(auto_increment, UVM_ALL_ON)
             `uvm_field_int(size, UVM_ALL_ON)
             `uvm_field_int(length, UVM_ALL_ON)
+            `uvm_field_int(is_reset, UVM_ALL_ON)
+            `uvm_field_int(reset_cycles, UVM_ALL_ON)
             `uvm_field_enum(uart_direction_t, direction, UVM_ALL_ON)
             `uvm_field_real(timestamp, UVM_ALL_ON)
             `uvm_field_int(crc_valid, UVM_ALL_ON)
@@ -411,6 +417,7 @@ package uart_axi4_test_pkg;
     // Sequence libraries (need transaction classes to be defined first)
     // ========================================================================
     `include "sequences/uart_reset_seq.sv"     // UVM-compliant DUT reset sequence
+    `include "sequences/uart_reset_sequence.sv" // Driver-controlled reset sequence
     `include "sequences/debug_sequences.sv"    // Debug write sequences
     `include "sequences/basic_func_sequence.sv"
     

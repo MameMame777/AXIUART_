@@ -80,45 +80,83 @@ class uart_monitor extends uvm_monitor;
     endfunction
     
     virtual task run_phase(uvm_phase phase);
-        `uvm_info("UART_MONITOR", "=== RUN_PHASE STARTED ===", UVM_LOW)
-        `uvm_info("UART_MONITOR", "About to fork monitor tasks", UVM_LOW)
+        super.run_phase(phase);  // MUST: UVM 1800.2 - Preserve parent objection management and parallel process initialization
         
-        // Initialize collection buffers
-        rx_collected_bytes = new[100]; // Max frame size
-        tx_collected_bytes = new[100]; // Max frame size
-        
-        fork
-            collect_rx_transactions();
-            collect_tx_transactions();
-            monitor_rts_cts_signals();  // Add flow control monitoring
-        join_none
-        `uvm_info("UART_MONITOR", "Monitor tasks forked - run_phase returning", UVM_LOW)
-        
-        // Monitor runs indefinitely until test drops objection
+        begin : run_phase_body
+            `uvm_info("UART_MONITOR", "=== RUN_PHASE STARTED ===", UVM_LOW)
+            `uvm_info("UART_MONITOR", "About to fork monitor tasks", UVM_LOW)
+            
+            // Initialize collection buffers
+            rx_collected_bytes = new[100]; // Max frame size
+            tx_collected_bytes = new[100]; // Max frame size
+            
+            fork
+                collect_rx_transactions();
+                collect_tx_transactions();
+                monitor_rts_cts_signals();  // Add flow control monitoring
+            join_none
+            `uvm_info("UART_MONITOR", "Monitor tasks forked - run_phase returning", UVM_LOW)
+            
+            // Monitor runs indefinitely until test drops objection
+        end : run_phase_body
     endtask
     
     // ========================================================================
     // Helper Task: Wait for Signal Edge with Timeout (Unified Pattern)
     // ========================================================================
-    virtual task wait_for_edge_with_timeout(
-        ref logic signal,
+    // Wait for signal edge with timeout - DSIM-safe fork/join_any version
+    // NOTE: Cannot use ref ports in fork blocks - poll signal directly via VIF
+    virtual task wait_for_uart_rx_edge_with_timeout(
         input logic target_value,
         input time timeout_ns,
         output bit timeout_occurred
     );
-        time start_time = $time;
+        bit edge_detected = 0;
         timeout_occurred = 0;
         
-        // Advance at least 1 clock to avoid blocking at time 0
-        @(vif.monitor_cb);
-        
-        while (signal != target_value) begin
-            @(vif.monitor_cb);
-            if (($time - start_time) >= timeout_ns) begin
-                timeout_occurred = 1;
-                return;
+        fork
+            begin
+                // Wait for RX signal edge via interface (cannot use ref in fork)
+                while (vif.monitor_cb.uart_rx != target_value) begin
+                    @(vif.monitor_cb);
+                end
+                edge_detected = 1;
             end
-        end
+            begin
+                // Timeout watchdog (absolute time-based, NOT dependent on clock)
+                #timeout_ns;
+            end
+        join_any
+        disable fork;
+        
+        if (!edge_detected) timeout_occurred = 1;
+    endtask
+    
+    // Wait for TX signal edge with timeout - separate task for TX
+    virtual task wait_for_uart_tx_edge_with_timeout(
+        input logic target_value,
+        input time timeout_ns,
+        output bit timeout_occurred
+    );
+        bit edge_detected = 0;
+        timeout_occurred = 0;
+        
+        fork
+            begin
+                // Wait for TX signal edge via interface
+                while (vif.monitor_cb.uart_tx != target_value) begin
+                    @(vif.monitor_cb);
+                end
+                edge_detected = 1;
+            end
+            begin
+                // Timeout watchdog (absolute time-based, NOT dependent on clock)
+                #timeout_ns;
+            end
+        join_any
+        disable fork;
+        
+        if (!edge_detected) timeout_occurred = 1;
     endtask
     
     // ========================================================================
@@ -165,7 +203,7 @@ class uart_monitor extends uvm_monitor;
             if (rx_waiting_for_sof) begin
                 // Wait for UART start bit using unified timeout helper
                 rx_wait_timeout_ns = (cfg.frame_timeout_ns > 0) ? cfg.frame_timeout_ns : 10_000_000;
-                wait_for_edge_with_timeout(vif.uart_rx, 1'b0, rx_wait_timeout_ns, timeout_occurred);
+                wait_for_uart_rx_edge_with_timeout(1'b0, rx_wait_timeout_ns, timeout_occurred);
                 
                 if (timeout_occurred) begin
                     `uvm_info("UART_MONITOR", $sformatf("RX start bit timeout after %0t ns - publishing timeout transaction", rx_wait_timeout_ns), UVM_MEDIUM)
@@ -193,7 +231,7 @@ class uart_monitor extends uvm_monitor;
             end else begin
                 // Collecting frame bytes after SOF
                 rx_wait_timeout_ns = (cfg.byte_time_ns > 0) ? (cfg.byte_time_ns * 20) : 2_000_000; // 20 byte times or 2ms
-                wait_for_edge_with_timeout(vif.uart_rx, 1'b0, rx_wait_timeout_ns, timeout_occurred);
+                wait_for_uart_rx_edge_with_timeout(1'b0, rx_wait_timeout_ns, timeout_occurred);
                 
                 if (timeout_occurred) begin
                     `uvm_info("UART_MONITOR", $sformatf("Multi-byte timeout after %0d bytes - frame complete", rx_byte_count), UVM_MEDIUM)
@@ -325,7 +363,7 @@ class uart_monitor extends uvm_monitor;
             `uvm_info("UART_MONITOR_TX_DEBUG", $sformatf("Waiting for TX start with timeout=%0d ns", tx_wait_timeout_ns), UVM_LOW)
             
             // First wait for idle (high)
-            wait_for_edge_with_timeout(vif.uart_tx, 1'b1, tx_wait_timeout_ns, timeout_occurred);
+            wait_for_uart_tx_edge_with_timeout(1'b1, tx_wait_timeout_ns, timeout_occurred);
             
             if (timeout_occurred) begin
                 `uvm_warning("UART_MONITOR_TX_TIMEOUT", $sformatf("TX idle timeout after %0t ns - publishing timeout transaction", tx_wait_timeout_ns))

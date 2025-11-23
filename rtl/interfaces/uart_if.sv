@@ -75,6 +75,8 @@ interface uart_if (
     clocking driver_cb @(posedge clk);
         output uart_rx;
         output uart_cts_n;
+        output rst;        // Reset control (active high)
+        output rst_n;      // Reset control (active low)
         input  uart_tx;
         input  uart_rts_n;
         input  tx_busy;
@@ -87,6 +89,8 @@ interface uart_if (
     modport driver (
         clocking driver_cb,
         output uart_rx,
+        output rst,        // Reset control (active high)
+        output rst_n,      // Reset control (active low)
         input  uart_tx,
         input  uart_rts_n,      // Monitor RTS output from DUT
         output uart_cts_n,      // Control CTS input to DUT

@@ -540,6 +540,10 @@ async def run_uvm_simulation(
         else:
             cmd.append("+WAVE_FORMAT=MXD")
 
+    # Default UVM trace options (always enabled for better debugging)
+    cmd.append("+UVM_PHASE_TRACE")
+    cmd.append("+UVM_OBJECTION_TRACE")
+
     plusargs_applied: List[str] = []
     if plusargs:
         for entry in plusargs:

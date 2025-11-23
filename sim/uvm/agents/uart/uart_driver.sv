@@ -81,17 +81,20 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     // Reset is handled by test via uart_reset_seq calling vif.reset_dut()
     // Driver assumes reset already completed when transactions begin
     virtual task run_phase(uvm_phase phase);
-        uart_frame_transaction req;
+        super.run_phase(phase);  // MUST: UVM 1800.2 - Preserve parent objection management and parallel process initialization
         
-        // Initialize interface signals
-        initialize_interface();
-        
-        `uvm_info("UART_DRIVER", $sformatf("[OK] %s run_phase START (phase=%s)", get_full_name(), phase.get_name()), UVM_LOW);
-        `uvm_info("UART_DRIVER", "Run phase started - ready for transactions", UVM_LOW);
-        
-        // Simple forever loop (UVM Cookbook pattern)
-        // No reset handling - test controls reset via sequence
-        forever begin
+        begin : run_phase_body
+            uart_frame_transaction req;
+            
+            // Initialize interface signals
+            initialize_interface();
+            
+            `uvm_info("UART_DRIVER", $sformatf("[OK] %s run_phase START (phase=%s)", get_full_name(), phase.get_name()), UVM_LOW);
+            `uvm_info("UART_DRIVER", "Run phase started - ready for transactions", UVM_LOW);
+            
+            // Simple forever loop (UVM Cookbook pattern)
+            // No reset handling - test controls reset via sequence
+            forever begin
             // Blocking get (IEEE 1800.2 / UVM Cookbook standard)
             `uvm_info("UART_DRIVER", "[DIAGNOSTIC] About to call get_next_item()...", UVM_LOW);
             seq_item_port.get_next_item(req);
@@ -110,27 +113,25 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
             drive_transaction(req);
             
             // Completion notification (IEEE 1800.2 required)
+            `uvm_info("UART_DRIVER", "[CRITICAL_DEBUG] BEFORE item_done() call", UVM_LOW);
             seq_item_port.item_done();
+            `uvm_info("UART_DRIVER", "[CRITICAL_DEBUG] AFTER item_done() call", UVM_LOW);
             
-            // Post-frame idle (DUT requirement)
-            apply_post_frame_idle();
+            // Post-frame idle (DUT requirement) - skip for reset transactions
+            if (!req.is_reset) begin
+                apply_post_frame_idle();
+            end else begin
+                `uvm_info("UART_DRIVER", "Reset transaction - skipping post-frame idle", UVM_HIGH);
+            end
             
             `uvm_info("UART_DRIVER", "Transaction completed", UVM_HIGH);
             
-            // Natural termination check (allow graceful exit when test ends)
-            if (phase.get_objection_count(this) == 0) begin
-                // Wait for last transaction processing
-                repeat(10) @(posedge vif.clk);
-                
-                // Re-check
-                if (phase.get_objection_count(this) == 0) begin
-                    `uvm_info("UART_DRIVER", "No active objections - terminating naturally", UVM_LOW);
-                    break;
-                end
-            end
+            // No objection check needed - driver runs until simulation ends
+            // UVM phase mechanism handles proper termination automatically
         end
         
         `uvm_info("UART_DRIVER", "Run phase completed gracefully", UVM_LOW);
+        end : run_phase_body
     endtask
     
     // Initialize interface signals
@@ -138,6 +139,29 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         vif.uart_rx = 1'b1;    // Idle state (high)
         vif.uart_cts_n = 1'b0; // CTS asserted (ready to receive)
         `uvm_info("UART_DRIVER", "Interface initialized: RX=1 CTS_N=0", UVM_HIGH);
+    endtask
+    
+    // Handle reset transaction (driver-controlled reset via clocking block)
+    virtual task handle_reset_transaction(uart_frame_transaction tr);
+        `uvm_info("UART_DRIVER", $sformatf("Executing reset transaction: %0d cycles", tr.reset_cycles), UVM_MEDIUM);
+        
+        // Assert reset (synchronous, active-high)
+        vif.driver_cb.rst <= 1'b1;
+        vif.driver_cb.rst_n <= 1'b0;
+        
+        // Hold reset for specified cycles using direct clock edge (not clocking block)
+        // This ensures reset works even if clocking block has special reset behavior
+        repeat(tr.reset_cycles) @(posedge vif.clk);
+        
+        // De-assert reset
+        @(posedge vif.clk);  // Use direct clock edge - driver_cb may hang if clock stops
+        vif.driver_cb.rst <= 1'b0;
+        vif.driver_cb.rst_n <= 1'b1;
+        
+        // Small stabilization delay after reset release
+        repeat(5) @(posedge vif.clk);
+        
+        `uvm_info("UART_DRIVER", "Reset transaction completed", UVM_MEDIUM);
     endtask
     
     // Handle reset event
@@ -161,10 +185,38 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
     
     // Drive complete transaction
     virtual task drive_transaction(uart_frame_transaction tr);
-        // Check CTS before driving (hardware flow control)
+        // Check if this is a reset transaction
+        if (tr.is_reset) begin
+            handle_reset_transaction(tr);
+            // No item_done() here - the forever loop handles it after this task returns
+            // Early return skips send_frame/collect_response only
+            return;
+        end
+        
+        // Check RTS before driving (hardware flow control)
+        // RTS is active-low: 1'b0 = ready to receive, 1'b1 = not ready
+        `uvm_info("UART_DRIVER", $sformatf("[RTS_CHECK] uart_rts_n=%b before send_frame", vif.uart_rts_n), UVM_LOW);
+        
         if (vif.uart_rts_n == 1'b1) begin
-            `uvm_warning("UART_DRIVER", "RTS de-asserted - DUT not ready, waiting...");
-            wait(vif.uart_rts_n == 1'b0);
+            int timeout_cycles = 1000;
+            `uvm_warning("UART_DRIVER", $sformatf("RTS de-asserted (uart_rts_n=1) - DUT not ready, waiting (max %0d cycles)...", timeout_cycles));
+            
+            // Clock-synchronous wait with timeout
+            for (int i = 0; i < timeout_cycles; i++) begin
+                @(posedge vif.clk);
+                if (vif.uart_rts_n == 1'b0) begin
+                    `uvm_info("UART_DRIVER", $sformatf("[RTS_RECOVERED] RTS asserted after %0d cycles", i), UVM_LOW);
+                    break;
+                end
+            end
+            
+            // Final check after timeout
+            if (vif.uart_rts_n == 1'b1) begin
+                `uvm_error("UART_DRIVER", $sformatf("[RTS_TIMEOUT] RTS still de-asserted after %0d cycles - aborting transaction", timeout_cycles));
+                return;  // Abort transaction
+            end
+        end else begin
+            `uvm_info("UART_DRIVER", "[RTS_READY] RTS asserted (uart_rts_n=0) - proceeding with send_frame", UVM_LOW);
         end
         
         // Send frame

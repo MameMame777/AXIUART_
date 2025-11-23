@@ -73,34 +73,40 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         end
     endfunction
 
-    // UVM-compliant run_phase: reset then sequence execution
+    // ========================================================================
+    // UVM Phase-Based Architecture (IEEE 1800.2 Compliant)
+    // ========================================================================
+    // run_phase: Execute all time-consuming operations (reset + functional test)
+    // This is the ONLY phase where @(posedge clk), #delay, wait are allowed
+    // ========================================================================
+    
     virtual task run_phase(uvm_phase phase);
-        uart_debug_simple_write_seq debug_seq;
+        super.run_phase(phase);  // MUST: UVM 1800.2 - First executable statement (after variable declarations)
         
-        `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
-        `uvm_info("BASIC_TEST", "     UART-AXI4 BASIC FUNCTIONAL TEST", UVM_LOW)
-        `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
+        begin : run_phase_body
+            uart_reset_sequence reset_seq;
+            uart_debug_simple_write_seq debug_seq;
+            
+            `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
+            `uvm_info("BASIC_TEST", "     UART-AXI4 BASIC FUNCTIONAL TEST", UVM_LOW)
+            `uvm_info("BASIC_TEST", "===============================================", UVM_LOW)
         
         // Validate environment was built correctly
         if (env == null || env.uart_agt == null || env.uart_agt.sequencer == null) begin
             `uvm_fatal("BASIC_TEST", "Environment not built correctly - sequencer unavailable")
         end
         
-        // ========================================================================
-        // STEP 1: Execute DUT reset via interface (Direct call pattern)
-        // ========================================================================
-        phase.raise_objection(this, "Executing DUT reset and functional test");
+        phase.raise_objection(this, "Executing reset and functional test");
         
-        `uvm_info("BASIC_TEST", "Executing DUT reset (direct interface call)", UVM_MEDIUM)
+        // Step 1: Reset DUT
+        `uvm_info("BASIC_TEST", "Executing DUT reset (driver-controlled sequence)", UVM_MEDIUM)
+        reset_seq = uart_reset_sequence::type_id::create("reset_seq");
+        reset_seq.reset_cycles = 100;
+        reset_seq.start(env.uart_agt.sequencer);
+        `uvm_info("BASIC_TEST", "Reset completed", UVM_MEDIUM)
         
-        // Direct reset - use inherited uart_vif from base class
-        uart_vif.reset_dut();
-        
-        `uvm_info("BASIC_TEST", "Reset completed - preparing functional test", UVM_MEDIUM)
-        
-        // ========================================================================
-        // STEP 2: Execute functional test sequences
-        // ========================================================================
+        // Step 2: Functional test
+        `uvm_info("BASIC_TEST", "Starting functional test", UVM_MEDIUM)
         
         // Create sequence using correct class name
         debug_seq = uart_debug_simple_write_seq::type_id::create("debug_seq");
@@ -121,7 +127,7 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         
         `uvm_info("BASIC_TEST", "Starting debug write sequence", UVM_MEDIUM)
         
-        // Start sequence - objection already raised at phase start
+        // Start sequence
         debug_seq.start(env.uart_agt.sequencer);
         
         `uvm_info("BASIC_TEST", "Sequence completed successfully", UVM_LOW)
@@ -129,6 +135,7 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
         
         // Drop objection after all sequences complete
         phase.drop_objection(this, "All test sequences completed");
+        end : run_phase_body
     endtask
 
 endclass
