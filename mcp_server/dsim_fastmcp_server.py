@@ -343,7 +343,7 @@ def create_fastmcp_server() -> FastMCP:
     @mcp.tool
     async def compile_design_only(
         test_name: str,
-        verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH"] = "UVM_LOW",
+        verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_DEBUG"] = "UVM_DEBUG",
         timeout: int = 120,
     ) -> Dict[str, Any]:
         """Run a compile-only pass using the unified simulation path."""

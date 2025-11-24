@@ -53,7 +53,7 @@ async def run_single_test(test_name: str, description: str, timeout: int) -> Dic
             tool_args={
                 "test_name": test_name,
                 "mode": "run",
-                "verbosity": "UVM_MEDIUM",
+                "verbosity": "UVM_DEBUG",
                 "waves": False,
                 "wave_format": "MXD",
                 "coverage": False,

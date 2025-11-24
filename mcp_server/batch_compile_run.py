@@ -48,7 +48,7 @@ def _print_summary(prefix: str, payload: Dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Batch compile-and-run for DSIM UVM tests")
     parser.add_argument("--test-name", required=True, help="UVM test name to execute")
-    parser.add_argument("--verbosity", default="UVM_MEDIUM", help="UVM verbosity level (default: UVM_MEDIUM)")
+    parser.add_argument("--verbosity", default="UVM_DEBUG", help="UVM verbosity level (default: UVM_DEBUG)")
     parser.add_argument("--waves", dest="waves", action="store_true", help="Enable waveform generation (default)")
     parser.add_argument("--no-waves", dest="waves", action="store_false", help="Disable waveform generation")
     parser.set_defaults(waves=True)
@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         {
             "test_name": args.test_name,
             "mode": "compile",
-            "verbosity": "UVM_LOW",
+            "verbosity": "UVM_DEBUG",
             "waves": False,
             "wave_format": "MXD",
             "coverage": False,

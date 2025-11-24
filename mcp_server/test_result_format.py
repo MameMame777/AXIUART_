@@ -18,7 +18,7 @@ async def test_minimal():
     result = await run_uvm_simulation(
         test_name="uart_axi4_minimal_test",
         mode="run",
-        verbosity="UVM_MEDIUM",
+        verbosity="UVM_DEBUG",
         timeout=60,
         waves=False,
         coverage=False
