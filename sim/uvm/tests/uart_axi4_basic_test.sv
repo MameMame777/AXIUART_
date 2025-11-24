@@ -81,7 +81,7 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
     // ========================================================================
     
     virtual task run_phase(uvm_phase phase);
-        super.run_phase(phase);  // MUST: UVM 1800.2 - First executable statement (after variable declarations)
+        // Do NOT call super.run_phase() as we override completely
         
         begin : run_phase_body
             uart_reset_sequence reset_seq;

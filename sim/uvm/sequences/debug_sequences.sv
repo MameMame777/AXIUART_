@@ -41,14 +41,16 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After start_item at time=%0t", $time), UVM_LOW)
         
-        // CRITICAL FIX: Set SOF value (missing and causing Frame_Parser to never detect frames)
-        req.sof = SOF_HOST_TO_DEVICE;  // 0xA5 - required for Frame_Parser to detect start of frame
-        
-        // Set exact values - no randomization
-        req.cmd = 8'h00;  // Write, 1 byte (LEN=1), no increment
-        req.addr = 32'h1000;  // Base address
-        req.data = new[1];
-        req.data[0] = 8'h42;  // Predictable data
+        // Randomize with constraints (this will fail because addr/data are NOT rand)
+        if (!req.randomize() with {
+            sof == SOF_HOST_TO_DEVICE;  // 0xA5
+            cmd == 8'h00;               // Write command
+            addr == 32'h1000;           // NON-RAND field - causes failure
+            data.size() == 1;           // NON-RAND field - causes failure
+            data[0] == 8'h42;           // NON-RAND field - causes failure
+        }) begin
+            `uvm_fatal("DEBUG_WRITE_SEQ", "Transaction randomization failed")
+        end
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before finish_item at time=%0t", $time), UVM_LOW)
         
