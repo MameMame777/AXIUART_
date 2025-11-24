@@ -398,7 +398,7 @@ package uart_axi4_test_pkg;
     `include "scoreboard/correlation_engine.sv"     // Phase 3: Correlation Engine integration
     `include "env/uart_axi4_scoreboard.sv"          // Phase 3: Scoreboard with Correlation Engine
     `include "agents/axi4_lite/axi4_lite_monitor.sv"
-    `include "monitors/bridge_status_monitor.sv"
+    `include "components/bridge_status_monitor.sv"
     
     // Then include driver and monitor classes
     `include "agents/uart/uart_driver.sv"

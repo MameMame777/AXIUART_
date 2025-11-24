@@ -75,7 +75,6 @@ packages/axiuart_cov_pkg.sv
 
 # QA-2.1 Enhanced Scoreboard and DUT Monitor (after packages)
 scoreboard/uart_axi4_enhanced_scoreboard.sv
-monitors/uart_axi4_dut_monitor.sv
 
 # Transaction and Base Classes - Core UVM components
 agents/uart/uart_transaction.sv
