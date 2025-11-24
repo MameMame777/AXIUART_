@@ -310,7 +310,7 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_HIGH",
             "UVM_FULL",
             "UVM_DEBUG",
-    ] = "UVM_MEDIUM",
+    ] = "UVM_DEBUG",
     waves: bool = True,
     wave_format: Literal["VPD", "MXD", "VCD"] = "MXD",
         coverage: bool = False,
@@ -319,6 +319,15 @@ def create_fastmcp_server() -> FastMCP:
         plusargs: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Execute a DSIM UVM simulation via the unified async API."""
+        # Ensure PHASE_TRACE and OBJECTION_TRACE are always enabled
+        if plusargs is None:
+            plusargs = []
+        
+        if "+UVM_PHASE_TRACE" not in plusargs:
+            plusargs.append("+UVM_PHASE_TRACE")
+        if "+UVM_OBJECTION_TRACE" not in plusargs:
+            plusargs.append("+UVM_OBJECTION_TRACE")
+        
         return await _execute_simulation(
             test_name=test_name,
             mode=mode,
@@ -358,7 +367,7 @@ def create_fastmcp_server() -> FastMCP:
             "UVM_HIGH",
             "UVM_FULL",
             "UVM_DEBUG",
-        ] = "UVM_MEDIUM",
+        ] = "UVM_DEBUG",
         waves: bool = True,
     wave_format: Literal["VPD", "MXD", "VCD"] = "MXD",
         coverage: bool = False,
@@ -375,7 +384,7 @@ def create_fastmcp_server() -> FastMCP:
         
         Args:
             test_name: UVM test name to execute
-            verbosity: UVM verbosity level (default: UVM_MEDIUM)
+            verbosity: UVM verbosity level (default: UVM_DEBUG)
 
             waves: Enable waveform generation (default: True)
             wave_format: Waveform format - MXD (binary) or VCD (text) (default: MXD)
@@ -390,6 +399,18 @@ def create_fastmcp_server() -> FastMCP:
         """
         logger.info(f"[BATCH] Starting batch execution for test: {test_name}")
         
+        # Ensure PHASE_TRACE and OBJECTION_TRACE are always enabled
+        if plusargs is None:
+            plusargs = []
+        
+        # Add trace plusargs if not already present
+        if "+UVM_PHASE_TRACE" not in plusargs:
+            plusargs.append("+UVM_PHASE_TRACE")
+        if "+UVM_OBJECTION_TRACE" not in plusargs:
+            plusargs.append("+UVM_OBJECTION_TRACE")
+        
+        logger.info(f"[BATCH] Active plusargs: {plusargs}")
+        
         # Phase 1: Compile
         logger.info("[BATCH] Phase 1/2: Compiling...")
         compile_result = await _execute_simulation(
@@ -401,7 +422,7 @@ def create_fastmcp_server() -> FastMCP:
             seed=seed if seed is not None else 1,
             timeout=compile_timeout,
             wave_format=wave_format,
-            plusargs=None,
+            plusargs=plusargs,  # Pass plusargs to compile for consistency
         )
         
         if compile_result.get("status") != "success":
