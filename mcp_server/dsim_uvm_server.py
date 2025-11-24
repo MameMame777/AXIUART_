@@ -413,7 +413,7 @@ Output:
 async def run_uvm_simulation(
     test_name: str = "uart_axi4_basic_test",
     mode: Literal["run", "compile", "elaborate"] = "run",
-    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_MEDIUM",
+    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_DEBUG",
     waves: bool = True,
     wave_format: Literal["VCD", "MXD"] = "MXD",
     coverage: bool = True,
@@ -951,7 +951,7 @@ async def list_available_tests() -> str:
 @mcp.tool()
 async def compile_design(
     test_name: str = "uart_axi4_basic_test",
-    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH"] = "UVM_LOW", 
+    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH"] = "UVM_DEBUG", 
     timeout: int = 120
 ) -> str:
     """Compile SystemVerilog design and testbench only (no simulation execution).
@@ -980,7 +980,7 @@ async def compile_design(
 @mcp.tool()
 async def run_simulation(
     test_name: str = "uart_axi4_basic_test",
-    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_MEDIUM",
+    verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_DEBUG",
     seed: int = 1,
     timeout: int = 300
 ) -> str:

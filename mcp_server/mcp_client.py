@@ -34,7 +34,7 @@ def _parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Execution mode: compile only, run only, or batch (compile+run, default)",
     )
     parser.add_argument("--test-name", type=str, help="Test name for simulation")
-    parser.add_argument("--verbosity", type=str, default="UVM_MEDIUM", help="UVM verbosity level")
+    parser.add_argument("--verbosity", type=str, default="UVM_DEBUG", help="UVM verbosity level")
     parser.add_argument("--waves", dest="waves", action="store_true", help="Enable waveform generation (default)")
     parser.add_argument("--no-waves", dest="waves", action="store_false", help="Disable waveform generation")
     parser.set_defaults(waves=True)

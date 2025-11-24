@@ -28,8 +28,8 @@ class uart_agent extends uvm_agent;
         
         // Create monitor (always present)
         monitor = uart_monitor::type_id::create("monitor", this);
-    uvm_config_db#(uart_axi4_env_config)::set(this, "monitor", "cfg", cfg);
-    `uvm_info("UART_AGENT_DBG", $sformatf("Monitor created: %s", (monitor == null) ? "NULL" : monitor.get_full_name()), UVM_LOW)
+        uvm_config_db#(uart_axi4_env_config)::set(this, "monitor", "cfg", cfg);
+        `uvm_info("UART_AGENT_DBG", $sformatf("Monitor created: %s", (monitor == null) ? "NULL" : monitor.get_full_name()), UVM_LOW)
         
         // Create driver and sequencer only if agent is active
         if (cfg.uart_agent_is_active) begin
