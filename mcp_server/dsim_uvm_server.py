@@ -489,7 +489,9 @@ async def run_uvm_simulation(
     
     # Use correct relative path from sim/uvm working directory
     # sim/uvm -> ../exec/logs (one level up to sim, then exec/logs)
-    log_file_relative = f"../exec/logs/{test_name}_{timestamp}.log"
+    # Add mode suffix to distinguish compile vs run logs
+    mode_suffix = f"_{mode}" if mode in ("compile", "elaborate") else ""
+    log_file_relative = f"../exec/logs/{test_name}_{timestamp}{mode_suffix}.log"
     
     # Build command with enhanced options
     # Use relative config file path since we're executing from sim/uvm directory
