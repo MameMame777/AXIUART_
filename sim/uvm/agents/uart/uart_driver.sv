@@ -269,21 +269,27 @@ class uart_driver extends uvm_driver #(uart_frame_transaction);
         `uvm_info("UART_DRIVER", "Frame transmission complete", UVM_HIGH);
     endtask
     
-    // Send single UART byte (8N1 format)
+    // Send single UART byte (8N1 format) - CLOCK SYNCHRONIZED
     virtual task send_uart_byte(logic [7:0] data);
+        int clocks_per_bit;
+        
+        // Calculate clocks needed per UART bit (convert ns to clock cycles)
+        clocks_per_bit = bit_period_ns / 1000; // Assume 1MHz clock (1000ns period)
+        if (clocks_per_bit < 1) clocks_per_bit = 1;
+        
         // Start bit (low)
         vif.uart_rx = 1'b0;
-        #bit_period_ns;
+        repeat (clocks_per_bit) @(posedge vif.clk);
         
         // Data bits (LSB first)
         for (int i = 0; i < 8; i++) begin
             vif.uart_rx = data[i];
-            #bit_period_ns;
+            repeat (clocks_per_bit) @(posedge vif.clk);
         end
         
         // Stop bit (high)
         vif.uart_rx = 1'b1;
-        #bit_period_ns;
+        repeat (clocks_per_bit) @(posedge vif.clk);
     endtask
     
     // Apply post-frame idle period (critical for DUT idle_cnt)

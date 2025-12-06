@@ -41,16 +41,18 @@ class uart_debug_simple_write_seq extends uvm_sequence #(uart_frame_transaction)
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("After start_item at time=%0t", $time), UVM_LOW)
         
-        // Randomize with constraints (this will fail because addr/data are NOT rand)
+        // ★ FIX: Only randomize rand fields, manually assign non-rand fields
         if (!req.randomize() with {
-            sof == SOF_HOST_TO_DEVICE;  // 0xA5
-            cmd == 8'h00;               // Write command
-            addr == 32'h1000;           // NON-RAND field - causes failure
-            data.size() == 1;           // NON-RAND field - causes failure
-            data[0] == 8'h42;           // NON-RAND field - causes failure
+            sof == SOF_HOST_TO_DEVICE;  // 0xA5 - rand field
+            cmd == 8'h00;               // Write command - rand field
         }) begin
             `uvm_fatal("DEBUG_WRITE_SEQ", "Transaction randomization failed")
         end
+        
+        // Manually assign non-rand fields AFTER randomization
+        req.addr = 32'h1000;
+        req.data = new[1];
+        req.data[0] = 8'h42;
         
         `uvm_info("DEBUG_WRITE_SEQ", $sformatf("Before finish_item at time=%0t", $time), UVM_LOW)
         

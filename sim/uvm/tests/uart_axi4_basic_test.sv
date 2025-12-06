@@ -96,7 +96,12 @@ class uart_axi4_basic_test extends enhanced_uart_axi4_base_test;
             `uvm_fatal("BASIC_TEST", "Environment not built correctly - sequencer unavailable")
         end
         
+        // ★★★ CRITICAL: Raise objection BEFORE any clock-dependent operations
         phase.raise_objection(this, "Executing reset and functional test");
+        
+        // ★★★ UBUS PATTERN: Wait for clock stabilization after objection
+        // At time 0, clocking blocks are not yet initialized - must synchronize to clock edge
+        repeat (2) @(posedge env.uart_agt.driver.vif.clk);
         
         // Step 1: Reset DUT
         `uvm_info("BASIC_TEST", "Executing DUT reset (driver-controlled sequence)", UVM_MEDIUM)
