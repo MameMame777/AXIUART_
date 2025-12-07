@@ -553,7 +553,7 @@ async def run_uvm_simulation(
     wave_plusargs: List[str] = []
     enable_waves = waves and (mode == "run")
     if enable_waves:
-        waves_dir = workspace_root / "archive" / "waveforms"
+        waves_dir = workspace_root / "sim" / "exec" / "wave"
         waves_dir.mkdir(parents=True, exist_ok=True)
 
         if wave_format == "MXD":
@@ -1090,7 +1090,7 @@ async def generate_waveforms(
     waves_file = parsed.get("waves_file")
     if waves_file is None and workspace_root is not None:
         # Fallback when waveform path is not reported (e.g., VCD dump)
-        waves_dir = workspace_root / "archive" / "waveforms"
+        waves_dir = workspace_root / "sim" / "exec" / "wave"
         extension = wave_format.lower()
         waves_file = str(waves_dir / f"{test_name}.{extension}")
 
