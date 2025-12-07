@@ -1,0 +1,38 @@
+{
+  "test_name": "axiuart_simplified_basic_test",
+  "description": "Simplified AXIUART UVM basic test (UBUS style)",
+  "config_file": "sim/uvm_simplified/tb/dsim_config.f",
+  "top_module": "axiuart_tb_top",
+  "uvm_testname": "axiuart_basic_test",
+  "work_dir": "sim/uvm_simplified/tb",
+  "rtl_files": [
+    "rtl/interfaces/uart_if.sv",
+    "rtl/interfaces/axi4_lite_if.sv",
+    "rtl/fifo_sync.sv",
+    "rtl/Uart_Rx.sv",
+    "rtl/Uart_Tx.sv",
+    "rtl/Crc8_Calculator.sv",
+    "rtl/Frame_Parser.sv",
+    "rtl/Frame_Builder.sv",
+    "rtl/Address_Aligner.sv",
+    "rtl/Register_Block.sv",
+    "rtl/Axi4_Lite_Master.sv",
+    "rtl/Uart_Axi4_Bridge.sv",
+    "rtl/AXIUART_Top.sv"
+  ],
+  "uvm_files": [
+    "sim/uvm_simplified/sv/axiuart_pkg.sv",
+    "sim/uvm_simplified/tb/axiuart_basic_test.sv",
+    "sim/uvm_simplified/tb/axiuart_tb_top.sv"
+  ],
+  "compile_options": [
+    "+define+UVM_NO_DEPRECATED",
+    "+define+UVM_OBJECT_MUST_HAVE_CONSTRUCTOR",
+    "-waves"
+  ],
+  "run_options": [
+    "+UVM_VERBOSITY=UVM_MEDIUM"
+  ],
+  "wave_file": "axiuart_simplified.mxd",
+  "timeout": 300
+}

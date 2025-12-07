@@ -1,5 +1,0 @@
-# Coverage Scope Specifications for DSIM
-# DSIM format: scope path options
-
-# Include DUT instance for coverage
-instance uart_axi4_tb_top.dut +

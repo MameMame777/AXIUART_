@@ -61,7 +61,7 @@ def _parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _default_test_name(args: argparse.Namespace) -> str:
-    return args.test_name or "uart_axi4_basic_test"
+    return args.test_name or "axiuart_basic_test"
 
 
 def _merge_plusargs(args: argparse.Namespace) -> list[str]:

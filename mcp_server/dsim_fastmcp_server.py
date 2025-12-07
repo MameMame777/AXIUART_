@@ -277,7 +277,7 @@ def create_fastmcp_server() -> FastMCP:
     @mcp.tool
     def list_available_tests() -> Dict[str, Any]:
         """Enumerate available UVM tests without spawning helper scripts."""
-        tests_dir = workspace / "sim" / "uvm" / "tests"
+        tests_dir = workspace / "sim" / "uvm_simplified" / "tb"
 
         if not tests_dir.exists():
             return {

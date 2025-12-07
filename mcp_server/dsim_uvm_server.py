@@ -261,14 +261,37 @@ def parse_dsim_error(stderr_output: str, exit_code: int) -> DSIMError:
         )
 
 def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.CompletedProcess[bytes]:
-    """Run subprocess and drain its pipes to avoid deadlocks on large DSIM output."""
-
+    """Run subprocess and drain its pipes to avoid deadlocks on large DSIM output.
+    
+    CRITICAL: Windows DLL resolution requires explicit PATH in environment.
+    """
+    
+    # Ensure DSIM environment is fully configured
+    if not setup_dsim_environment():
+        raise DSIMError(
+            "DSIM environment setup failed",
+            "environment",
+            "Verify DSIM_HOME is set and points to valid DSIM installation"
+        )
+    
+    # Create fresh environment with current os.environ (includes PATH updates)
+    env = os.environ.copy()
+    
+    # CRITICAL: Explicitly verify PATH contains DSIM bin directory
+    dsim_bin = Path(dsim_home) / "bin" if dsim_home else None
+    if dsim_bin and str(dsim_bin) not in env.get('PATH', ''):
+        logger.warning(f"DSIM bin not in PATH, forcing: {dsim_bin}")
+        env['PATH'] = str(dsim_bin) + os.pathsep + env.get('PATH', '')
+    
+    logger.debug(f"Subprocess environment PATH (first 500 chars): {env.get('PATH', '')[:500]}")
+    logger.debug(f"DSIM_HOME: {env.get('DSIM_HOME', 'NOT SET')}")
+    
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=cwd,
-        env=os.environ.copy()
+        env=env
     )
 
     try:
@@ -285,7 +308,7 @@ def _run_subprocess_sync(cmd: List[str], timeout: int, cwd: Path) -> subprocess.
     return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
 
 
-async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
+async def execute_dsim_command(cmd: List[str], timeout: int = 300, cwd: Optional[Path] = None) -> str:
     """Execute DSIM command with enhanced error handling and diagnostics."""
     
     logger.info(f"Executing DSIM: {' '.join(cmd)}")
@@ -302,7 +325,7 @@ async def execute_dsim_command(cmd: List[str], timeout: int = 300) -> str:
         logger.debug(f"Current asyncio loop: {type(loop)}")
         # Execute with timeout and capture output
         # Change working directory to sim/uvm for correct relative path resolution
-        uvm_work_dir = workspace_root / "sim" / "uvm"
+        uvm_work_dir = cwd if cwd is not None else workspace_root / "sim" / "uvm"
 
         if sys.platform == "win32":
             completed = await asyncio.to_thread(
@@ -351,7 +374,7 @@ Message: {dsim_error.message}
 Suggestion: {dsim_error.suggestion}
 
 Command: {' '.join(cmd)}
-Working Directory: {uvm_work_dir}
+Working Directory: {cwd}
 
 STDERR Output:
 {stderr_text}
@@ -368,6 +391,7 @@ STDOUT Output:
 
 Command: {' '.join(cmd)}
 Exit Code: 0
+Working Directory: {cwd}
 Working Directory: {uvm_work_dir}
 
 Output:
@@ -411,7 +435,7 @@ Output:
 
 @mcp.tool()
 async def run_uvm_simulation(
-    test_name: str = "uart_axi4_basic_test",
+    test_name: str = "axiuart_basic_test",
     mode: Literal["run", "compile", "elaborate"] = "run",
     verbosity: Literal["UVM_NONE", "UVM_LOW", "UVM_MEDIUM", "UVM_HIGH", "UVM_FULL", "UVM_DEBUG"] = "UVM_DEBUG",
     waves: bool = True,
@@ -419,7 +443,8 @@ async def run_uvm_simulation(
     coverage: bool = True,
     seed: int = 1,
     timeout: int = 300,
-    plusargs: Optional[List[str]] = None
+    plusargs: Optional[List[str]] = None,
+    use_simplified: bool = True
 ) -> str:
     """Execute DSIM UVM simulation with comprehensive options and enhanced error diagnostics.
     
@@ -470,14 +495,16 @@ async def run_uvm_simulation(
             f"Verify DSIM installation in {dsim_home}"
         )
         
-    uvm_dir = workspace_root / "sim" / "uvm"
-    config_file = uvm_dir / "config" /  "dsim_config.f"
+    # Use simplified environment (only environment available)
+    uvm_dir = workspace_root / "sim" / "uvm_simplified" / "tb"
+    config_file = uvm_dir / "dsim_config.f"
+    top_module = "axiuart_tb_top"
 
     if not config_file.exists():
         raise DSIMError(
             f"DSIM configuration file not found: {config_file}",
             "configuration",
-            "Ensure dsim_config.f exists in sim/uvm directory"
+            f"Ensure dsim_config.f exists in {uvm_dir}"
         )
     
     # Create timestamped log directory and prune older entries to limit clutter
@@ -487,21 +514,26 @@ async def run_uvm_simulation(
     # Ensure stale logs do not accumulate – keep only the upcoming run
     remove_existing_logs(log_dir)
     
-    # Use correct relative path from sim/uvm working directory
-    # sim/uvm -> ../exec/logs (one level up to sim, then exec/logs)
+    # Use correct relative path from sim/uvm_simplified/tb working directory
+    # sim/uvm_simplified/tb -> ../../exec/logs (two levels up to sim, then exec/logs)
     # Add mode suffix to distinguish compile vs run logs
     mode_suffix = f"_{mode}" if mode in ("compile", "elaborate") else ""
-    log_file_relative = f"../exec/logs/{test_name}_{timestamp}{mode_suffix}.log"
+    log_file_relative = f"../../exec/logs/{test_name}_{timestamp}{mode_suffix}.log"
     
     # Build command with enhanced options
     # Use relative config file path since we're executing from sim/uvm directory
     # Note: -uvm must be specified BEFORE mode-specific options (DSIM requirement)
+    if use_simplified:
+        config_relative = "dsim_config.f"  # Already in tb/ directory
+    else:
+        config_relative = "config/dsim_config.f"  # In config/ subdirectory
+    
     cmd = [
         str(dsim_exe),
         "-uvm", "1.2",  # CRITICAL: UVM library version (DSIM official requirement)
         "-timescale", "1ns/1ps",  # Global timescale to fix 1000x slowdown issue
-        "-f", "config/dsim_config.f",  # Fixed path: config file is in config/ subdirectory
-        "-top", "work.uart_axi4_tb_top",  # Top-level module specification
+        "-f", config_relative,
+        "-top", top_module,  # Top-level module specification
         f"+UVM_TESTNAME={test_name}",
         f"+UVM_VERBOSITY={verbosity}",
         "-sv_seed", str(seed),
@@ -579,7 +611,8 @@ async def run_uvm_simulation(
     # Execute with enhanced error handling
     try:
         logger.info(f"[DEBUG] DSIM command: {' '.join(cmd)}")
-        result_text = await execute_dsim_command(cmd, timeout)
+        logger.info(f"[DEBUG] Working directory: {uvm_dir}")
+        result_text = await execute_dsim_command(cmd, timeout, cwd=uvm_dir)
 
         log_file_absolute = (uvm_dir / log_file_relative).resolve()
 
@@ -902,7 +935,7 @@ async def list_available_tests() -> str:
     if not workspace_root:
         return f"{STATUS_FAIL} Workspace root not configured"
     
-    uvm_tests_dir = workspace_root / "sim" / "uvm" / "tests"
+    uvm_tests_dir = workspace_root / "sim" / "uvm_simplified" / "tb"
     
     if not uvm_tests_dir.exists():
         return f"{STATUS_FAIL} UVM tests directory not found: {uvm_tests_dir}"
