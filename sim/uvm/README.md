@@ -7,7 +7,7 @@ UBUSリファレンス実装を参考に、AXIUART UVM環境を大幅に簡素�
 ## ディレクトリ構造
 
 ```
-sim/uvm_simplified/
+sim/uvm/
 ├── sv/                           # すべてのUVMコンポーネント (UBUSスタイル)
 │   ├── axiuart_pkg.sv           # メインパッケージ (1ファイル)
 │   ├── uart_transaction.sv      # トランザクション

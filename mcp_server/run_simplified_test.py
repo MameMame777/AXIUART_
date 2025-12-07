@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MCP Client for Simplified UVM Environment
-Wrapper to execute tests in sim/uvm_simplified
+Wrapper to execute tests in sim/uvm
 """
 
 import sys
@@ -16,7 +16,7 @@ def run_simplified_test(workspace: str, test_name: str = "axiuart_basic_test",
     """Run simplified UVM test using DSIM"""
     
     workspace_path = Path(workspace)
-    tb_dir = workspace_path / "sim" / "uvm_simplified" / "tb"
+    tb_dir = workspace_path / "sim" / "uvm" / "tb"
     config_file = tb_dir / "dsim_config.f"
     log_dir = workspace_path / "sim" / "exec" / "logs"
     

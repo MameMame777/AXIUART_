@@ -41,7 +41,7 @@ def main():
         print()
         print("=" * 70)
         print("次のステップ:")
-        print("1. sim/uvm_simplified/の構造を確認")
+        print("1. sim/uvm/の構造を確認")
         print("2. MCPサーバーに簡素化版設定パスを追加")
         print("3. 簡素化版専用のMCPツールを実装")
         print("=" * 70)

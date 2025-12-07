@@ -496,7 +496,7 @@ async def run_uvm_simulation(
         )
         
     # Use simplified environment (only environment available)
-    uvm_dir = workspace_root / "sim" / "uvm_simplified" / "tb"
+    uvm_dir = workspace_root / "sim" / "uvm" / "tb"
     config_file = uvm_dir / "dsim_config.f"
     top_module = "axiuart_tb_top"
 
@@ -514,8 +514,8 @@ async def run_uvm_simulation(
     # Ensure stale logs do not accumulate – keep only the upcoming run
     remove_existing_logs(log_dir)
     
-    # Use correct relative path from sim/uvm_simplified/tb working directory
-    # sim/uvm_simplified/tb -> ../../exec/logs (two levels up to sim, then exec/logs)
+    # Use correct relative path from sim/uvm/tb working directory
+    # sim/uvm/tb -> ../../exec/logs (two levels up to sim, then exec/logs)
     # Add mode suffix to distinguish compile vs run logs
     mode_suffix = f"_{mode}" if mode in ("compile", "elaborate") else ""
     log_file_relative = f"../../exec/logs/{test_name}_{timestamp}{mode_suffix}.log"
@@ -986,7 +986,7 @@ async def list_available_tests() -> str:
     if not workspace_root:
         return f"{STATUS_FAIL} Workspace root not configured"
     
-    uvm_tests_dir = workspace_root / "sim" / "uvm_simplified" / "tb"
+    uvm_tests_dir = workspace_root / "sim" / "uvm" / "tb"
     
     if not uvm_tests_dir.exists():
         return f"{STATUS_FAIL} UVM tests directory not found: {uvm_tests_dir}"

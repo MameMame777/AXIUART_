@@ -8,7 +8,7 @@
 ### ✅ 完了事項
 1. **UBUS参照に基づく簡素化環境構築**
    - 14ファイル構成（既存49ファイルから71%削減）
-   - ディレクトリ: `sim/uvm_simplified/`
+   - ディレクトリ: `sim/uvm/`
    - パッケージ: `axiuart_pkg.sv` (UBUS単一パッケージパターン)
    - テスト: `axiuart_basic_test` (Reset + Write sequences)
 
@@ -22,21 +22,19 @@
    - `run_simplified_test.py` - Python実行ラッパー（環境変数設定込み）
    - `simplified_config.py` - MCP設定拡張
 
-### ❌ 未解決の問題
+### ✅ 過去の問題 (すべて解決済み)
 
-#### **DSIM実行時クラッシュ (Exit Code: 0xC0000135 / 3221225781)**
+#### **DSIM実行時クラッシュ (Exit Code: 0xC0000135)** ✅ 解決済み
 
-**症状:**
-- DSIM実行ファイルは存在し、パスも通っている
-- 環境変数 (DSIM_HOME, PATH等) は正しく設定されている
-- コマンド実行するとクラッシュ、出力なし（0バイト）
-- 既存環境 (`sim/uvm/`) では同じDSIMバイナリが正常動作
+**原因:** subprocess環境変数PATHが未継承
 
-**原因仮説:**
-1. ⚠️ **設定ファイル内の構文エラー** - DSIMパーサーがクラッシュ
-2. ⚠️ **トップモジュール名の不一致** - `-top axiuart_tb_top` vs 実際の定義
-3. ⚠️ **パッケージのinclude順序** - コンパイル時の依存関係エラー
-4. ⚠️ **インターフェース定義の問題** - `uart_if`, `axi4_lite_if`の重複宣言
+**解決策:** 環境変数明示的設定
+
+#### **UART Monitor無限ループ** ✅ 解決済み
+
+**原因:** 同期待ちロジックでの即リターン
+
+**解決策:** do-while ループに変更、ログレベル調整
 
 ## 次のアクション（優先順位順）
 
@@ -62,7 +60,7 @@ dsim -uvm 1.2 -timescale 1ns/1ps minimal_tb.sv -top minimal_tb -work work
 ```
 
 ### 2. 既存環境との差分比較 [HIGH]
-- `sim/uvm/config/dsim_config.f` vs `sim/uvm_simplified/tb/dsim_config.f`
+- `sim/uvm/config/dsim_config.f` (旧環境・削除済み) vs `sim/uvm/tb/dsim_config.f`
 - 特に`+define`、`+incdir`の順序と内容
 - インターフェースファイルの指定方法
 

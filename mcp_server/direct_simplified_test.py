@@ -35,7 +35,7 @@ def run_dsim_compile_simplified():
     print(f"PATH (first 200 chars): {os.environ['PATH'][:200]}")
     
     # Simplified environment paths
-    tb_dir = workspace / "sim" / "uvm_simplified" / "tb"
+    tb_dir = workspace / "sim" / "uvm" / "tb"
     config_file = tb_dir / "dsim_config.f"
     
     if not config_file.exists():

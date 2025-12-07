@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 # Simplified UVM directories
-SIMPLIFIED_UVM_ROOT = "sim/uvm_simplified"
+SIMPLIFIED_UVM_ROOT = "sim/uvm"
 SIMPLIFIED_TB_DIR = f"{SIMPLIFIED_UVM_ROOT}/tb"
 SIMPLIFIED_SV_DIR = f"{SIMPLIFIED_UVM_ROOT}/sv"
 

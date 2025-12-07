@@ -15,7 +15,7 @@ def get_simplified_config(workspace_root: Path) -> dict:
     Returns:
         Configuration dictionary for simplified environment
     """
-    sim_dir = workspace_root / "sim" / "uvm_simplified"
+    sim_dir = workspace_root / "sim" / "uvm"
     
     return {
         "name": "AXIUART Simplified UVM",

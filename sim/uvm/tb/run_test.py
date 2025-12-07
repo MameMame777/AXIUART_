@@ -14,7 +14,7 @@ def run_simplified_test():
     
     # Paths
     workspace = Path(r"e:\Nautilus\workspace\fpgawork\AXIUART_")
-    test_dir = workspace / "sim" / "uvm_simplified" / "tb"
+    test_dir = workspace / "sim" / "uvm" / "tb"
     
     os.chdir(test_dir)
     

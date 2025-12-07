@@ -21,9 +21,9 @@
     "rtl/AXIUART_Top.sv"
   ],
   "uvm_files": [
-    "sim/uvm_simplified/sv/axiuart_pkg.sv",
-    "sim/uvm_simplified/tb/axiuart_basic_test.sv",
-    "sim/uvm_simplified/tb/axiuart_tb_top.sv"
+    "sim/uvm/sv/axiuart_pkg.sv",
+    "sim/uvm/tb/axiuart_basic_test.sv",
+    "sim/uvm/tb/axiuart_tb_top.sv"
   ],
   "compile_options": [
     "+define+UVM_NO_DEPRECATED",
