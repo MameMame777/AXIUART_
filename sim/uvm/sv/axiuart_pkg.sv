@@ -28,6 +28,9 @@ package axiuart_pkg;
     // AXI Agent components (monitor only for internal observation)
     `include "axi4_lite_monitor.sv"
     
+    // Reset sequence
+    `include "uart_reset_sequence.sv"
+    
     // Scoreboard
     `include "axiuart_scoreboard.sv"
     
