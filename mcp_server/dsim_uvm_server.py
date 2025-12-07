@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Literal, Dict, Any, cast
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 
 from tools.utils import analyse_uvm_log, summarise_test_result, collect_assertion_summary
@@ -643,6 +643,13 @@ async def run_uvm_simulation(
             ]
             if raw_warnings and len(raw_warnings) > 10:
                 warning_messages.append("Additional warnings truncated")
+            
+            # Clean up old logs and waveforms (older than 2 days)
+            try:
+                cleanup_old_files(workspace_root)
+            except Exception as cleanup_exc:
+                logger.warning(f"Failed to cleanup old files: {cleanup_exc}")
+                
         except FileNotFoundError:
             warning_messages.append("Log file not found for analysis. Skipping analytics phase.")
         except Exception as exc:  # pragma: no cover - defensive catch
@@ -689,6 +696,50 @@ async def run_uvm_simulation(
         }
 
         raise DSIMError(json.dumps(enhanced_error, ensure_ascii=False), e.error_type, e.suggestion, e.exit_code)
+
+def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
+    """Delete log and waveform files older than max_age_days.
+    
+    Args:
+        workspace: Workspace root path
+        max_age_days: Maximum age in days (default: 2)
+    """
+    cutoff_time = datetime.now() - timedelta(days=max_age_days)
+    
+    # Cleanup log files
+    logs_dir = workspace / "sim" / "exec" / "logs"
+    if logs_dir.exists():
+        deleted_logs = 0
+        for log_file in logs_dir.glob("*.log"):
+            try:
+                file_mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
+                if file_mtime < cutoff_time:
+                    log_file.unlink()
+                    deleted_logs += 1
+                    logger.debug(f"Deleted old log: {log_file.name}")
+            except Exception as e:
+                logger.warning(f"Failed to delete log {log_file.name}: {e}")
+        
+        if deleted_logs > 0:
+            logger.info(f"Cleaned up {deleted_logs} log file(s) older than {max_age_days} days")
+    
+    # Cleanup waveform files
+    wave_dir = workspace / "sim" / "exec" / "wave"
+    if wave_dir.exists():
+        deleted_waves = 0
+        for wave_file in wave_dir.glob("*"):
+            if wave_file.suffix.lower() in (".mxd", ".vcd", ".vpd"):
+                try:
+                    file_mtime = datetime.fromtimestamp(wave_file.stat().st_mtime)
+                    if file_mtime < cutoff_time:
+                        wave_file.unlink()
+                        deleted_waves += 1
+                        logger.debug(f"Deleted old waveform: {wave_file.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to delete waveform {wave_file.name}: {e}")
+        
+        if deleted_waves > 0:
+            logger.info(f"Cleaned up {deleted_waves} waveform file(s) older than {max_age_days} days")
 
 @mcp.tool()
 async def analyze_uvm_log(log_path: str, limit: int = 10) -> str:
