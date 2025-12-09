@@ -14,7 +14,7 @@ module axiuart_tb_top;
     
     // Instantiate DUT (AXIUART_Top has no external AXI ports!)
     AXIUART_Top #(
-        .CLK_FREQ_HZ(125_000_000),
+        .CLK_FREQ_HZ(125_000_000),  // Match actual testbench clock (125MHz)
         .BAUD_RATE(115200),
         .UART_OVERSAMPLE(16),
         .AXI_TIMEOUT(2500),
@@ -37,7 +37,7 @@ module axiuart_tb_top;
     // Clock generation
     initial begin
         clk = 0;
-        forever #5 clk = ~clk;  // 100MHz
+        forever #4 clk = ~clk;  // 125MHz (matches DUT CLK_FREQ_HZ parameter)
     end
     
     // Set VIFs in config DB

@@ -34,51 +34,111 @@ class uart_monitor extends uvm_monitor;
             trans = uart_transaction::type_id::create("trans");
             collect_transaction(trans);
             
-            // Only broadcast if we got a valid transaction
-            if (trans.frame_data.size() > 0) begin
-                item_collected_port.write(trans);
-                `uvm_info("UART_MONITOR", $sformatf("Collected: %s", trans.convert2string()), UVM_DEBUG)
-            end
+            // Broadcast all valid responses to scoreboard
+            // (collect_transaction only returns when valid SOF detected)
+            item_collected_port.write(trans);
+            `uvm_info("UART_MONITOR", 
+                $sformatf("Broadcasting transaction to scoreboard: is_response=%0d response_valid=%0d",
+                          trans.is_response, trans.response_valid), 
+                UVM_HIGH)
         end
     endtask
     
-    // Simple frame collection
+    // Simple frame collection per AXIUART protocol spec
     virtual task collect_transaction(uart_transaction trans);
-        bit [7:0] byte_data;
-        bit [7:0] temp_byte;
-        int frame_size;
+        bit [7:0] sof, status_byte, cmd_echo;
+        bit [7:0] addr_bytes[4];
+        bit [7:0] data_bytes[4];
+        bit [7:0] crc_byte;
+        bit is_read_response;
         
-        // Wait for start of frame (0xAA) - loop until found
+        // Wait for SOF (0x5A = Device→Host)
         do begin
-            wait_for_byte(temp_byte);
-        end while (temp_byte != 8'hAA);
+            wait_for_byte(sof);
+        end while (sof != 8'h5A);
         
-        // Get length byte
-        wait_for_byte(temp_byte);
-        frame_size = temp_byte;
+        // Read STATUS byte
+        wait_for_byte(status_byte);
         
-        // Collect frame data
-        trans.frame_data = new[frame_size];
-        for (int i = 0; i < frame_size; i++) begin
-            wait_for_byte(temp_byte);
-            trans.frame_data[i] = temp_byte;
-        end
+        // Read CMD echo
+        wait_for_byte(cmd_echo);
         
-        // Extract address and data from frame (AXIUART protocol)
-        if (frame_size >= 8) begin
-            trans.address = {trans.frame_data[0], trans.frame_data[1], 
-                           trans.frame_data[2], trans.frame_data[3]};
-            trans.data = {trans.frame_data[4], trans.frame_data[5],
-                         trans.frame_data[6], trans.frame_data[7]};
+        // Decode CMD byte to determine if read response
+        is_read_response = cmd_echo[7];  // RW bit
+        
+        if (is_read_response && status_byte == 8'h00) begin
+            // Read response with data: STATUS + CMD + ADDR(4) + DATA(4) + CRC
+            foreach (addr_bytes[i]) wait_for_byte(addr_bytes[i]);
+            foreach (data_bytes[i]) wait_for_byte(data_bytes[i]);
+            wait_for_byte(crc_byte);
+            
+            // Reconstruct address and data (little-endian)
+            trans.address = {addr_bytes[3], addr_bytes[2], addr_bytes[1], addr_bytes[0]};
+            trans.read_response_data = {data_bytes[3], data_bytes[2], data_bytes[1], data_bytes[0]};
+            trans.is_response = 1;
+            trans.response_valid = 1;
+            
+            `uvm_info("UART_MONITOR",
+                $sformatf("READ_RESP: STATUS=0x%02X ADDR=0x%08X DATA=0x%08X CRC=0x%02X",
+                          status_byte, trans.address, trans.read_response_data, crc_byte),
+                UVM_MEDIUM)
+            
+        end else if (!is_read_response) begin
+            // Write ACK: STATUS + CMD + CRC (no address/data)
+            wait_for_byte(crc_byte);
+            
+            trans.is_response = 1;  // WRITE_ACK is a response from DUT
+            trans.response_valid = 0;  // Not a read response (no data payload)
+            
+            `uvm_info("UART_MONITOR",
+                $sformatf("WRITE_ACK: STATUS=0x%02X CMD=0x%02X CRC=0x%02X",
+                          status_byte, cmd_echo, crc_byte),
+                UVM_MEDIUM)
+                
+        end else begin
+            // Read response with error: STATUS + CMD + CRC (no addr/data)
+            wait_for_byte(crc_byte);
+            
+            trans.is_response = 1;
+            trans.response_valid = 0;  // Error response
+            
+            `uvm_info("UART_MONITOR",
+                $sformatf("READ_ERROR: STATUS=0x%02X CMD=0x%02X CRC=0x%02X",
+                          status_byte, cmd_echo, crc_byte),
+                UVM_MEDIUM)
         end
     endtask
     
-    // Wait for one UART byte
+    // Sample one UART byte directly from uart_tx pin
+    // UART format: Start bit (0), 8 data bits (LSB first), Stop bit (1)
     virtual task wait_for_byte(output bit [7:0] data);
-        // Simplified: wait for RX valid and capture data
-        @(posedge vif.clk);
-        while (!vif.rx_valid) @(posedge vif.clk);
-        data = vif.rx_data;
+        int bit_period_ns = 8680;  // 115200 baud @ 125MHz clock (8ns period)
+        int clocks_per_bit = bit_period_ns / 8;  // 1085 clocks
+        
+        // Wait for start bit (1→0 transition on uart_tx)
+        wait (vif.uart_tx == 1'b1);
+        wait (vif.uart_tx == 1'b0);
+        
+        // Move to center of start bit for stable sampling
+        repeat(clocks_per_bit / 2) @(posedge vif.clk);
+        
+        // Sample 8 data bits (LSB first)
+        for (int i = 0; i < 8; i++) begin
+            repeat(clocks_per_bit) @(posedge vif.clk);
+            data[i] = vif.uart_tx;
+        end
+        
+        // Verify stop bit at its center (not at end)
+        repeat(clocks_per_bit / 2) @(posedge vif.clk);
+        if (vif.uart_tx != 1'b1) begin
+            `uvm_error("UART_MONITOR", 
+                $sformatf("Framing error: stop bit=%b (expected 1)", vif.uart_tx))
+        end
+        
+        // Wait for remaining half of stop bit
+        repeat(clocks_per_bit / 2) @(posedge vif.clk);
+        
+        `uvm_info("UART_MONITOR", $sformatf("Received byte: 0x%02X", data), UVM_DEBUG)
     endtask
     
 endclass
