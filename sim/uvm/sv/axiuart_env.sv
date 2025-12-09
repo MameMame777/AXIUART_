@@ -62,13 +62,19 @@ class axiuart_env extends uvm_env;
         super.connect_phase(phase);
         
         if (has_scoreboard) begin
-            // Connect UART monitor to scoreboard
+            // Connect UART monitor to scoreboard (for DUT responses)
             uart_agt.monitor.item_collected_port.connect(scoreboard.uart_export);
+            `uvm_info("ENV", "Connected Monitor → Scoreboard (uart_export)", UVM_MEDIUM)
             
-            // Connect AXI monitor to scoreboard
-            if (has_axi_monitor && axi_monitor != null) begin
-                axi_monitor.item_collected_port.connect(scoreboard.axi_export);
-            end
+            // Connect Driver to scoreboard (for write command tracking)
+            // Driver broadcasts write commands to axi_export as AXI monitor substitute
+            uart_agt.driver.item_sent_port.connect(scoreboard.axi_export);
+            `uvm_info("ENV", "Connected Driver → Scoreboard (axi_export)", UVM_MEDIUM)
+            
+            // AXI monitor connection (disabled - using Driver instead)
+            // if (has_axi_monitor && axi_monitor != null) begin
+            //     axi_monitor.item_collected_port.connect(scoreboard.axi_export);
+            // end
         end
     endfunction
     

@@ -28,6 +28,21 @@ interface uart_if (
     // Baud rate control
     logic [15:0] baud_divisor;
     
+    // ========================================================================
+    // UART TX Decoder - DUT Response Monitoring
+    // ========================================================================
+    // Decodes DUT uart_tx output to drive rx_valid/rx_data for Monitor
+    // Baud rate: 115200, Clock: 125MHz → 1085 cycles/bit
+    localparam int TX_DECODER_CLK_FREQ = 125_000_000;
+    localparam int TX_DECODER_BAUD = 115200;
+    localparam int TX_CYCLES_PER_BIT = TX_DECODER_CLK_FREQ / TX_DECODER_BAUD;
+    
+    logic tx_decoder_busy;
+    int tx_bit_counter;
+    int tx_sample_counter;
+    logic [9:0] tx_shift_reg;  // 1 start + 8 data + 1 stop
+    logic uart_tx_prev;        // Edge detection
+    
     // System status signals (from AXIUART_Top)
     logic        system_busy;
     logic [7:0]  system_error;
@@ -196,6 +211,62 @@ interface uart_if (
     initial begin
         rst   = 1'b1;  // Start in reset
         rst_n = 1'b0;
+        uart_rx = 1'b1;  // UART IDLE state is HIGH
+        uart_cts_n = 1'b0;  // Ready to receive
+    end
+    
+    // ========================================================================
+    // UART TX Decoder Logic - Monitors DUT uart_tx output
+    // ========================================================================
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            rx_valid <= 0;
+            rx_data <= 8'h00;
+            tx_decoder_busy <= 0;
+            tx_bit_counter <= 0;
+            tx_sample_counter <= 0;
+            tx_shift_reg <= 10'h3FF;  // Idle = all 1s
+            uart_tx_prev <= 1;
+        end else begin
+            rx_valid <= 0;  // Pulse signal - clear every cycle
+            uart_tx_prev <= uart_tx;
+            
+            if (!tx_decoder_busy) begin
+                // Idle: detect start bit (uart_tx falling edge 1→0)
+                if (uart_tx_prev == 1 && uart_tx == 0) begin
+                    tx_decoder_busy <= 1;
+                    tx_bit_counter <= 0;
+                    // Sample at mid-bit for noise immunity
+                    tx_sample_counter <= TX_CYCLES_PER_BIT / 2;
+                    tx_shift_reg <= 10'h000;
+                end
+            end else begin
+                // Receiving bits
+                if (tx_sample_counter > 0) begin
+                    tx_sample_counter <= tx_sample_counter - 1;
+                end else begin
+                    // Sample point reached
+                    tx_shift_reg[tx_bit_counter] <= uart_tx;
+                    
+                    if (tx_bit_counter == 9) begin
+                        // Full frame received (start + 8 data + stop)
+                        // Extract data bits [8:1], verify stop bit [9]=1
+                        if (tx_shift_reg[9] == 1) begin  // Valid stop bit
+                            rx_data <= tx_shift_reg[8:1];
+                            rx_valid <= 1;
+                            $display("[TX_DECODER @ %0t] Decoded byte: 0x%02X", $time, tx_shift_reg[8:1]);
+                        end else begin
+                            rx_error <= 1;  // Framing error
+                            $display("[TX_DECODER @ %0t] FRAMING ERROR - stop bit=%b", $time, tx_shift_reg[9]);
+                        end
+                        tx_decoder_busy <= 0;
+                    end else begin
+                        tx_bit_counter <= tx_bit_counter + 1;
+                        tx_sample_counter <= TX_CYCLES_PER_BIT - 1;
+                    end
+                end
+            end
+        end
     end
 
 endinterface

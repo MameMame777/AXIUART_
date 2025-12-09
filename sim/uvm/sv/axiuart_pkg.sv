@@ -31,6 +31,9 @@ package axiuart_pkg;
     // Reset sequence
     `include "uart_reset_sequence.sv"
     
+    // Register access sequences
+    `include "uart_reg_sequences.sv"
+    
     // Scoreboard
     `include "axiuart_scoreboard.sv"
     
