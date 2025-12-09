@@ -112,8 +112,10 @@ class uart_monitor extends uvm_monitor;
     // Sample one UART byte directly from uart_tx pin
     // UART format: Start bit (0), 8 data bits (LSB first), Stop bit (1)
     virtual task wait_for_byte(output bit [7:0] data);
-        int bit_period_ns = 8680;  // 115200 baud @ 125MHz clock (8ns period)
-        int clocks_per_bit = bit_period_ns / 8;  // 1085 clocks
+        // 115200 baud: bit period = 1/115200 = 8.68 μs = 8680 ns
+        // 125MHz clock: 1 clock = 8 ns
+        // Clocks per bit = 8680 ns / 8 ns = 1085 clocks
+        int clocks_per_bit = 1085;
         
         // Wait for start bit (1→0 transition on uart_tx)
         wait (vif.uart_tx == 1'b1);
@@ -122,20 +124,20 @@ class uart_monitor extends uvm_monitor;
         // Move to center of start bit for stable sampling
         repeat(clocks_per_bit / 2) @(posedge vif.clk);
         
-        // Sample 8 data bits (LSB first)
+        // Sample 8 data bits (LSB first) at bit centers
         for (int i = 0; i < 8; i++) begin
             repeat(clocks_per_bit) @(posedge vif.clk);
             data[i] = vif.uart_tx;
         end
         
-        // Verify stop bit at its center (not at end)
-        repeat(clocks_per_bit / 2) @(posedge vif.clk);
+        // Move to center of stop bit for verification
+        repeat(clocks_per_bit) @(posedge vif.clk);
         if (vif.uart_tx != 1'b1) begin
             `uvm_error("UART_MONITOR", 
                 $sformatf("Framing error: stop bit=%b (expected 1)", vif.uart_tx))
         end
         
-        // Wait for remaining half of stop bit
+        // Wait for remaining half of stop bit to complete frame
         repeat(clocks_per_bit / 2) @(posedge vif.clk);
         
         `uvm_info("UART_MONITOR", $sformatf("Received byte: 0x%02X", data), UVM_DEBUG)
