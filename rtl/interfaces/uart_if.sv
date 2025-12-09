@@ -245,24 +245,26 @@ interface uart_if (
                 if (tx_sample_counter > 0) begin
                     tx_sample_counter <= tx_sample_counter - 1;
                 end else begin
-                    // Sample point reached
+                    // Sample point reached - sample current bit
                     tx_shift_reg[tx_bit_counter] <= uart_tx;
                     
                     if (tx_bit_counter == 9) begin
                         // Full frame received (start + 8 data + stop)
-                        // Extract data bits [8:1], verify stop bit [9]=1
-                        if (tx_shift_reg[9] == 1) begin  // Valid stop bit
+                        // Check stop bit BEFORE writing to shift register (use sampled value)
+                        if (uart_tx == 1) begin  // Valid stop bit
                             rx_data <= tx_shift_reg[8:1];
                             rx_valid <= 1;
                             $display("[TX_DECODER @ %0t] Decoded byte: 0x%02X", $time, tx_shift_reg[8:1]);
                         end else begin
                             rx_error <= 1;  // Framing error
-                            $display("[TX_DECODER @ %0t] FRAMING ERROR - stop bit=%b", $time, tx_shift_reg[9]);
+                            $display("[TX_DECODER @ %0t] FRAMING ERROR - stop bit=%b", $time, uart_tx);
                         end
                         tx_decoder_busy <= 0;
                     end else begin
                         tx_bit_counter <= tx_bit_counter + 1;
-                        tx_sample_counter <= TX_CYCLES_PER_BIT - 1;
+                        // Use full bit period for all subsequent bits (including stop bit)
+                        // to maintain proper timing alignment
+                        tx_sample_counter <= TX_CYCLES_PER_BIT;
                     end
                 end
             end
