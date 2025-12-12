@@ -35,19 +35,18 @@ module fifo_sync #(
     logic [ADDR_WIDTH-1:0] rd_ptr;
     logic [COUNT_WIDTH-1:0] fifo_count;
     
-    // Pointer management
+    // Unified pointer management and memory write (single always_ff block)
     always_ff @(posedge clk) begin
         if (rst) begin
             wr_ptr <= '0;
             rd_ptr <= '0;
             fifo_count <= '0;
-            // Clear storage to avoid propagating stale bytes after reset
-            for (int i = 0; i < FIFO_DEPTH; i++) begin
-                mem[i] <= '0;
-            end
+            // Memory initialization removed - not necessary since pointers control access
+            // Old data becomes inaccessible after pointer reset
         end else begin
-            // Write pointer
+            // Write pointer and memory write (combined to avoid MultiBlockWrite)
             if (wr_en && !full) begin
+                mem[wr_ptr] <= wr_data;
                 wr_ptr <= (wr_ptr == FIFO_DEPTH-1) ? '0 : wr_ptr + 1;
             end
             
@@ -62,13 +61,6 @@ module fifo_sync #(
                 2'b10: fifo_count <= fifo_count + 1;  // Write only
                 default: fifo_count <= fifo_count;    // Both or neither
             endcase
-        end
-    end
-    
-    // Memory write
-    always_ff @(posedge clk) begin
-        if (wr_en && !full) begin
-            mem[wr_ptr] <= wr_data;
         end
     end
     
