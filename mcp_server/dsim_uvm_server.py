@@ -697,14 +697,15 @@ async def run_uvm_simulation(
 
         raise DSIMError(json.dumps(enhanced_error, ensure_ascii=False), e.error_type, e.suggestion, e.exit_code)
 
-def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
+def cleanup_old_files(workspace: Path, max_age_days: int = 1) -> None:
     """Delete log and waveform files older than max_age_days.
     
     Args:
         workspace: Workspace root path
-        max_age_days: Maximum age in days (default: 2)
+        max_age_days: Maximum age in days (default: 1 - removes files older than 1 day)
     """
     cutoff_time = datetime.now() - timedelta(days=max_age_days)
+    today_date = datetime.now().strftime("%Y%m%d")
     
     # Cleanup log files
     logs_dir = workspace / "sim" / "exec" / "logs"
@@ -713,7 +714,17 @@ def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
         for log_file in logs_dir.glob("*.log"):
             try:
                 file_mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
-                if file_mtime < cutoff_time:
+                # Extract date from filename (format: test_YYYYMMDD_HHMMSS.log)
+                filename_date_match = re.search(r'_(\d{8})_\d{6}', log_file.stem)
+                if filename_date_match:
+                    file_date = filename_date_match.group(1)
+                    # Delete if not today's date
+                    if file_date != today_date or file_mtime < cutoff_time:
+                        log_file.unlink()
+                        deleted_logs += 1
+                        logger.debug(f"Deleted old log: {log_file.name} (date: {file_date})")
+                elif file_mtime < cutoff_time:
+                    # Fallback to modification time for files without date in name
                     log_file.unlink()
                     deleted_logs += 1
                     logger.debug(f"Deleted old log: {log_file.name}")
@@ -721,7 +732,7 @@ def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
                 logger.warning(f"Failed to delete log {log_file.name}: {e}")
         
         if deleted_logs > 0:
-            logger.info(f"Cleaned up {deleted_logs} log file(s) older than {max_age_days} days")
+            logger.info(f"Cleaned up {deleted_logs} log file(s) older than {max_age_days} day(s)")
     
     # Cleanup waveform files
     wave_dir = workspace / "sim" / "exec" / "wave"
@@ -731,7 +742,17 @@ def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
             if wave_file.suffix.lower() in (".mxd", ".vcd", ".vpd"):
                 try:
                     file_mtime = datetime.fromtimestamp(wave_file.stat().st_mtime)
-                    if file_mtime < cutoff_time:
+                    # Extract date from filename (format: test_YYYYMMDD_HHMMSS.mxd/vcd)
+                    filename_date_match = re.search(r'_(\d{8})_\d{6}', wave_file.stem)
+                    if filename_date_match:
+                        file_date = filename_date_match.group(1)
+                        # Delete if not today's date
+                        if file_date != today_date or file_mtime < cutoff_time:
+                            wave_file.unlink()
+                            deleted_waves += 1
+                            logger.debug(f"Deleted old waveform: {wave_file.name} (date: {file_date})")
+                    elif file_mtime < cutoff_time:
+                        # Fallback to modification time
                         wave_file.unlink()
                         deleted_waves += 1
                         logger.debug(f"Deleted old waveform: {wave_file.name}")
@@ -739,7 +760,7 @@ def cleanup_old_files(workspace: Path, max_age_days: int = 2) -> None:
                     logger.warning(f"Failed to delete waveform {wave_file.name}: {e}")
         
         if deleted_waves > 0:
-            logger.info(f"Cleaned up {deleted_waves} waveform file(s) older than {max_age_days} days")
+            logger.info(f"Cleaned up {deleted_waves} waveform file(s) older than {max_age_days} day(s)")
 
 @mcp.tool()
 async def analyze_uvm_log(log_path: str, limit: int = 10) -> str:
