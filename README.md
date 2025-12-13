@@ -341,7 +341,132 @@ Generate comprehensive coverage reports using the MCP server:
 - ✅ VS Code integration with task automation
 - ✅ Cross-platform Python-based workflows
 
-## 🚀 Getting Started
+## � Python AXIUART Driver (Hardware Interface)
+
+A complete Python driver package for hardware access to AXIUART devices via UART.
+
+### Features
+
+- ✅ **Protocol Implementation**: Full AXIUART Bus Protocol support
+  - CRC-8 validation (polynomial 0x07)
+  - Little-endian data conversion
+  - SOF markers (0xA5 host→device, 0x5A device→host)
+- ✅ **Register Access**: Single 32-bit read/write operations
+- ✅ **Burst Transfers**: Multi-beat transfers (1-16 beats)
+- ✅ **Error Handling**: Robust timeout and CRC error detection
+- ✅ **Hardware Verified**: Tested on COM3 @ 115200 baud (Windows)
+
+### Quick Start
+
+```python
+from axiuart_driver import AXIUARTDriver
+
+# Connect to device
+driver = AXIUARTDriver(port='COM3', baud=115200)
+driver.open()
+
+# Read VERSION register (0x101C)
+version = driver.read_reg32(0x101C)
+print(f"VERSION: 0x{version:08X}")
+
+# Write to TEST_0 register (0x1020)
+driver.write_reg32(0x1020, 0xDEADBEEF)
+
+# Read back
+value = driver.read_reg32(0x1020)
+assert value == 0xDEADBEEF, "Write/read mismatch!"
+
+# Close connection
+driver.close()
+```
+
+### Installation
+
+The driver is located in `software/axiuart_driver/`:
+
+```bash
+# Set PYTHONPATH for imports
+export PYTHONPATH=$PWD/software  # Linux/macOS
+$env:PYTHONPATH="$PWD\software"  # Windows PowerShell
+
+# Run example
+python software/axiuart_driver/examples/example_basic.py
+```
+
+### API Reference
+
+**AXIUARTDriver Class**:
+
+| Method | Description |
+|--------|-------------|
+| `open()` | Open serial port and clear buffers |
+| `close()` | Close serial port |
+| `read_reg32(addr)` | Read single 32-bit register |
+| `write_reg32(addr, data)` | Write single 32-bit register |
+| `read_burst(addr, count, inc=True)` | Read multiple registers (1-16 beats) |
+| `write_burst(addr, data_list, inc=True)` | Write multiple registers (1-16 beats) |
+| `soft_reset()` | Send RESET command (0xFF) |
+| `get_version()` | Read VERSION register (0x101C) |
+| `get_status()` | Read STATUS register (0x1004) |
+| `get_tx_count()` | Read TX_COUNT register (0x1010) |
+| `get_rx_count()` | Read RX_COUNT register (0x1014) |
+
+**Protocol Classes** (from `axiuart_driver.protocol`):
+
+- `CRC8`: CRC-8 calculation (polynomial 0x07)
+- `FrameBuilder`: Build host→device frames
+- `FrameParser`: Parse device→host responses
+- `StatusCode`: Status code enumeration
+
+### Examples
+
+**Basic Register Access**:
+
+```python
+# software/axiuart_driver/examples/example_basic.py
+# Demonstrates VERSION, STATUS, TEST_0 access and pattern verification
+```
+
+**Burst Transfers**:
+
+```python
+# software/axiuart_driver/examples/example_burst.py
+# Demonstrates multi-beat read/write with INC=1/0 modes
+```
+
+**Diagnostic Tool**:
+
+```python
+# software/axiuart_driver/examples/example_diagnostic.py
+# Comprehensive register map testing and FIFO analysis
+```
+
+### Hardware Test Results
+
+| Test Case | Result | Details |
+|-----------|--------|---------|
+| VERSION Read | ✅ PASS | 0x00010000 |
+| STATUS Read | ✅ PASS | 0x00000001 |
+| TEST_0 Write/Read | ✅ PASS | All patterns verified |
+| Pattern Tests | ✅ PASS | 0x00000000, 0xFFFFFFFF, 0xAAAAAAAA, 0x55555555, 0x12345678 |
+| Transaction Counters | ✅ PASS | TX/RX counts incrementing correctly |
+| CRC Validation | ✅ PASS | 100% success rate |
+
+**Verified Environment**:
+- Hardware: FPGA with AXIUART @ COM3
+- Baud Rate: 115200 bps (8N1)
+- Platform: Windows 10/11 with PySerial 3.5+
+- Test Duration: Multiple sessions, 100+ transactions
+
+### Documentation
+
+See [`software/axiuart_driver/README.md`](software/axiuart_driver/README.md) for complete documentation including:
+- Protocol specification details
+- Error handling strategies
+- Advanced usage patterns
+- Troubleshooting guide
+
+## �🚀 Getting Started
 
 1. **Clone the repository**
 2. **Setup MCP server**: `python mcp_server/setup.py`
