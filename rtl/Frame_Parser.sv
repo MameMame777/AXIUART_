@@ -68,47 +68,12 @@ module Frame_Parser #(
     
     // Error cause encoding: 0x0=No error, 0x1=CRC mismatch, 0x2=AXI timeout, 0x3=Unsupported command
     
-    // Timeout calculation
-    localparam int DEFAULT_DIV_CALC = (BAUD_RATE > 0)
-        ? ((CLK_FREQ_HZ + BAUD_RATE - 1) / BAUD_RATE)
-        : 1;
-    localparam int DEFAULT_DIV_CLAMP = (DEFAULT_DIV_CALC < 1)
-        ? 1
-        : ((DEFAULT_DIV_CALC > 16'hFFFF) ? 16'hFFFF : DEFAULT_DIV_CALC);
-    localparam logic [15:0] DEFAULT_BAUD_DIVISOR = 16'(DEFAULT_DIV_CLAMP);
-    localparam int MAX_BAUD_DIVISOR = 16'hFFFF;
-    localparam int MAX_TIMEOUT_CLOCKS = MAX_BAUD_DIVISOR * 10 * TIMEOUT_BYTE_TIMES;
-    localparam int TIMEOUT_WIDTH = $clog2(MAX_TIMEOUT_CLOCKS + 1);
-
-    logic [15:0] effective_baud_divisor;
-    logic [TIMEOUT_WIDTH-1:0] timeout_limit;
-
-    always_comb begin
-        int unsigned candidate;
-        int unsigned byte_cycles;
-        int unsigned timeout_cycles;
-
-        candidate = (baud_divisor != 16'd0) ? baud_divisor : int'(DEFAULT_BAUD_DIVISOR);
-        if (candidate < 1) begin
-            candidate = 1;
-        end else if (candidate > MAX_BAUD_DIVISOR) begin
-            candidate = MAX_BAUD_DIVISOR;
-        end
-
-    effective_baud_divisor = 16'(candidate);
-
-        byte_cycles = candidate * 10;
-        if (byte_cycles > MAX_TIMEOUT_CLOCKS) begin
-            byte_cycles = MAX_TIMEOUT_CLOCKS;
-        end
-
-        timeout_cycles = byte_cycles * TIMEOUT_BYTE_TIMES;
-        if (timeout_cycles > MAX_TIMEOUT_CLOCKS) begin
-            timeout_cycles = MAX_TIMEOUT_CLOCKS;
-        end
-
-    timeout_limit = TIMEOUT_WIDTH'(timeout_cycles);
-    end
+    // Timeout calculation - simplified for fixed baud rate
+    // One UART byte at 115200 bps = (CLK_FREQ_HZ / BAUD_RATE) * 10 clocks
+    localparam int CLOCKS_PER_BYTE = (CLK_FREQ_HZ / BAUD_RATE) * 10;
+    localparam int TIMEOUT_CLOCKS = CLOCKS_PER_BYTE * TIMEOUT_BYTE_TIMES;
+    localparam int TIMEOUT_WIDTH = $clog2(TIMEOUT_CLOCKS + 1);
+    localparam logic [TIMEOUT_WIDTH-1:0] TIMEOUT_LIMIT = TIMEOUT_WIDTH'(TIMEOUT_CLOCKS);
     
     // State machine
     typedef enum logic [3:0] {
@@ -266,7 +231,7 @@ module Frame_Parser #(
             if (!rx_fifo_empty) begin
                 timeout_counter <= '0;
                 timeout_occurred <= 1'b0;
-            end else if (timeout_counter >= timeout_limit) begin
+            end else if (timeout_counter >= TIMEOUT_LIMIT) begin
                 timeout_occurred <= 1'b1;
             end else begin
                 timeout_counter <= timeout_counter + 1;
