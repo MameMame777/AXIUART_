@@ -15,6 +15,8 @@
 
 # Include paths
 +incdir+../../../rtl/interfaces
++incdir+../../../rtl/uart_axi4_bridge
++incdir+../../../rtl/register_block
 +incdir+../../../rtl
 +incdir+../sv
 +incdir+.
@@ -23,17 +25,21 @@
 ../../../rtl/interfaces/uart_if.sv
 ../../../rtl/interfaces/axi4_lite_if.sv
 
-# RTL Design Files
-../../../rtl/fifo_sync.sv
-../../../rtl/Uart_Rx.sv
-../../../rtl/Uart_Tx.sv
-../../../rtl/Crc8_Calculator.sv
-../../../rtl/Frame_Parser.sv
-../../../rtl/Frame_Builder.sv
-../../../rtl/Address_Aligner.sv
-../../../rtl/Register_Block.sv
-../../../rtl/Axi4_Lite_Master.sv
-../../../rtl/Uart_Axi4_Bridge.sv
+# RTL Design Files - UART-AXI4 Bridge Core (reusable)
+../../../rtl/uart_axi4_bridge/fifo_sync.sv
+../../../rtl/uart_axi4_bridge/Uart_Rx.sv
+../../../rtl/uart_axi4_bridge/Uart_Tx.sv
+../../../rtl/uart_axi4_bridge/Crc8_Calculator.sv
+../../../rtl/uart_axi4_bridge/Frame_Parser.sv
+../../../rtl/uart_axi4_bridge/Frame_Builder.sv
+../../../rtl/uart_axi4_bridge/Address_Aligner.sv
+../../../rtl/uart_axi4_bridge/Axi4_Lite_Master.sv
+../../../rtl/uart_axi4_bridge/Uart_Axi4_Bridge.sv
+
+# RTL Design Files - Register Block (project-specific)
+../../../rtl/register_block/Register_Block.sv
+
+# Top Level
 ../../../rtl/AXIUART_Top.sv
 
 # Testbench Top Module (includes package and test_lib)
