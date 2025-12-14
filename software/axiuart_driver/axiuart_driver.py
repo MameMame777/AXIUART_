@@ -57,6 +57,7 @@ class AXIUARTDriver:
     REG_TEST_2 = BASE_ADDR + 0x028
     REG_TEST_3 = BASE_ADDR + 0x02C
     REG_TEST_4 = BASE_ADDR + 0x040
+    REG_TEST_LED = BASE_ADDR + 0x044  # 4-bit LED control register
     REG_TEST_5 = BASE_ADDR + 0x050
     REG_TEST_6 = BASE_ADDR + 0x080
     REG_TEST_7 = BASE_ADDR + 0x100
