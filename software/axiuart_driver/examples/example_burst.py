@@ -17,7 +17,7 @@ def main():
     )
     
     # Configure serial port
-    PORT = '/dev/ttyUSB0'  # Adjust for your system
+    PORT = 'COM3'  # Windows: COM3, Linux: /dev/ttyUSB0
     BAUDRATE = 115200
     
     print("=" * 60)
