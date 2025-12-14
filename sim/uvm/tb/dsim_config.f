@@ -19,6 +19,7 @@
 +incdir+../../../rtl/register_block
 +incdir+../../../rtl
 +incdir+../sv
++incdir+../../tests
 +incdir+.
 
 # RTL Interface Definitions

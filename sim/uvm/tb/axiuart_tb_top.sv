@@ -4,7 +4,7 @@ module axiuart_tb_top;
     import uvm_pkg::*;
     import axiuart_pkg::*;
     `include "uvm_macros.svh"
-    `include "axiuart_test_lib.sv"
+    `include "axiuart_test_pkg.sv"
     
     // Clock and reset
     logic clk;

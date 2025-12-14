@@ -20,7 +20,7 @@ This document provides detailed information about the UVM (Universal Verificatio
 ### Component Tree Structure
 
 ```
-uvm_test_top (axiuart_base_test / axiuart_basic_test / axiuart_reg_rw_test)
+uvm_test_top (axiuart_base_test / axiuart_basic_test / axiuart_reset_test / axiuart_reg_rw_test)
 └── env (axiuart_env)
     ├── uart_agt (uart_agent)
     │   ├── driver (uart_driver)
@@ -36,6 +36,8 @@ uvm_test_top (axiuart_base_test / axiuart_basic_test / axiuart_reg_rw_test)
         └── uart_fifo (uvm_tlm_analysis_fifo)
 ```
 
+**Note**: As of December 2024 refactoring, test classes are now organized in separate files under `sim/tests/` directory for improved scalability and maintainability.
+
 ### Hierarchy Explanation
 
 - **Test Layer**: Top-level test classes that configure and control the verification environment
@@ -45,7 +47,14 @@ uvm_test_top (axiuart_base_test / axiuart_basic_test / axiuart_reg_rw_test)
 
 ## Component Details
 
-### 1. Test Classes (axiuart_test_lib.sv)
+### 1. Test Classes (sim/tests/ - December 2024 Refactored Structure)
+
+**File Organization**: Each test is now in a separate file for better scalability:
+- `axiuart_test_pkg.sv` - Central package including all tests
+- `axiuart_base_test.sv` - Base test class
+- `axiuart_basic_test.sv` - Basic connectivity test
+- `axiuart_reset_test.sv` - Reset functionality test
+- `axiuart_reg_rw_test.sv` - Register R/W verification test
 
 #### axiuart_base_test
 

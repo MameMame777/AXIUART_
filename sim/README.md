@@ -13,6 +13,13 @@ sim/
 │   ├── wave/               # Waveform files (MXD format)
 │   └── dsim.env            # DSIM environment configuration
 │
+├── tests/                  # Test definitions (NEW: refactored structure)
+│   ├── axiuart_test_pkg.sv         # Test package (includes all tests)
+│   ├── axiuart_base_test.sv        # Base test class
+│   ├── axiuart_basic_test.sv       # Basic connectivity test
+│   ├── axiuart_reset_test.sv       # Reset functionality test
+│   └── axiuart_reg_rw_test.sv      # Register R/W verification test
+│
 ├── uvm/                    # UVM testbench components
 │   ├── sv/                 # SystemVerilog verification components
 │   │   ├── axiuart_pkg.sv              # Package definitions
@@ -28,10 +35,8 @@ sim/
 │   │   ├── uart_reset_sequence.sv      # Reset sequence
 │   │   └── axi4_lite_monitor.sv        # AXI4-Lite monitor
 │   │
-│   └── tb/                 # Testbench and test files
+│   └── tb/                 # Testbench infrastructure
 │       ├── axiuart_tb_top.sv           # Testbench top module
-│       ├── axiuart_test_lib.sv         # Test library
-│       ├── axiuart_basic_test.sv       # Basic test
 │       ├── dsim_config.f               # DSIM file list
 │       └── Makefile                     # Build automation
 │
@@ -63,6 +68,33 @@ sim/
 - **axiuart_scoreboard.sv**: Compares expected vs actual behavior for register read/write operations
 - **axi4_lite_monitor.sv**: Monitors AXI4-Lite interface transactions (optional)
 
+### Test Definitions (sim/tests/) - NEW STRUCTURE
+
+#### Test Package
+- **axiuart_test_pkg.sv**: Central test package that includes all test classes
+  - Provides single entry point for test definitions
+  - Maintains dependency order (base test first)
+
+#### Individual Test Classes (1 file per test)
+- **axiuart_base_test.sv**: Base test class with common functionality
+  - Environment instantiation and configuration
+  - Topology printing
+  - Common utility methods
+  - Test pass/fail reporting
+
+- **axiuart_basic_test.sv**: Basic connectivity and write operation test
+  - Verifies basic UART transaction execution
+  - Simple sanity check for environment setup
+
+- **axiuart_reset_test.sv**: Reset functionality test
+  - Validates DUT reset behavior (200 cycles)
+  - Tests post-reset operation with basic sequence
+
+- **axiuart_reg_rw_test.sv**: Comprehensive register read/write verification
+  - Tests 6 registers (REG_TEST_0-4 + REG_TEST_LED)
+  - Validates write-read consistency
+  - Scoreboard-based verification with full match reporting
+
 ### Testbench Files (sim/uvm/tb/)
 
 #### Testbench Infrastructure
@@ -71,22 +103,27 @@ sim/
   - Interface instances (uart_if, axi4_lite_if, bridge_status_if)
   - Clock generation
   - Waveform dumping control
-
-#### Test Library
-- **axiuart_test_lib.sv**: Contains test classes:
-  - `axiuart_base_test`: Base test class with common functionality
-  - `axiuart_basic_test`: Basic connectivity and write operation test
-  - `axiuart_reg_rw_test`: Comprehensive register read/write verification test
+  - Test package inclusion
 
 #### Build Configuration
 - **dsim_config.f**: Complete file list for DSIM compilation including:
   - UVM library path
-  - Include directories
+  - Include directories (`+incdir+../../tests` for new test structure)
   - RTL source files (organized by module)
   - Testbench and verification components
   - Interface definitions
 
 - **Makefile**: Automation for common simulation tasks (if present)
+
+### Test Structure Benefits
+
+The new test organization (sim/tests/) provides:
+
+1. **Scalability**: Easy to add new tests without file conflicts
+2. **Maintainability**: One test per file, clear responsibility
+3. **Parallel Development**: Multiple engineers can add tests simultaneously
+4. **Selective Compilation**: Include only needed tests
+5. **Clear Traceability**: Test specifications map 1:1 to files
 
 ### Execution Directory (sim/exec/)
 

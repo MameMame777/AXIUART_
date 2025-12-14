@@ -7,27 +7,39 @@ UBUSリファレンス実装を参考に、AXIUART UVM環境を大幅に簡素�
 ## ディレクトリ構造
 
 ```
-sim/uvm/
-├── sv/                           # すべてのUVMコンポーネント (UBUSスタイル)
-│   ├── axiuart_pkg.sv           # メインパッケージ (1ファイル)
-│   ├── uart_transaction.sv      # トランザクション
-│   ├── uart_monitor.sv          # UARTモニター
-│   ├── uart_driver.sv           # UARTドライバー
-│   ├── uart_sequencer.sv        # UARTシーケンサー
-│   ├── uart_agent.sv            # UARTエージェント
-│   ├── axi4_lite_monitor.sv     # AXIモニター (観測のみ)
-│   ├── axiuart_scoreboard.sv    # スコアボード
-│   └── axiuart_env.sv           # トップ環境
-└── tb/                          # テストベンチ
-    ├── axiuart_tb_top.sv        # トップモジュール
-    └── axiuart_basic_test.sv    # 基本テスト
+sim/
+├── tests/                       # テスト定義 (新構造: 2024-12リファクタリング)
+│   ├── axiuart_test_pkg.sv     # テストパッケージ
+│   ├── axiuart_base_test.sv    # ベーステスト
+│   ├── axiuart_basic_test.sv   # 基本テスト
+│   ├── axiuart_reset_test.sv   # リセットテスト
+│   └── axiuart_reg_rw_test.sv  # レジスタR/Wテスト
+│
+└── uvm/
+    ├── sv/                      # すべてのUVMコンポーネント (UBUSスタイル)
+    │   ├── axiuart_pkg.sv       # メインパッケージ (1ファイル)
+    │   ├── uart_transaction.sv  # トランザクション
+    │   ├── uart_monitor.sv      # UARTモニター
+    │   ├── uart_driver.sv       # UARTドライバー
+    │   ├── uart_sequencer.sv    # UARTシーケンサー
+    │   ├── uart_agent.sv        # UARTエージェント
+    │   ├── axi4_lite_monitor.sv # AXIモニター (観測のみ)
+    │   ├── axiuart_scoreboard.sv# スコアボード
+    │   └── axiuart_env.sv       # トップ環境
+    │
+    └── tb/                      # テストベンチ
+        ├── axiuart_tb_top.sv    # トップモジュール
+        └── dsim_config.f        # DSIMファイルリスト
 ```
 
 ## 主な簡素化ポイント
 
 ### 1. ファイル数の削減
 - **旧環境**: 49個のSystemVerilogファイル (agents/, env/, scoreboard/, analysis/ などに分散)
-- **新環境**: 10個のファイル (sv/ と tb/ に集約)
+- **新環境**: 14個のファイル (sv/, tb/, tests/ に整理)
+  - UVMコンポーネント: 10個 (sv/)
+  - テストベンチ: 1個 (tb/)
+  - テスト定義: 4個 (tests/ - 2024-12リファクタリング)
 
 ### 2. 削除したコンポーネント
 
@@ -74,13 +86,26 @@ sim/uvm/
 4. **スコアボード**: FIFOベースの単純な比較
 5. **テスト**: Sequence→Agent→Driverの明確なフロー
 
+## テスト構造の改善 (2024-12リファクタリング)
+
+### 旧構造の問題点
+- 単一ファイル(`axiuart_test_lib.sv`)に全テストクラスが混在
+- 新規テスト追加時にファイルが肥大化
+- 並行開発でコンフリクトリスクが高い
+
+### 新構造 (sim/tests/)
+- **1テスト = 1ファイル** の明確な責任分離
+- `axiuart_test_pkg.sv`で統合管理
+- 拡張性・保守性・並行開発性が大幅向上
+
 ## 既存環境との比較
 
-| 項目 | 旧環境 | 新環境 (UBUS Style) |
-|------|--------|---------------------|
-| ファイル数 | 49個 | 10個 |
-| 総行数 | ~5000行 | ~600行 |
-| ディレクトリ数 | 10個 | 2個 |
+| 項目 | 旧環境 | 新環境 (UBUS Style + 2024-12改善) |
+|------|--------|----------------------------------|
+| ファイル数 | 49個 | 14個 (UVM:10 + TB:1 + Tests:4) |
+| 総行数 | ~5000行 | ~800行 |
+| ディレクトリ数 | 10個 | 3個 (sv/, tb/, tests/) |
+| テスト構造 | 単一ファイル | 個別ファイル (拡張性向上) |
 | スコアボード | 3個 | 1個 |
 | カバレッジ | 3個 | 0個 (必要に応じて追加) |
 | 設定クラス | 複雑 | なし (VIFのみ) |
