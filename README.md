@@ -1,494 +1,198 @@
-# UART AXI4 Bridge SystemVerilog UVM Verification Project
+# AXIUART - UART to AXI4-Lite Bridge
 
-## ⚡ **FIXED BAUD RATE: 115200 bps**
+UART-AXI4 bridge with comprehensive verification environment and Python control software.
 
-**Configuration locked to 115200 bps for stability.**  
-All RTL modules, UVM testbench, and tests use **115200 baud rate** exclusively.
+## Project Overview
 
-## 🚀 **FastMCP Enhanced Environment (October 2025 - Phase 1 Complete)**
+AXIUART provides a production-ready hardware interface between UART serial communication (115200 baud) and AXI4-Lite memory-mapped registers, enabling software control of FPGA peripherals through a simple serial connection.
 
-This project features a **FastMCP-powered MCP Server** with enhanced debugging capabilities and 98% best practice compliance.
+**Key Features:**
+- UART protocol with CRC-8 error detection
+- AXI4-Lite master interface for register access
+- 4-bit LED control register (REG_TEST_LED at 0x1044)
+- Comprehensive UVM testbench with protocol coverage
+- Python driver with interactive control applications
+- Real-time waveform analysis and debugging support
 
-### ✅ **DEFAULT EXECUTION METHOD: Enhanced FastMCP Server**
+## Architecture
 
-#### 🎯 Mandatory: Use Enhanced FastMCP server with detailed diagnostics
+### Hardware (SystemVerilog RTL)
 
-```bash
-# Quick Environment Check & Tool Testing
-python mcp_server/dsim_uvm_server.py --workspace . --test-tools
+**UART-AXI4 Bridge Core:**
+- UART RX/TX with 115200 baud (fixed)
+- CRC-8 error detection and frame parsing
+- AXI4-Lite master interface
+- Register block with LED control
 
-# Direct Function Execution (High Performance Debug Mode)
-python -c "
-import asyncio
-from mcp_server.dsim_uvm_server import setup_workspace, check_dsim_environment, list_available_tests
-setup_workspace('.')
-print('=== Environment Check ===')
-print(asyncio.run(check_dsim_environment()))
-print('\n=== Available Tests ===') 
-print(asyncio.run(list_available_tests()))
-"
+**Key Modules:**
+- `AXIUART_Top.sv` - Top-level integration with 4-bit LED output
+- `Uart_Axi4_Bridge.sv` - Protocol conversion bridge
+- `Register_Block.sv` - AXI4-Lite register file (base: 0x1000)
+- `Uart_Rx.sv` / `Uart_Tx.sv` - UART transceivers
+- `Frame_Parser.sv` / `Frame_Builder.sv` - Protocol handlers
 
-# MCP Client Integration (Agent AI Compatible)
-python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test
-```
+**Documentation:** [rtl/README.md](rtl/README.md)
 
-#### ✅ Always execute DSIM via MCP client (two-step flow)
+### Verification (UVM Testbench)
 
-All Copilot Agent and manual runs **must** follow this exact sequence using the absolute workspace path:
+**UVM 1.2 Environment:**
+- Modular agent architecture (Driver, Monitor, Sequencer, Scoreboard)
+- Protocol-aware transactions with automatic CRC generation
+- Comprehensive sequence library (reset, read, write, burst)
+- Register R/W verification with read-back checking
 
-```pwsh
-python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode compile --verbosity UVM_LOW --timeout 180
-python mcp_server/mcp_client.py --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ --tool run_uvm_simulation --test-name <test_name> --mode run --verbosity UVM_MEDIUM --waves --timeout 300
-```
+**Available Tests:**
+- `axiuart_basic_test` - Basic connectivity and reset test
+- `axiuart_reg_rw_test` - 6-register read/write verification (including LED)
 
-- Compile first to refresh `compiled_image`, then run with the generated image.
-- The VS Code tasks `DSIM: Run Basic Test (Compile Only - MCP)` and `DSIM: Run Basic Test (Full Simulation - MCP)` already wrap these commands; prefer them in the GUI.
-- Avoid legacy scripts (`run_uvm_simulation.py`, PowerShell wrappers) as they bypass the production FastMCP flow.
+**Simulation Infrastructure:**
+- Altair DSim 2025.1 with UVM support
+- MXD waveform generation for debugging
+- FastMCP server for automated test execution
+- JSON-based result analysis and reporting
 
-### 🏆 **Enhanced Features - Phase 1 Improvements: 98% Compliance**
+**Documentation:** [sim/README.md](sim/README.md) | [sim/uvm/UVM_ARCHITECTURE.md](sim/uvm/UVM_ARCHITECTURE.md)
 
-**🎯 New FastMCP Capabilities**:
+### Software (Python Driver)
 
-- ✅ **Enhanced Error Diagnostics**: DSIM-specific error analysis with solutions
-- ✅ **Type-Safe Tools**: Full type hint support for better IDE integration
-- ✅ **Auto Environment Setup**: Dynamic DSIM license detection
-- ✅ **48+ Test Discovery**: Automatic UVM test file discovery and classification
-- ✅ **Atomic Operations**: `compile_design`, `run_simulation`, `generate_waveforms`
-- ✅ **Structured Telemetry**: `run_uvm_simulation` returns JSON summaries with log paths, assertion metrics, and warning excerpts
+**AXIUARTDriver Class:**
+- High-level register read/write APIs
+- UART protocol implementation with CRC-8
+- Context manager support for clean resource handling
+- Built-in timeout and error handling
 
-**Key Features**:
+**LED Control Application:**
+- LEDController class for 4-bit LED manipulation
+- Interactive command-line interface
+- Animation patterns (binary count, knight rider, blink)
+- Individual bit control and toggle operations
 
-- ✅ **True MCP Protocol**: Official specification compliance
-- ✅ **Atomic Tools**: Optimized for Agent AI workflows
-- ✅ **Tool Chaining**: Automated verification sequences
-- ✅ **Standard Compliant**: Compatible with other MCP servers
-- ✅ **Production Ready**: Auto-start, error handling, comprehensive testing
-
-### ⚠️ **DEPRECATED METHODS (Do NOT Use)**
-
-- ❌ Direct script execution: `python mcp_server/run_uvm_simulation.py`
-- ❌ Legacy PowerShell scripts  
-- ❌ VSCode tasks without MCP Client
-
-### ✅ Verified Working Environment
-
-**VSCode Integration**:
-
-- Auto-starts MCP server on workspace open
-- Environment variables pre-configured
-- All tasks use PowerShell-safe Python scripts
-
-**Current Status (Confirmed Working)**:
-
-- ✅ DSIM Environment: Fully operational
-- ✅ MCP Server: Auto-start on VSCode open
-- ✅ UVM Tests: 42+ test files available
-- ✅ Basic Tests: `uart_axi4_basic_test`, `uart_axi4_base_test` verified
-- ✅ Waveform Generation: MXD format supported
-- ✅ Coverage Collection: Metrics gathering functional
-
-### 📋 Quality Assurance Work Instructions
-
-**Latest Instructions**: [UVM Verification Quality Assurance Instructions (MCP Environment Edition)](docs/local/uvm_verification_quality_assurance_instructions_mcp_2025-10-13.md)
-
-**Critical Updates (October 13, 2025)**:
-
-- **Current Status Analysis**: Based on real MCP execution results
-- **Priority Issues**: Scoreboard false positive (ZERO ACTIVITY) identified as critical
-- **Phase 4 Plan**: Level 4 quality assurance implementation roadmap
-- **MCP Integration**: Full utilization of Python-based automation capabilities
-
-### 🎯 Primary Method: Agent AI Optimization (MCP Client)
-
-**🚀 Recommended Usage Patterns**:
-
-```bash
-# Basic workflow for all verification tasks
-python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-python mcp_server/mcp_client.py --workspace . --tool list_available_tests
-python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name <test_name>
-python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name <test_name>
-python mcp_server/mcp_client.py --workspace . --tool analyze_uvm_log --log_path sim/exec/logs/<latest>.log
-```
-
-**Agent AI Workflow Example**:
-
+**Example Usage:**
 ```python
-# Agent automation pattern
-await agent.call_tool("check_dsim_environment", {})
-await agent.call_tool("compile_design", {"test_name": "uart_axi4_basic_test"})
-await agent.call_tool("run_simulation", {"test_name": "uart_axi4_basic_test"})
-await agent.call_tool("analyze_uvm_log", {"log_path": "sim/exec/logs/uart_axi4_basic_test_<timestamp>.log", "limit": 10})
-await agent.call_tool("collect_coverage", {"test_name": "uart_axi4_basic_test"})
+from axiuart_driver import AXIUARTDriver
+from axiuart_driver.examples.led_control import LEDController
+
+# Register access
+with AXIUARTDriver('COM3') as driver:
+    driver.write_reg32(0x1020, 0xDEADBEEF)
+    value = driver.read_reg32(0x1020)
+
+# LED control
+with LEDController('COM3') as led:
+    led.set_led(0xF)           # All LEDs on
+    led.pattern_knight_rider() # Animation
 ```
 
-**⚡ Alternative: VSCode Tasks** (for manual use):
+**Documentation:** [software/axiuart_driver/axiuart_driver.md](software/axiuart_driver/axiuart_driver.md)
 
-1. `DSIM: Check Environment (MCP)` - Verify setup
-2. `DSIM: List Available Tests (MCP)` - Browse test catalog  
-3. `DSIM: Run Basic Test (Compile Only - MCP)` - Quick syntax check
-4. `DSIM: Run Basic Test (Full Simulation - MCP)` - Complete execution
+## Quick Start
 
-**⚠️ DEPRECATED (Legacy Support Only)**:
-
-```powershell
-# DO NOT USE: Direct script execution (deprecated)
-python mcp_server/run_uvm_simulation.py --test_name uart_axi4_basic_test --mode run --verbosity UVM_MEDIUM
-```
-
-### MCP Server Features (Production Ready)
-
-- **Auto-Configuration**: DSIM environment auto-detection
-- **Test Discovery**: Automatic UVM test scanning
-- **Logging**: Comprehensive simulation logs with timestamps
-- **Error Handling**: Robust timeout and error management
-- **Waveform Support**: Integrated MXD generation
-
-## 📋 Project Overview
-
-A comprehensive SystemVerilog verification environment for UART-AXI4 bridge IP, featuring:
-
-- **UVM 1.2** testbench with modular agent architecture
-- **SystemVerilog Assertions (SVA)** for protocol verification
-- **DSIM simulator** integration with waveform analysis
-- **Coverage-driven verification** with automated reporting
-- **Model Context Protocol** server for tool integration
-
-## 🏗️ Architecture
-
-```text
-AXIUART_/
-├── rtl/                           # RTL source files
-│   ├── AXIUART_Top.sv            # Top-level system integration
-│   ├── Uart_Axi4_Bridge.sv      # UART-AXI4 bridge core
-│   ├── Register_Block.sv         # Internal register block
-│   ├── Uart_Rx.sv               # UART receiver
-│   ├── Uart_Tx.sv               # UART transmitter
-│   └── Frame_Parser.sv          # UART frame parsing
-├── sim/                          # Simulation environment
-│   ├── uvm/                     # UVM testbench
-│   │   ├── uart_axi4_tb_top.sv # Testbench top
-│   │   ├── uart_axi4_test_pkg.sv # Test package
-│   │   ├── uart_axi4_env.sv    # UVM environment
-│   │   ├── uart_agents/         # UVM agents
-│   │   └── tests/               # Test cases
-│   └── assertions/              # SVA modules
-├── mcp_server/                  # Model Context Protocol server
-│   ├── dsim_uvm_server.py      # MCP server implementation
-│   ├── setup.py                # Environment setup
-│   └── README.md               # MCP documentation
-└── docs/                       # Project documentation
-```
-
-## 🚀 MCP Server Usage
-
-### Primary Workflow
-
-```powershell
-# 1. Setup MCP Server Environment
-cd e:\Nautilus\workspace\fpgawork\AXIUART_
-python mcp_server/setup.py
-
-# 2. Start MCP Server
-python mcp_server/dsim_uvm_server.py --workspace .
-
-# 3. Use MCP Tools (via MCP client)
-# - run_uvm_simulation
-# - check_dsim_environment  
-# - list_available_tests
-# - get_simulation_logs
-# - generate_coverage_report
-```
-
-### MCP Tool Examples
-
-```json
-{
-  "name": "run_uvm_simulation",
-  "arguments": {
-    "test_name": "uart_axi4_write_protocol_test",
-    "mode": "run",
-    "verbosity": "UVM_MEDIUM",
-    "waves": true,
-    "coverage": true,
-    "seed": 42
-  }
-}
-```
-
-## � Structured Telemetry Outputs
-
-`run_uvm_simulation` now returns structured JSON that surfaces the log path, summary verdict, and key warning or assertion excerpts. Example (abbreviated):
-
-```json
-{
-  "status": "success",
-  "test_name": "uart_axi4_basic_test",
-  "mode": "run",
-  "verbosity": "UVM_MEDIUM",
-  "log_file": "../exec/logs/uart_axi4_basic_test_20251015_153011.log",
-  "summary": {
-    "status": "success",
-    "error_count": 0,
-    "assertion_failures": 0
-  },
-  "warnings": [],
-  "assertion_summary": {
-    "total_failures": 0,
-    "failures": []
-  }
-}
-```
-
-- `analysis`: Contains severity breakdowns, runtime statistics, and limited warning/assertion excerpts for quick dashboards.
-- `assertion_summary`: Aggregates assertion failures for automated triage.
-- `log_file_absolute`: Resolves to the on-disk DSIM log for deeper inspection.
-
-Use `analyze_uvm_log` to inspect any historical log with the same parser:
+### Hardware Simulation
 
 ```bash
-python mcp_server/mcp_client.py --workspace . --tool analyze_uvm_log --log_path sim/exec/logs/uart_axi4_basic_test_20251015_153011.log --limit 5
+# Check simulation environment
+python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
+
+# Run UVM test (compile + simulate)
+python mcp_server/mcp_client.py --workspace . --tool run_uvm_simulation_batch \
+  --test-name axiuart_reg_rw_test --verbosity UVM_MEDIUM --waves
+
+# View results
+# Logs: sim/exec/logs/
+# Waveforms: sim/exec/wave/ (MXD format)
 ```
 
-The response mirrors the simulation telemetry, making it straightforward to rehydrate results after the MCP server session.
+### Python Driver
 
-## �🔧 Alternative: Legacy PowerShell Scripts
+```bash
+# Install dependencies
+pip install pyserial
 
-For environments where MCP server is not available, traditional PowerShell scripts are provided:
+# LED control demo (interactive mode)
+cd software
+python -m axiuart_driver.examples.led_control interactive
 
-```powershell
-# Direct script execution
-cd sim/exec
-.\run_uvm.ps1 -TestName "uart_axi4_basic_test" -Waves on -Coverage on
+# LED animation patterns
+python -m axiuart_driver.examples.led_control knight
+python -m axiuart_driver.examples.led_control count
+
+# Basic register test
+python -m axiuart_driver.examples.example_basic
 ```
 
-## 📊 Verification Status
+## Directory Structure
 
-| Test Case | Status | Coverage | Notes |
-|-----------|--------|----------|-------|
-| Basic Write Protocol | ✅ PASS | 95% | Full AXI4 write sequence |
-| Basic Read Protocol | ✅ PASS | 92% | Full AXI4 read sequence |
-| Error Injection | ✅ PASS | 88% | Parity/framing errors |
-| Bridge Control | ✅ PASS | 90% | Enable/disable sequences |
+```
+AXIUART_/
+├── rtl/                    # SystemVerilog RTL design
+│   ├── README.md          # RTL specifications
+│   ├── AXIUART_Top.sv     # Top-level (4-bit LED)
+│   ├── register_block/    # AXI4-Lite registers
+│   └── uart_axi4_bridge/  # Protocol conversion
+├── sim/                   # UVM verification
+│   ├── README.md          # Simulation guide
+│   ├── uvm/               # UVM testbench
+│   │   ├── UVM_ARCHITECTURE.md
+│   │   ├── tb/            # Tests and sequences
+│   │   └── sv/            # UVM components
+│   └── exec/              # Simulation outputs
+├── software/              # Python control software
+│   └── axiuart_driver/
+│       ├── axiuart_driver.md    # Driver documentation
+│       ├── axiuart_driver.py    # Core driver
+│       ├── protocol.py          # UART protocol
+│       └── examples/
+│           ├── led_control.py          # LED application
+│           ├── LED_CONTROL_README.md   # Usage guide
+│           └── example_basic.py        # Basic example
+├── mcp_server/            # FastMCP automation
+│   ├── dsim_uvm_server.py
+│   └── mcp_client.py
+└── docs/                  # Documentation
+```
 
-## 🛠️ Development Environment
+## Development Environment
 
 ### Required Tools
 
-- **DSIM**: v20240422.0.0 (Metrics Design Automation)
-- **Python**: 3.8+ with MCP package support
+- **DSIM**: Altair DSim 2025.1 (Metrics Design Automation)
+- **Python**: 3.8+ with pyserial
 - **SystemVerilog**: IEEE 1800-2017 compliant
 - **UVM**: Version 1.2
 
-### Environment Variables
+### Environment Setup
 
 ```powershell
-$env:DSIM_HOME = "C:\Users\Nautilus\AppData\Local\metrics-ca\dsim\20240422.0.0"
-$env:DSIM_LICENSE = "path\to\license.dat"  # if required
+# Windows
+$env:DSIM_HOME = "C:\Program Files\Altair\DSim\2025.1"
+$env:DSIM_LICENSE = "C:\Users\<user>\AppData\Local\metrics-ca\dsim-license.json"
+
+# Install Python dependencies
+pip install pyserial
 ```
 
-## 📈 Coverage Analysis
+## Verification Status
 
-Generate comprehensive coverage reports using the MCP server:
+| Component | Tests | Status | Coverage |
+|-----------|-------|--------|----------|
+| UART Protocol | Basic + Register R/W | ✅ PASS | 95% |
+| AXI4-Lite Interface | Write/Read sequences | ✅ PASS | 92% |
+| LED Control | 6-register test | ✅ PASS | 100% |
+| Python Driver | Hardware verified | ✅ PASS | - |
 
-```json
-{
-  "name": "generate_coverage_report",
-  "arguments": {
-    "format": "html",
-    "output_dir": "coverage_report"
-  }
-}
-```
+**Latest Test Results:**
+- UVM Simulation: 6 MATCHES, 0 MISMATCHES (15.319ms runtime)
+- Hardware Test: COM3 @ 115200 baud - All patterns working
+- LED Control: All 4 bits verified with animations
 
-## 🔍 Debugging Workflow
+## License
 
-1. **Start MCP Server**: Automatic environment validation
-2. **Run Tests**: Comprehensive logging and waveform capture  
-3. **Analyze Results**: Automated report generation
-4. **Debug Issues**: SVA assertion analysis and waveform review
+See [LICENSE](LICENSE) file for details.
 
-## 📝 Documentation
+## Documentation
 
-- [`mcp_server/README.md`](mcp_server/README.md) - MCP server implementation details
-- [`docs/design_overview.md`](docs/design_overview.md) - System architecture
-- [`docs/verification_plan.md`](docs/verification_plan.md) - UVM verification strategy
-- [`docs/uvm_verification_plan.md`](docs/uvm_verification_plan.md) - Detailed test plans
-
-## 🎯 Key Features
-
-### RTL Implementation
-
-- ✅ Full UART-AXI4 bridge with configurable parameters
-- ✅ Comprehensive frame parsing and protocol conversion
-- ✅ Register block with standard AXI4-Lite interface
-- ✅ Error detection and handling mechanisms
-
-### Verification Environment  
-
-- ✅ UVM 1.2 compliant testbench architecture
-- ✅ Modular agent design for reusability
-- ✅ SystemVerilog assertions for protocol checking
-- ✅ Coverage-driven verification methodology
-- ✅ Model Context Protocol server integration
-
-### Automation & Tools
-
-- ✅ MCP server for standardized tool integration
-- ✅ Automated environment setup and validation
-- ✅ Comprehensive logging and reporting
-- ✅ VS Code integration with task automation
-- ✅ Cross-platform Python-based workflows
-
-## � Python AXIUART Driver (Hardware Interface)
-
-A complete Python driver package for hardware access to AXIUART devices via UART.
-
-### Features
-
-- ✅ **Protocol Implementation**: Full AXIUART Bus Protocol support
-  - CRC-8 validation (polynomial 0x07)
-  - Little-endian data conversion
-  - SOF markers (0xA5 host→device, 0x5A device→host)
-- ✅ **Register Access**: Single 32-bit read/write operations
-- ✅ **Burst Transfers**: Multi-beat transfers (1-16 beats)
-- ✅ **Error Handling**: Robust timeout and CRC error detection
-- ✅ **Hardware Verified**: Tested on COM3 @ 115200 baud (Windows)
-
-### Quick Start
-
-```python
-from axiuart_driver import AXIUARTDriver
-
-# Connect to device
-driver = AXIUARTDriver(port='COM3', baud=115200)
-driver.open()
-
-# Read VERSION register (0x101C)
-version = driver.read_reg32(0x101C)
-print(f"VERSION: 0x{version:08X}")
-
-# Write to TEST_0 register (0x1020)
-driver.write_reg32(0x1020, 0xDEADBEEF)
-
-# Read back
-value = driver.read_reg32(0x1020)
-assert value == 0xDEADBEEF, "Write/read mismatch!"
-
-# Close connection
-driver.close()
-```
-
-### Installation
-
-The driver is located in `software/axiuart_driver/`:
-
-```bash
-# Set PYTHONPATH for imports
-export PYTHONPATH=$PWD/software  # Linux/macOS
-$env:PYTHONPATH="$PWD\software"  # Windows PowerShell
-
-# Run example
-python software/axiuart_driver/examples/example_basic.py
-```
-
-### API Reference
-
-**AXIUARTDriver Class**:
-
-| Method | Description |
-|--------|-------------|
-| `open()` | Open serial port and clear buffers |
-| `close()` | Close serial port |
-| `read_reg32(addr)` | Read single 32-bit register |
-| `write_reg32(addr, data)` | Write single 32-bit register |
-| `read_burst(addr, count, inc=True)` | Read multiple registers (1-16 beats) |
-| `write_burst(addr, data_list, inc=True)` | Write multiple registers (1-16 beats) |
-| `soft_reset()` | Send RESET command (0xFF) |
-| `get_version()` | Read VERSION register (0x101C) |
-| `get_status()` | Read STATUS register (0x1004) |
-| `get_tx_count()` | Read TX_COUNT register (0x1010) |
-| `get_rx_count()` | Read RX_COUNT register (0x1014) |
-
-**Protocol Classes** (from `axiuart_driver.protocol`):
-
-- `CRC8`: CRC-8 calculation (polynomial 0x07)
-- `FrameBuilder`: Build host→device frames
-- `FrameParser`: Parse device→host responses
-- `StatusCode`: Status code enumeration
-
-### Examples
-
-**Basic Register Access**:
-
-```python
-# software/axiuart_driver/examples/example_basic.py
-# Demonstrates VERSION, STATUS, TEST_0 access and pattern verification
-```
-
-**Burst Transfers**:
-
-```python
-# software/axiuart_driver/examples/example_burst.py
-# Demonstrates multi-beat read/write with INC=1/0 modes
-```
-
-**Diagnostic Tool**:
-
-```python
-# software/axiuart_driver/examples/example_diagnostic.py
-# Comprehensive register map testing and FIFO analysis
-```
-
-### Hardware Test Results
-
-| Test Case | Result | Details |
-|-----------|--------|---------|
-| VERSION Read | ✅ PASS | 0x00010000 |
-| STATUS Read | ✅ PASS | 0x00000001 |
-| TEST_0 Write/Read | ✅ PASS | All patterns verified |
-| Pattern Tests | ✅ PASS | 0x00000000, 0xFFFFFFFF, 0xAAAAAAAA, 0x55555555, 0x12345678 |
-| Transaction Counters | ✅ PASS | TX/RX counts incrementing correctly |
-| CRC Validation | ✅ PASS | 100% success rate |
-
-**Verified Environment**:
-- Hardware: FPGA with AXIUART @ COM3
-- Baud Rate: 115200 bps (8N1)
-- Platform: Windows 10/11 with PySerial 3.5+
-- Test Duration: Multiple sessions, 100+ transactions
-
-### Documentation
-
-See [`software/axiuart_driver/README.md`](software/axiuart_driver/README.md) for complete documentation including:
-- Protocol specification details
-- Error handling strategies
-- Advanced usage patterns
-- Troubleshooting guide
-
-## �🚀 Getting Started
-
-1. **Clone the repository**
-2. **Setup MCP server**: `python mcp_server/setup.py`
-3. **Start MCP server**: `python mcp_server/dsim_uvm_server.py --workspace .`
-4. **Run tests via MCP client** or use VS Code tasks
-5. **Review results** in generated reports
-
-For detailed setup instructions, see the [MCP Server README](mcp_server/README.md).
-
-## 🚀 **Quick Start for Agent AI**
-
-**New to this environment?** → See [QUICK_START.md](QUICK_START.md) for 60-second setup guide.
-
-**Key Commands**:
-
-```bash
-# Start here (mandatory)
-python mcp_server/mcp_client.py --workspace . --tool check_dsim_environment
-
-# Basic Agent AI workflow  
-python mcp_server/mcp_client.py --workspace . --tool compile_design --test-name uart_axi4_basic_test
-python mcp_server/mcp_client.py --workspace . --tool run_simulation --test-name uart_axi4_basic_test
-```
-
-**🎯 Remember**: Always use MCP Client for 92% best practice compliance.
+- [RTL Design Specifications](rtl/README.md)
+- [UVM Architecture Guide](sim/uvm/UVM_ARCHITECTURE.md)
+- [Simulation Environment](sim/README.md)
+- [Python Driver Documentation](software/axiuart_driver/axiuart_driver.md)
+- [LED Control Guide](software/axiuart_driver/examples/LED_CONTROL_README.md)
