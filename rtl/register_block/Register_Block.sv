@@ -25,7 +25,10 @@ module Register_Block #(
     input  logic [7:0]  error_code,            // Current error code
     input  logic [15:0] tx_count,              // TX transaction counter
     input  logic [15:0] rx_count,              // RX transaction counter
-    input  logic [7:0]  fifo_status            // FIFO status flags
+    input  logic [7:0]  fifo_status,           // FIFO status flags
+    
+    // LED control output
+    output logic [3:0]  test_led               // 4-bit LED control
 );
 
     // Register address map (byte addresses)
@@ -48,6 +51,7 @@ module Register_Block #(
     localparam bit [11:0] REG_TEST_5     = 12'h050;  // 0x050: Test register 5 (RW) - larger gap
     localparam bit [11:0] REG_TEST_6     = 12'h080;  // 0x080: Test register 6 (RW) - even larger gap
     localparam bit [11:0] REG_TEST_7     = 12'h100;  // 0x100: Test register 7 (RW) - different range
+    localparam bit [11:0] REG_TEST_LED   = 12'h044;  // 0x044: Test LED register (RW) - 4-bit LED control
 
     // Register storage
     logic [31:0] control_reg;      // RW - Control register
@@ -64,6 +68,7 @@ module Register_Block #(
     logic [31:0] test_reg_5;       // RW - Test register 5 (larger gap)
     logic [31:0] test_reg_6;       // RW - Test register 6 (even larger gap)
     logic [31:0] test_reg_7;       // RW - Test register 7 (different range)
+    logic [31:0] test_led_reg;     // RW - Test LED register (4-bit LED control)
     
     // AXI4-Lite response codes
     localparam bit [1:0] RESP_OKAY   = 2'b00;
@@ -197,7 +202,7 @@ module Register_Block #(
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
             REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
             REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3,
-            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7: begin
+            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7, REG_TEST_LED: begin
                 within_register_range = 1'b1;
             end
             default: begin
@@ -226,7 +231,7 @@ module Register_Block #(
             REG_CONTROL, REG_STATUS, REG_CONFIG, REG_DEBUG,
             REG_TX_COUNT, REG_RX_COUNT, REG_FIFO_STAT, REG_VERSION,
             REG_TEST_0, REG_TEST_1, REG_TEST_2, REG_TEST_3,
-            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7: begin
+            REG_TEST_4, REG_TEST_5, REG_TEST_6, REG_TEST_7, REG_TEST_LED: begin
                 // Valid register found
             end
             default: begin
@@ -449,6 +454,11 @@ module Register_Block #(
                             test_reg_7_write_detect <= 1'b1;
                         end
 
+                        REG_TEST_LED: begin
+                            masked_value = apply_wstrb_mask(test_led_reg, axi.wdata, axi.wstrb);
+                            test_led_reg <= masked_value;
+                        end
+
                         default: begin
                             // Writes to RO registers succeed but have no effect
                         end
@@ -553,6 +563,11 @@ module Register_Block #(
                     read_data = test_reg_7;
                 end
 
+                REG_TEST_LED: begin
+                    read_data[3:0] = test_led_reg[3:0];  // Only lower 4 bits are used
+                    read_data[31:4] = '0;
+                end
+
                 default: begin
                     read_data = '0;
                 end
@@ -566,6 +581,7 @@ module Register_Block #(
     assign baud_div_config = config_reg[15:0];
     assign timeout_config = config_reg[15:8];
     assign debug_mode = debug_reg[3:0];
+    assign test_led = test_led_reg[3:0];  // LED control output
 
     `ifdef ENABLE_DEBUG
     // Critical debugging only - AXI handshakes and state transitions

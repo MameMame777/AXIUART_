@@ -18,8 +18,8 @@ module AXIUART_Top #(
     input  logic        uart_rx,
     output logic        uart_tx,
     output logic        uart_rts_n,         // Request to Send (active low)
-    input  logic        uart_cts_n,          // Clear to Send (active low)
-    output logic        led                 // General purpose LEDs
+    input  logic        uart_cts_n,         // Clear to Send (active low)
+    output logic [3:0]  led                 // 4-bit LED control
     // System status outputs - simulation only
     `ifdef DEFINE_SIM
     // Simulation-only system status outputs
@@ -50,6 +50,8 @@ module AXIUART_Top #(
     logic [15:0] tx_count;
     logic [15:0] rx_count;
     logic [7:0]  fifo_status;
+    
+    logic [3:0]  test_led_internal;  // LED control from register block
     
     // Flow control signals
     logic        rx_fifo_full;
@@ -122,6 +124,7 @@ module AXIUART_Top #(
         .baud_div_config(baud_div_config),
         .timeout_config(timeout_config),
         .debug_mode(debug_mode),
+        .test_led(test_led_internal),  // LED control output
         
         // Status inputs
         .bridge_busy(bridge_busy),
@@ -146,33 +149,10 @@ module AXIUART_Top #(
         end
     end
     
-    // AXI4-Lite Address Router and Interconnect
-    // Implements proper AXI handshaking and response multiplexing
+    // LED control from TEST_LED register
+    assign led = test_led_internal;
     
-    logic clk_div;
-    logic [25:0] clk_div_counter;  // 26-bit counter for ~1Hz blink
-    // Clock divider for LED indication - creates ~1Hz visible blink (125MHz / 2^26 ≈ 1.86Hz)
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst) begin
-            clk_div_counter <= 26'd0;
-        end else begin
-            clk_div_counter <= clk_div_counter + 1;
-        end
-    end
-
-    // Generate visible blink signal from MSB of counter
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst) begin
-            clk_div <= 1'b0;
-        end else begin
-            clk_div <= clk_div_counter[25];  // Use MSB for ~1Hz toggle
-        end        
-    end
-
-    assign led = clk_div;        // System Heartbeat
-
-
-    // Address decode signals
+    // AXI4-Lite Address Router and Interconnect
     // System status outputs (simulation only)
     `ifdef DEFINE_SIM
     assign system_busy = bridge_busy;
