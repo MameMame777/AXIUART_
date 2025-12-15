@@ -1,11 +1,13 @@
 `timescale 1ns / 1ps
 
+import axiuart_reg_pkg::*;
+
 // FIXED AXI4-Lite Register Block for AXIUART System
 // Corrected ready signal logic to avoid circular dependencies
 module Register_Block #(
     parameter int ADDR_WIDTH = 32,
     parameter int DATA_WIDTH = 32,
-    parameter int BASE_ADDR = 32'h0000_1000
+    parameter int BASE_ADDR = axiuart_reg_pkg::BASE_ADDR
 )(
     input  logic clk,
     input  logic rst,
@@ -31,27 +33,25 @@ module Register_Block #(
     output logic [3:0]  test_led               // 4-bit LED control
 );
 
-    // Register address map (byte addresses)
-    localparam bit [11:0] REG_CONTROL    = 12'h000;  // 0x000: Control register
-    localparam bit [11:0] REG_STATUS     = 12'h004;  // 0x004: Status register
-    localparam bit [11:0] REG_CONFIG     = 12'h008;  // 0x008: Configuration register
-    localparam bit [11:0] REG_DEBUG      = 12'h00C;  // 0x00C: Debug control
-    localparam bit [11:0] REG_TX_COUNT   = 12'h010;  // 0x010: TX counter (RO)
-    localparam bit [11:0] REG_RX_COUNT   = 12'h014;  // 0x014: RX counter (RO)
-    localparam bit [11:0] REG_FIFO_STAT  = 12'h018;  // 0x018: FIFO status (RO)
-    localparam bit [11:0] REG_VERSION    = 12'h01C;  // 0x01C: Version register (RO)
-    
-    // Test registers for protocol debugging (added 2025-10-05)
-    // Extended test set for pattern analysis (2025-10-09)
-    localparam bit [11:0] REG_TEST_0     = 12'h020;  // 0x020: Test register 0 (RW)
-    localparam bit [11:0] REG_TEST_1     = 12'h024;  // 0x024: Test register 1 (RW)
-    localparam bit [11:0] REG_TEST_2     = 12'h028;  // 0x028: Test register 2 (RW)
-    localparam bit [11:0] REG_TEST_3     = 12'h02C;  // 0x02C: Test register 3 (RW)
-    localparam bit [11:0] REG_TEST_4     = 12'h040;  // 0x040: Test register 4 (RW) - gap test
-    localparam bit [11:0] REG_TEST_5     = 12'h050;  // 0x050: Test register 5 (RW) - larger gap
-    localparam bit [11:0] REG_TEST_6     = 12'h080;  // 0x080: Test register 6 (RW) - even larger gap
-    localparam bit [11:0] REG_TEST_7     = 12'h100;  // 0x100: Test register 7 (RW) - different range
-    localparam bit [11:0] REG_TEST_LED   = 12'h044;  // 0x044: Test LED register (RW) - 4-bit LED control
+    // Register address map - compute offsets from generated package
+    // All addresses come from register_map/axiuart_registers.json
+    localparam bit [11:0] REG_CONTROL    = (axiuart_reg_pkg::REG_CONTROL - BASE_ADDR);     // 0x000
+    localparam bit [11:0] REG_STATUS     = (axiuart_reg_pkg::REG_STATUS - BASE_ADDR);      // 0x004
+    localparam bit [11:0] REG_CONFIG     = (axiuart_reg_pkg::REG_CONFIG - BASE_ADDR);      // 0x008
+    localparam bit [11:0] REG_DEBUG      = (axiuart_reg_pkg::REG_DEBUG - BASE_ADDR);       // 0x00C
+    localparam bit [11:0] REG_TX_COUNT   = (axiuart_reg_pkg::REG_TX_COUNT - BASE_ADDR);    // 0x010
+    localparam bit [11:0] REG_RX_COUNT   = (axiuart_reg_pkg::REG_RX_COUNT - BASE_ADDR);    // 0x014
+    localparam bit [11:0] REG_FIFO_STAT  = (axiuart_reg_pkg::REG_FIFO_STAT - BASE_ADDR);   // 0x018
+    localparam bit [11:0] REG_VERSION    = (axiuart_reg_pkg::REG_VERSION - BASE_ADDR);     // 0x01C
+    localparam bit [11:0] REG_TEST_0     = (axiuart_reg_pkg::REG_TEST_0 - BASE_ADDR);      // 0x020
+    localparam bit [11:0] REG_TEST_1     = (axiuart_reg_pkg::REG_TEST_1 - BASE_ADDR);      // 0x024
+    localparam bit [11:0] REG_TEST_2     = (axiuart_reg_pkg::REG_TEST_2 - BASE_ADDR);      // 0x028
+    localparam bit [11:0] REG_TEST_3     = (axiuart_reg_pkg::REG_TEST_3 - BASE_ADDR);      // 0x02C
+    localparam bit [11:0] REG_TEST_4     = (axiuart_reg_pkg::REG_TEST_4 - BASE_ADDR);      // 0x040
+    localparam bit [11:0] REG_TEST_LED   = (axiuart_reg_pkg::REG_TEST_LED - BASE_ADDR);    // 0x044
+    localparam bit [11:0] REG_TEST_5     = (axiuart_reg_pkg::REG_TEST_5 - BASE_ADDR);      // 0x050
+    localparam bit [11:0] REG_TEST_6     = (axiuart_reg_pkg::REG_TEST_6 - BASE_ADDR);      // 0x080
+    localparam bit [11:0] REG_TEST_7     = (axiuart_reg_pkg::REG_TEST_7 - BASE_ADDR);      // 0x100
 
     // Register storage
     logic [31:0] control_reg;      // RW - Control register

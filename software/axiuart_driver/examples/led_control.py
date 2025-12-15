@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 LED Control Example for AXIUART
-Control 4-bit LED register (REG_TEST_LED at 0x1044)
+Control 4-bit LED register (REG_TEST_LED from register map)
 """
 
 import sys
@@ -13,7 +13,7 @@ from axiuart_driver import AXIUARTDriver, AXIUARTException
 class LEDController:
     """4-bit LED controller for AXIUART"""
     
-    REG_TEST_LED = 0x1044  # TEST_LED register address
+    # Use register constant from driver (auto-generated from register map)
     LED_MASK = 0x0F        # 4-bit mask for LED values
     
     def __init__(self, port: str, baudrate: int = 115200, debug: bool = False):
@@ -57,7 +57,7 @@ class LEDController:
         if not (0 <= value <= 15):
             raise ValueError(f"LED value must be 0-15, got {value}")
         
-        self.driver.write_reg32(self.REG_TEST_LED, value & self.LED_MASK)
+        self.driver.write_reg32(self.driver.REG_TEST_LED, value & self.LED_MASK)
         self.current_value = value & self.LED_MASK
     
     def get_led(self) -> int:
@@ -67,7 +67,7 @@ class LEDController:
         Returns:
             Current 4-bit LED value
         """
-        value = self.driver.read_reg32(self.REG_TEST_LED)
+        value = self.driver.read_reg32(self.driver.REG_TEST_LED)
         return value & self.LED_MASK
     
     def set_bit(self, bit: int, state: bool = True) -> None:
@@ -266,7 +266,7 @@ def main():
     print("=" * 60)
     print(f"Port: {PORT}")
     print(f"Baudrate: {BAUDRATE}")
-    print(f"LED Register: 0x1044 (REG_TEST_LED)")
+    print(f"LED Register: 0x{AXIUARTDriver.REG_TEST_LED:04X} (REG_TEST_LED)")
     print("=" * 60)
     
     # Parse command line arguments

@@ -15,6 +15,50 @@ This directory contains the complete RTL implementation of the AXIUART project -
 7. [Error Handling](#error-handling)
 8. [Reset Behavior](#reset-behavior)
 
+## Register Management
+
+### Centralized Register Definitions
+
+The AXIUART project uses a **JSON-based Single Source of Truth** approach for register management:
+
+**Source:** `register_map/axiuart_registers.json`
+
+**Generated Outputs:**
+1. **SystemVerilog Package** (`rtl/register_block/axiuart_reg_pkg.sv`)
+   - Parameter definitions for all registers
+   - Imported by `Register_Block.sv` and UVM testbench
+   - Ensures address consistency across RTL and verification
+
+2. **Python Constants** (`software/axiuart_driver/registers.py`)
+   - Used by Python driver and control applications
+   - Guarantees software-hardware address alignment
+
+3. **Markdown Documentation** (`software/axiuart_driver/REGISTER_MAP.md`)
+   - Human-readable reference with complete register details
+
+**RTL Usage Example:**
+```systemverilog
+// rtl/register_block/Register_Block.sv
+import axiuart_reg_pkg::*;  // Import generated package
+
+// Use generated constants (absolute addresses)
+localparam bit [11:0] REG_CONTROL = (axiuart_reg_pkg::REG_CONTROL - BASE_ADDR);
+localparam bit [11:0] REG_STATUS  = (axiuart_reg_pkg::REG_STATUS - BASE_ADDR);
+// ... rest computed automatically
+```
+
+**Regeneration Command:**
+```bash
+python software/axiuart_driver/tools/gen_registers.py \
+  --in register_map/axiuart_registers.json
+```
+
+**Validation Rules:**
+- All addresses must be 32-bit aligned
+- No duplicate offsets allowed
+- Deterministic ordering (sorted by offset)
+- Automatic sanity checks on every generation
+
 ## Architecture Overview
 
 ### System Block Diagram

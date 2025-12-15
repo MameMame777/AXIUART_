@@ -22,6 +22,9 @@
 +incdir+../../tests
 +incdir+.
 
+# Generated Register Package (from register_map/axiuart_registers.json)
+../../../rtl/register_block/axiuart_reg_pkg.sv
+
 # RTL Interface Definitions
 ../../../rtl/interfaces/uart_if.sv
 ../../../rtl/interfaces/axi4_lite_if.sv
