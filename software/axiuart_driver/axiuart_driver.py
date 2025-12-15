@@ -9,6 +9,7 @@ import time
 import logging
 from typing import Optional, List, Union
 from .protocol import FrameBuilder, FrameParser, StatusCode, CommandField
+from . import registers
 
 
 class AXIUARTException(Exception):
@@ -40,27 +41,26 @@ class AXIUARTDriver:
     DEFAULT_BAUD = 115200
     DEFAULT_TIMEOUT = 1.0  # 1 second response timeout
     
-    # Register map (BASE_ADDR = 0x1000 per Register_Block.sv)
-    BASE_ADDR = 0x1000
-    REG_CONTROL = BASE_ADDR + 0x000
-    REG_STATUS = BASE_ADDR + 0x004
-    REG_CONFIG = BASE_ADDR + 0x008
-    REG_DEBUG = BASE_ADDR + 0x00C
-    REG_TX_COUNT = BASE_ADDR + 0x010
-    REG_RX_COUNT = BASE_ADDR + 0x014
-    REG_FIFO_STAT = BASE_ADDR + 0x018
-    REG_VERSION = BASE_ADDR + 0x01C
-    
-    # Test registers
-    REG_TEST_0 = BASE_ADDR + 0x020
-    REG_TEST_1 = BASE_ADDR + 0x024
-    REG_TEST_2 = BASE_ADDR + 0x028
-    REG_TEST_3 = BASE_ADDR + 0x02C
-    REG_TEST_4 = BASE_ADDR + 0x040
-    REG_TEST_LED = BASE_ADDR + 0x044  # 4-bit LED control register
-    REG_TEST_5 = BASE_ADDR + 0x050
-    REG_TEST_6 = BASE_ADDR + 0x080
-    REG_TEST_7 = BASE_ADDR + 0x100
+    # Register map (imported from auto-generated module)
+    # See register_map/axiuart_registers.json for source of truth
+    BASE_ADDR = registers.BASE_ADDR
+    REG_CONTROL = registers.REG_CONTROL
+    REG_STATUS = registers.REG_STATUS
+    REG_CONFIG = registers.REG_CONFIG
+    REG_DEBUG = registers.REG_DEBUG
+    REG_TX_COUNT = registers.REG_TX_COUNT
+    REG_RX_COUNT = registers.REG_RX_COUNT
+    REG_FIFO_STAT = registers.REG_FIFO_STAT
+    REG_VERSION = registers.REG_VERSION
+    REG_TEST_0 = registers.REG_TEST_0
+    REG_TEST_1 = registers.REG_TEST_1
+    REG_TEST_2 = registers.REG_TEST_2
+    REG_TEST_3 = registers.REG_TEST_3
+    REG_TEST_4 = registers.REG_TEST_4
+    REG_TEST_LED = registers.REG_TEST_LED
+    REG_TEST_5 = registers.REG_TEST_5
+    REG_TEST_6 = registers.REG_TEST_6
+    REG_TEST_7 = registers.REG_TEST_7
     
     def __init__(self, port: str, baudrate: int = DEFAULT_BAUD, 
                  timeout: float = DEFAULT_TIMEOUT, debug: bool = False):

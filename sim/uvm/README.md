@@ -78,6 +78,41 @@ sim/
 - **旧**: 191行 (複数のanalysisコンポーネント、複雑な接続)
 - **新**: 68行 (Agent + Monitor + Scoreboardのみ)
 
+## レジスタマップ管理 (2024-12追加)
+
+### 自動生成レジスタパッケージの使用
+
+UVMテストでは、`axiuart_reg_pkg.sv`（自動生成）のレジスタ定数を使用します。
+
+**使用方法:**
+```systemverilog
+// sim/tests/axiuart_reg_rw_test.sv
+import axiuart_reg_pkg::*;  // 生成されたパッケージをインポート
+
+class axiuart_reg_rw_test extends axiuart_base_test;
+  task main_phase(uvm_phase phase);
+    // 生成された定数を使用（ハードコード禁止）
+    uart_seq.write_then_read(REG_TEST_0, 32'h11111111);  // ✓ 正しい
+    uart_seq.write_then_read(32'h1020, 32'h11111111);    // ✗ 避ける
+  endtask
+endclass
+```
+
+**利点:**
+- RTL、UVM、Pythonで同一のレジスタアドレスを保証
+- JSON編集→再生成で全レイヤーが自動的に更新
+- アドレスミスマッチのリスクを排除
+
+**コンパイル順序:**
+```
+dsim_config.f:
+  rtl/register_block/axiuart_reg_pkg.sv  # 最初にコンパイル
+  rtl/register_block/Register_Block.sv   # パッケージをインポート
+  sim/tests/*.sv                          # テストでもインポート
+```
+
+**ソース:** `register_map/axiuart_registers.json` (Single Source of Truth)
+
 ## UBUS参考ポイント
 
 1. **1パッケージファイル**: すべてのコンポーネントを`axiuart_pkg.sv`に集約

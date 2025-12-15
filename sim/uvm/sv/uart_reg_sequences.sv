@@ -3,6 +3,8 @@
 // Purpose: Dedicated sequences for register read/write operations
 //------------------------------------------------------------------------------
 
+import axiuart_reg_pkg::*;
+
 class uart_reg_write_sequence extends uvm_sequence#(uart_transaction);
     `uvm_object_utils(uart_reg_write_sequence)
     
@@ -11,7 +13,7 @@ class uart_reg_write_sequence extends uvm_sequence#(uart_transaction);
     
     constraint valid_addr {
         reg_addr[1:0] == 2'b00;  // 4-byte aligned
-        reg_addr inside {[32'h0000_1000:32'h0000_1100]};  // Register map range
+        reg_addr inside {[BASE_ADDR:BASE_ADDR + 32'h0100]};  // Register map range
     }
     
     function new(string name = "uart_reg_write_sequence");
@@ -46,7 +48,7 @@ class uart_reg_read_sequence extends uvm_sequence#(uart_transaction);
     
     constraint valid_addr {
         reg_addr[1:0] == 2'b00;  // 4-byte aligned
-        reg_addr inside {[32'h0000_1000:32'h0000_1100]};  // Register map range
+        reg_addr inside {[BASE_ADDR:BASE_ADDR + 32'h0100]};  // Register map range
     }
     
     function new(string name = "uart_reg_read_sequence");

@@ -14,6 +14,42 @@ AXIUART provides a production-ready hardware interface between UART serial commu
 - Python driver with interactive control applications
 - Real-time waveform analysis and debugging support
 
+## Register Management
+
+**Centralized Register Map (Single Source of Truth):**
+
+All register definitions are maintained in a single JSON file and automatically generated into multiple target formats:
+
+```
+register_map/axiuart_registers.json (SSOT)
+            ↓
+    gen_registers.py
+            ↓
+    ┌───────┴────────┬─────────────────┐
+    ↓                ↓                 ↓
+Python           SystemVerilog      Markdown
+registers.py     axiuart_reg_pkg.sv REGISTER_MAP.md
+```
+
+**Key Benefits:**
+- Eliminates hard-coded addresses scattered across RTL, UVM, and software
+- Prevents address mismatches between hardware and software
+- Single edit updates all layers automatically
+- Validation ensures alignment and uniqueness
+
+**Regenerate after editing JSON:**
+```bash
+python software/axiuart_driver/tools/gen_registers.py \
+  --in register_map/axiuart_registers.json
+```
+
+**Generated Artifacts:**
+- `software/axiuart_driver/registers.py` - Python constants for driver
+- `rtl/register_block/axiuart_reg_pkg.sv` - SystemVerilog package for RTL/UVM
+- `software/axiuart_driver/REGISTER_MAP.md` - Human-readable documentation
+
+**Documentation:** [software/axiuart_driver/REGISTER_MAP.md](software/axiuart_driver/REGISTER_MAP.md)
+
 ## Architecture
 
 ### Hardware (SystemVerilog RTL)

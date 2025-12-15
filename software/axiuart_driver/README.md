@@ -66,23 +66,46 @@ with AXIUARTDriver('/dev/ttyUSB0') as driver:
 
 ## Register Map
 
-Based on `rtl/Register_Block.sv` (BASE_ADDR = 0x1000):
+### Auto-Generated Register Constants
 
-| Address | Name | Access | Description |
-|---------|------|--------|-------------|
-| 0x1000 | CONTROL | RW | Control register |
-| 0x1004 | STATUS | RO | Status register |
-| 0x1008 | CONFIG | RW | Configuration register |
-| 0x100C | DEBUG | RW | Debug control |
-| 0x1010 | TX_COUNT | RO | TX transaction counter |
-| 0x1014 | RX_COUNT | RO | RX transaction counter |
-| 0x1018 | FIFO_STAT | RO | FIFO status flags |
-| 0x101C | VERSION | RO | Version register |
-| 0x1020-0x102C | TEST_0-3 | RW | Test registers (contiguous) |
-| 0x1040 | TEST_4 | RW | Test register (gap test) |
-| 0x1050 | TEST_5 | RW | Test register (larger gap) |
-| 0x1080 | TEST_6 | RW | Test register (even larger gap) |
-| 0x1100 | TEST_7 | RW | Test register (different range) |
+Register addresses are **automatically generated** from `register_map/axiuart_registers.json`. Never hard-code register addresses directly.
+
+**Using Generated Constants:**
+```python
+from axiuart_driver import AXIUARTDriver
+
+with AXIUARTDriver('COM3') as driver:
+    # Use generated constants (from registers.py)
+    driver.write_reg32(driver.REG_TEST_LED, 0xF)  # ✓ Correct
+    driver.write_reg32(0x1044, 0xF)               # ✗ Avoid hard-coding
+```
+
+**Available Register Constants** (BASE_ADDR = 0x1000):
+
+| Constant | Address | Access | Description |
+|----------|---------|--------|-------------|
+| `REG_CONTROL` | 0x1000 | RW | Control register |
+| `REG_STATUS` | 0x1004 | RO | Status register |
+| `REG_CONFIG` | 0x1008 | RW | Configuration register |
+| `REG_DEBUG` | 0x100C | RW | Debug control |
+| `REG_TX_COUNT` | 0x1010 | RO | TX transaction counter |
+| `REG_RX_COUNT` | 0x1014 | RO | RX transaction counter |
+| `REG_FIFO_STAT` | 0x1018 | RO | FIFO status flags |
+| `REG_VERSION` | 0x101C | RO | Version register |
+| `REG_TEST_0` | 0x1020 | RW | Test register 0 |
+| `REG_TEST_1` | 0x1024 | RW | Test register 1 |
+| `REG_TEST_2` | 0x1028 | RW | Test register 2 |
+| `REG_TEST_3` | 0x102C | RW | Test register 3 |
+| `REG_TEST_4` | 0x1040 | RW | Test register 4 (gap test) |
+| `REG_TEST_LED` | 0x1044 | RW | 4-bit LED control |
+
+**Regenerate after JSON changes:**
+```bash
+python software/axiuart_driver/tools/gen_registers.py \
+  --in register_map/axiuart_registers.json
+```
+
+**Full Documentation:** See [REGISTER_MAP.md](REGISTER_MAP.md) for complete details.
 
 ## Protocol Details
 
