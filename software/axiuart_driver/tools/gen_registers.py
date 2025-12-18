@@ -25,8 +25,9 @@ from datetime import datetime
 class RegisterMapGenerator:
     """Generate register map artifacts from JSON source"""
     
-    def __init__(self, json_path: Path):
+    def __init__(self, json_path: Path, workspace_root: Path = None):
         self.json_path = json_path
+        self.workspace_root = workspace_root
         self.data = self._load_and_validate(json_path)
         
     def _load_and_validate(self, json_path: Path) -> Dict[str, Any]:
@@ -113,16 +114,26 @@ class RegisterMapGenerator:
         base_addr = int(self.data['base_addr'], 16)
         registers = self._sort_registers()
         
+        # Compute relative path from workspace root
+        if self.workspace_root:
+            try:
+                rel_path = self.json_path.relative_to(self.workspace_root)
+                json_path_str = str(rel_path).replace('\\', '/')
+            except ValueError:
+                json_path_str = self.json_path.name
+        else:
+            json_path_str = self.json_path.name
+        
         lines = [
-            '"""',
+            'r"""',
             'AXIUART Register Map',
             '',
             'AUTO-GENERATED FILE - DO NOT EDIT MANUALLY',
-            f'Generated from: {self.json_path.name}',
+            f'Generated from: {json_path_str}',
             f'Generation time: {datetime.now().isoformat()}',
             '',
             'To regenerate:',
-            f'    python software/axiuart_driver/tools/gen_registers.py --in {self.json_path}',
+            f'    python software/axiuart_driver/tools/gen_registers.py --in {json_path_str}',
             '"""',
             '',
             '',
@@ -156,17 +167,27 @@ class RegisterMapGenerator:
         registers = self._sort_registers()
         block_name = self.data['block_name']
         
+        # Compute relative path from workspace root
+        if self.workspace_root:
+            try:
+                rel_path = self.json_path.relative_to(self.workspace_root)
+                json_path_str = str(rel_path).replace('\\', '/')
+            except ValueError:
+                json_path_str = self.json_path.name
+        else:
+            json_path_str = self.json_path.name
+        
         lines = [
             '`timescale 1ns / 1ps',
             '',
             '// AXIUART Register Package',
             '//',
             '// AUTO-GENERATED FILE - DO NOT EDIT MANUALLY',
-            f'// Generated from: {self.json_path.name}',
+            f'// Generated from: {json_path_str}',
             f'// Generation time: {datetime.now().isoformat()}',
             '//',
             '// To regenerate:',
-            f'//     python software/axiuart_driver/tools/gen_registers.py --in {self.json_path}',
+            f'//     python software/axiuart_driver/tools/gen_registers.py --in {json_path_str}',
             '',
             'package axiuart_reg_pkg;',
             '',
@@ -202,12 +223,22 @@ class RegisterMapGenerator:
         registers = self._sort_registers()
         block_name = self.data['block_name']
         
+        # Compute relative path from workspace root
+        if self.workspace_root:
+            try:
+                rel_path = self.json_path.relative_to(self.workspace_root)
+                json_path_str = str(rel_path).replace('\\', '/')
+            except ValueError:
+                json_path_str = self.json_path.name
+        else:
+            json_path_str = self.json_path.name
+        
         lines = [
             f'# {block_name} Register Map',
             '',
             '**AUTO-GENERATED FILE - DO NOT EDIT MANUALLY**',
             '',
-            f'- **Source:** `{self.json_path}`',
+            f'- **Source:** `{json_path_str}`',
             f'- **Generated:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
             f'- **Base Address:** `0x{base_addr:04X}`',
             f'- **Stride:** {self.data["addr_stride_bytes"]} bytes',
@@ -234,7 +265,7 @@ class RegisterMapGenerator:
             'To update this file after modifying the register map:',
             '',
             '```bash',
-            f'python software/axiuart_driver/tools/gen_registers.py --in {self.json_path}',
+            f'python software/axiuart_driver/tools/gen_registers.py --in {json_path_str}',
             '```',
             '',
             '## Access Types',
@@ -282,7 +313,7 @@ This will generate:
         json_path = workspace_root / args.input_json
         
         print(f"Loading register map from: {json_path}")
-        generator = RegisterMapGenerator(json_path)
+        generator = RegisterMapGenerator(json_path, workspace_root)
         
         # Generate all outputs
         python_output = workspace_root / 'software' / 'axiuart_driver' / 'registers.py'

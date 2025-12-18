@@ -3,11 +3,11 @@
 // AXIUART Register Package
 //
 // AUTO-GENERATED FILE - DO NOT EDIT MANUALLY
-// Generated from: axiuart_registers.json
-// Generation time: 2025-12-16T07:12:14.096747
+// Generated from: register_map/axiuart_registers.json
+// Generation time: 2025-12-18T22:27:25.198213
 //
 // To regenerate:
-//     python software/axiuart_driver/tools/gen_registers.py --in E:\Nautilus\workspace\fpgawork\AXIUART_\register_map\axiuart_registers.json
+//     python software/axiuart_driver/tools/gen_registers.py --in register_map/axiuart_registers.json
 
 package axiuart_reg_pkg;
 

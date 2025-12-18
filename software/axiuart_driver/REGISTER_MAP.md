@@ -2,8 +2,8 @@
 
 **AUTO-GENERATED FILE - DO NOT EDIT MANUALLY**
 
-- **Source:** `E:\Nautilus\workspace\fpgawork\AXIUART_\register_map\axiuart_registers.json`
-- **Generated:** 2025-12-16 07:12:14
+- **Source:** `register_map/axiuart_registers.json`
+- **Generated:** 2025-12-18 22:27:25
 - **Base Address:** `0x1000`
 - **Stride:** 4 bytes
 
@@ -34,7 +34,7 @@
 To update this file after modifying the register map:
 
 ```bash
-python software/axiuart_driver/tools/gen_registers.py --in E:\Nautilus\workspace\fpgawork\AXIUART_\register_map\axiuart_registers.json
+python software/axiuart_driver/tools/gen_registers.py --in register_map/axiuart_registers.json
 ```
 
 ## Access Types
