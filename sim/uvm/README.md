@@ -1,187 +1,178 @@
-# AXIUART Simplified UVM Environment (UBUS Style)
+# AXIUART Simplified UVM Environment
 
-## 概要
+## Overview
 
-UBUSリファレンス実装を参考に、AXIUART UVM環境を大幅に簡素化しました。
+The AXIUART UVM environment has been simplified following the UBUS reference implementation pattern, reducing complexity while maintaining verification coverage.
 
-## ディレクトリ構造
+## Directory Structure
 
 ```
 sim/
-├── tests/                       # テスト定義 (新構造: 2024-12リファクタリング)
-│   ├── axiuart_test_pkg.sv     # テストパッケージ
-│   ├── axiuart_base_test.sv    # ベーステスト
-│   ├── axiuart_basic_test.sv   # 基本テスト
-│   ├── axiuart_reset_test.sv   # リセットテスト
-│   └── axiuart_reg_rw_test.sv  # レジスタR/Wテスト
+├── tests/                       # Test definitions (December 2024 refactoring)
+│   ├── axiuart_test_pkg.sv     # Test package
+│   ├── axiuart_base_test.sv    # Base test
+│   ├── axiuart_basic_test.sv   # Basic test
+│   ├── axiuart_reset_test.sv   # Reset test
+│   └── axiuart_reg_rw_test.sv  # Register R/W test
 │
 └── uvm/
-    ├── sv/                      # すべてのUVMコンポーネント (UBUSスタイル)
-    │   ├── axiuart_pkg.sv       # メインパッケージ (1ファイル)
-    │   ├── uart_transaction.sv  # トランザクション
-    │   ├── uart_monitor.sv      # UARTモニター
-    │   ├── uart_driver.sv       # UARTドライバー
-    │   ├── uart_sequencer.sv    # UARTシーケンサー
-    │   ├── uart_agent.sv        # UARTエージェント
-    │   ├── axi4_lite_monitor.sv # AXIモニター (観測のみ)
-    │   ├── axiuart_scoreboard.sv# スコアボード
-    │   └── axiuart_env.sv       # トップ環境
+    ├── sv/                      # All UVM components (UBUS style)
+    │   ├── axiuart_pkg.sv       # Main package (single file)
+    │   ├── uart_transaction.sv  # Transaction
+    │   ├── uart_monitor.sv      # UART monitor
+    │   ├── uart_driver.sv       # UART driver
+    │   ├── uart_sequencer.sv    # UART sequencer
+    │   ├── uart_agent.sv        # UART agent
+    │   ├── axi4_lite_monitor.sv # AXI monitor (observation only)
+    │   ├── axiuart_scoreboard.sv# Scoreboard
+    │   └── axiuart_env.sv       # Top environment
     │
-    └── tb/                      # テストベンチ
-        ├── axiuart_tb_top.sv    # トップモジュール
-        └── dsim_config.f        # DSIMファイルリスト
+    └── tb/                      # Testbench
+        ├── axiuart_tb_top.sv    # Top module
+        └── dsim_config.f        # DSIM file list
 ```
 
-## 主な簡素化ポイント
+## Simplification Highlights
 
-### 1. ファイル数の削減
-- **旧環境**: 49個のSystemVerilogファイル (agents/, env/, scoreboard/, analysis/ などに分散)
-- **新環境**: 14個のファイル (sv/, tb/, tests/ に整理)
-  - UVMコンポーネント: 10個 (sv/)
-  - テストベンチ: 1個 (tb/)
-  - テスト定義: 4個 (tests/ - 2024-12リファクタリング)
+### 1. File Count Reduction
+- **Previous environment**: 49 SystemVerilog files (distributed across agents/, env/, scoreboard/, analysis/)
+- **New environment**: 14 files (organized in sv/, tb/, tests/)
+  - UVM components: 10 files (sv/)
+  - Testbench: 1 file (tb/)
+  - Test definitions: 4 files (tests/ - December 2024 refactoring)
 
-### 2. 削除したコンポーネント
+### 2. Removed Components
 
-#### 重複スコアボード
-- `uart_axi4_enhanced_scoreboard.sv` → 削除
-- `uart_axi4_scoreboard.sv` → 統合
-- `correlation_engine.sv` → 統合
+#### Duplicate Scoreboards
+- `uart_axi4_enhanced_scoreboard.sv` → Removed
+- `uart_axi4_scoreboard.sv` → Merged
+- `correlation_engine.sv` → Integrated
 
-#### 重複カバレッジ
-- `uart_axi4_phase3_coverage.sv` → 削除
-- `system_coverage.sv` → 削除  
-- `axiuart_cov_pkg.sv` → 削除
+#### Duplicate Coverage
+- `uart_axi4_phase3_coverage.sv` → Removed
+- `system_coverage.sv` → Removed
+- `axiuart_cov_pkg.sv` → Removed
 
-#### 過剰な分離
-- `uart_axi4_predictor.sv` → 削除
-- `uart_axi4_error_detector.sv` → 削除
-- `bridge_status_monitor.sv` → 削除
-- `independent_verification_monitor.sv` → 削除
+#### Excessive Separation
+- `uart_axi4_predictor.sv` → Removed
+- `uart_axi4_error_detector.sv` → Removed
+- `bridge_status_monitor.sv` → Removed
+- `independent_verification_monitor.sv` → Removed
 
-#### 設定クラス
-- `uart_axi4_env_config.sv` → 削除 (シンプルなVIF設定のみ使用)
+#### Configuration Classes
+- `uart_axi4_env_config.sv` → Removed (uses simple VIF configuration only)
 
-### 3. トランザクションの簡素化
-- **旧**: 158行 (20個以上のフィールド、複雑な制約)
-- **新**: 47行 (基本フィールドのみ)
+### 3. Transaction Simplification
+- **Previous**: 158 lines (20+ fields, complex constraints)
+- **New**: 47 lines (essential fields only)
 
-### 4. モニターの簡素化
-- **旧**: 890行 (RX/TXの複雑なステートマシン)
-- **新**: 78行 (シンプルなフレーム収集)
+### 4. Monitor Simplification
+- **Previous**: 890 lines (complex RX/TX state machines)
+- **New**: 78 lines (simple frame collection)
 
-### 5. ドライバーの簡素化
-- **旧**: 351行 (baud rate動的変更、reset処理、複雑なフロー制御)
-- **新**: 98行 (8N1フォーマットの基本送信)
+### 5. Driver Simplification
+- **Previous**: 351 lines (dynamic baud rate, reset handling, complex flow control)
+- **New**: 98 lines (basic 8N1 format transmission)
 
-### 6. 環境の簡素化
-- **旧**: 191行 (複数のanalysisコンポーネント、複雑な接続)
-- **新**: 68行 (Agent + Monitor + Scoreboardのみ)
+### 6. Environment Simplification
+- **Previous**: 191 lines (multiple analysis components, complex connections)
+- **New**: 68 lines (Agent + Monitor + Scoreboard only)
 
-## レジスタマップ管理 (2024-12追加)
+## Register Map Management (December 2024)
 
-### 自動生成レジスタパッケージの使用
+### Using Auto-Generated Register Package
 
-UVMテストでは、`axiuart_reg_pkg.sv`（自動生成）のレジスタ定数を使用します。
+UVM tests use register constants from `axiuart_reg_pkg.sv` (auto-generated).
 
-**使用方法:**
+**Usage:**
 ```systemverilog
 // sim/tests/axiuart_reg_rw_test.sv
-import axiuart_reg_pkg::*;  // 生成されたパッケージをインポート
+import axiuart_reg_pkg::*;  // Import generated package
 
 class axiuart_reg_rw_test extends axiuart_base_test;
   task main_phase(uvm_phase phase);
-    // 生成された定数を使用（ハードコード禁止）
-    uart_seq.write_then_read(REG_TEST_0, 32'h11111111);  // ✓ 正しい
-    uart_seq.write_then_read(32'h1020, 32'h11111111);    // ✗ 避ける
+    // Use generated constants (no hardcoded addresses)
+    uart_seq.write_then_read(REG_TEST_0, 32'h11111111);  // ✓ Correct
+    uart_seq.write_then_read(32'h1020, 32'h11111111);    // ✗ Avoid
   endtask
 endclass
 ```
 
-**利点:**
-- RTL、UVM、Pythonで同一のレジスタアドレスを保証
-- JSON編集→再生成で全レイヤーが自動的に更新
-- アドレスミスマッチのリスクを排除
-
-**コンパイル順序:**
-```
-dsim_config.f:
-  rtl/register_block/axiuart_reg_pkg.sv  # 最初にコンパイル
-  rtl/register_block/Register_Block.sv   # パッケージをインポート
-  sim/tests/*.sv                          # テストでもインポート
-```
-
-**ソース:** `register_map/axiuart_registers.json` (Single Source of Truth)
-
-## UBUS参考ポイント
-
-1. **1パッケージファイル**: すべてのコンポーネントを`axiuart_pkg.sv`に集約
-2. **シンプルな階層**: Agent → Driver/Monitor/Sequencer → Env
-3. **VIF設定**: `uvm_config_db`でVirtual Interfaceを渡すだけ
-4. **スコアボード**: FIFOベースの単純な比較
-5. **テスト**: Sequence→Agent→Driverの明確なフロー
-
-## テスト構造の改善 (2024-12リファクタリング)
-
-### 旧構造の問題点
-- 単一ファイル(`axiuart_test_lib.sv`)に全テストクラスが混在
-- 新規テスト追加時にファイルが肥大化
-- 並行開発でコンフリクトリスクが高い
-
-### 新構造 (sim/tests/)
-- **1テスト = 1ファイル** の明確な責任分離
-- `axiuart_test_pkg.sv`で統合管理
-- 拡張性・保守性・並行開発性が大幅向上
-
-## 既存環境との比較
-
-| 項目 | 旧環境 | 新環境 (UBUS Style + 2024-12改善) |
-|------|--------|----------------------------------|
-| ファイル数 | 49個 | 14個 (UVM:10 + TB:1 + Tests:4) |
-| 総行数 | ~5000行 | ~800行 |
-| ディレクトリ数 | 10個 | 3個 (sv/, tb/, tests/) |
-| テスト構造 | 単一ファイル | 個別ファイル (拡張性向上) |
-| スコアボード | 3個 | 1個 |
-| カバレッジ | 3個 | 0個 (必要に応じて追加) |
-| 設定クラス | 複雑 | なし (VIFのみ) |
-
-## 使用方法
-
-### コンパイル
+**Regeneration:**
 ```bash
-dsim -work work \
-     +incdir+sv \
-     sv/axiuart_pkg.sv \
-     tb/axiuart_tb_top.sv \
-     tb/axiuart_basic_test.sv
+python software/axiuart_driver/tools/gen_registers.py \
+  --in register_map/axiuart_registers.json
 ```
 
-### 実行
+## Running Tests
+
+### Using MCP Client (Recommended)
+
+**Compile only:**
 ```bash
-dsim -work work \
-     +UVM_TESTNAME=axiuart_basic_test \
-     tb_top
+python mcp_server/mcp_client.py \
+  --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ \
+  --tool run_uvm_simulation \
+  --test-name axiuart_basic_test \
+  --mode compile \
+  --verbosity UVM_LOW \
+  --timeout 180
 ```
 
-## 今後の拡張
+**Full simulation:**
+```bash
+python mcp_server/mcp_client.py \
+  --workspace e:\Nautilus\workspace\fpgawork\AXIUART_ \
+  --tool run_uvm_simulation_batch \
+  --test-name axiuart_basic_test \
+  --verbosity UVM_MEDIUM \
+  --waves \
+  --timeout 300
+```
 
-必要に応じて以下を追加:
-1. **カバレッジ**: UBUSの`ubus_example_scoreboard.sv`を参考
-2. **複数シーケンス**: `seq_lib`パターン
-3. **設定**: 必要最小限のconfigクラス
+### Using VS Code Tasks
 
-## 削除対象の旧環境ファイル
+Available tasks configured in `.vscode/tasks.json`:
+- **DSIM: Run Basic Test (Compile Only - MCP)** - Compile-only pass
+- **DSIM: Run Basic Test (Full Simulation - MCP)** - Full simulation with waveforms
 
-以下のディレクトリは削除推奨:
-- `sim/uvm/analysis/`
-- `sim/uvm/components/`
-- `sim/uvm/scoreboard/` (重複スコアボード)
-- `sim/uvm/env/` (重複ファイル)
+## Test List
 
-保持推奨:
-- `rtl/interfaces/uart_if.sv` (interface定義)
-- `rtl/interfaces/axi4_lite_if.sv` (interface定義)
+| Test | Description | Status |
+|------|-------------|--------|
+| `axiuart_basic_test` | Basic UART frame transmission test | ✅ Working |
+| `axiuart_reset_test` | Reset sequence verification | ✅ Working |
+| `axiuart_reg_rw_test` | Register read/write test | ✅ Working |
 
-## 参考文献
-- UBUSリファレンス: `reference/Accellera/uvm/distrib/examples/integrated/ubus`
-- UVM Cookbook: Simple agent pattern
+## Verification Strategy
+
+### Coverage Goals
+- UART protocol compliance
+- Register interface functionality
+- Reset behavior
+- Error handling
+
+### Assertion-Based Verification
+Dedicated assertion modules (e.g., `Frame_Parser_Assertions`) are bound to RTL modules. Never embed assertions directly in RTL.
+
+### Scoreboard Checking
+- Compare UART transactions against AXI4-Lite transactions
+- Verify protocol conversion accuracy
+- Check CRC-8 calculation
+
+## Environment Requirements
+
+- **DSIM**: Version 2024.1 or later
+- **UVM**: Version 1.2
+- **Python**: 3.8+ (for MCP client)
+- **Environment variables**: DSIM_HOME, DSIM_ROOT, DSIM_LIB_PATH, DSIM_LICENSE
+
+## Known Issues
+
+None. Previous issues with infinite monitor loops and subprocess environment inheritance have been resolved.
+
+## Additional Resources
+
+- [UVM Architecture](UVM_ARCHITECTURE.md) - Detailed testbench architecture
+- [Register Map](../../software/axiuart_driver/REGISTER_MAP.md) - Auto-generated register documentation
+- [RTL Documentation](../../rtl/README.md) - RTL module specifications

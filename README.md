@@ -50,6 +50,8 @@ python software/axiuart_driver/tools/gen_registers.py \
 
 **Documentation:** [software/axiuart_driver/REGISTER_MAP.md](software/axiuart_driver/REGISTER_MAP.md)
 
+**Complete Register List:** See [REGISTER_MAP.md](software/axiuart_driver/REGISTER_MAP.md) for full register specifications including addresses, access types, reset values, and field descriptions.
+
 ## Architecture
 
 ### Hardware (SystemVerilog RTL)
@@ -181,10 +183,9 @@ AXIUART_/
 │           ├── led_control.py          # LED application
 │           ├── LED_CONTROL_README.md   # Usage guide
 │           └── example_basic.py        # Basic example
-├── mcp_server/            # FastMCP automation
-│   ├── dsim_uvm_server.py
-│   └── mcp_client.py
-└── docs/                  # Documentation
+└── mcp_server/            # FastMCP automation
+    ├── dsim_uvm_server.py
+    └── mcp_client.py
 ```
 
 ## Development Environment

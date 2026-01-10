@@ -6,6 +6,8 @@ Production-ready Python driver for AXIUART hardware interface.
 
 The AXIUART driver provides high-level Python APIs for register access over UART to AXI4-Lite address space. This enables software control of FPGA registers through a simple serial connection.
 
+**Protocol Specification:** See [../../rtl/README.md#protocol-specification](../../rtl/README.md#protocol-specification) for complete protocol details including frame formats, CRC calculation, and status codes.
+
 ## Architecture
 
 ```
@@ -637,7 +639,7 @@ pip install -r requirements.txt
 
 ## Version History
 
-### v1.1.0 (2025-12-14)
+### v1.1.0 (2024-12-14)
 - Added REG_TEST_LED (0x1044) support
 - Created LEDController class for LED control
 - Added led_control.py with interactive mode
@@ -658,7 +660,7 @@ See LICENSE file in repository root.
 
 ## References
 
-- **Protocol Specification:** `docs/axiuart_bus_protocol.md`
+- **Protocol Specification:** [../../rtl/README.md#protocol-specification](../../rtl/README.md#protocol-specification)
 - **RTL Design:** `rtl/README.md`
 - **Register Map:** `rtl/register_block/Register_Block.sv`
 - **UVM Testbench:** `sim/uvm/UVM_ARCHITECTURE.md`

@@ -358,17 +358,13 @@ Typical simulation performance on standard workstation:
 ### Documentation
 - Main project README: `../README.md`
 - **UVM Architecture Details**: [uvm/UVM_ARCHITECTURE.md](uvm/UVM_ARCHITECTURE.md) - Comprehensive UVM testbench architecture documentation
-- UVM methodology documentation: `../docs/uvm_testbench_architecture.md`
-- Test environment overview: `../docs/test_environment_overview.md`
+- **Protocol Specification**: [../rtl/README.md#protocol-specification](../rtl/README.md#protocol-specification)
 
 ### Reference Materials
 - Accellera UVM examples: `../reference/Accellera/uvm/`
-- Protocol specifications: `../docs/axiuart_bus_protocol.md`
 
-### Development Logs
-Historical development and troubleshooting information:
-- `../docs/diary_*.md`: Development diary entries
-- `../docs/simplified_env_test_report_*.md`: Test reports
+### Simulation Logs
+Simulation logs and reports are stored in `exec/logs/` and `exec/wave/` directories.
 
 ## Notes
 
@@ -394,4 +390,4 @@ Historical development and troubleshooting information:
 
 - DSIM Version: 2025.1.0
 - UVM Version: 1.2
-- Last Updated: December 14, 2025
+- Last Updated: December 14, 2024

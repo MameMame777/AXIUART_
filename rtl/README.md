@@ -35,6 +35,7 @@ The AXIUART project uses a **JSON-based Single Source of Truth** approach for re
 
 3. **Markdown Documentation** (`software/axiuart_driver/REGISTER_MAP.md`)
    - Human-readable reference with complete register details
+   - **See [software/axiuart_driver/REGISTER_MAP.md](../software/axiuart_driver/REGISTER_MAP.md) for complete register specifications**
 
 **RTL Usage Example:**
 ```systemverilog
@@ -117,7 +118,9 @@ The AXIUART protocol is a byte-oriented, frame-based communication protocol with
 - Address auto-increment for sequential accesses
 - Comprehensive error status reporting
 
-**Complete protocol specification**: See `../docs/axiuart_bus_protocol.md`
+## Protocol Specification
+
+This section defines the complete UART communication protocol for AXIUART bridge operations.
 
 ### Frame Formats
 
@@ -924,8 +927,8 @@ end
 
 | Version | Date          | Author | Description                        |
 |---------|---------------|--------|------------------------------------|
-| 1.0     | Dec 14, 2025  | -      | Initial RTL documentation          |
+| 1.0     | Dec 14, 2024  | -      | Initial RTL documentation          |
 
 ---
 
-**Note**: This document reflects the current RTL implementation. For protocol-level details, refer to `../docs/axiuart_bus_protocol.md`. For verification details, see `../sim/README.md`.
+**Note**: This document reflects the current RTL implementation. For verification details, see `../sim/README.md`.

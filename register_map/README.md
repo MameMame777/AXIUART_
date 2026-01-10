@@ -44,10 +44,13 @@ registers.py  reg_pkg.sv    REGISTER_MAP.md
 3. **Markdown Documentation** (`../software/axiuart_driver/REGISTER_MAP.md`)
    - Human-readable register reference
    - Complete with addresses, access types, and descriptions
+   - **Primary documentation source for users**
 
 ## Usage
 
 ### Viewing Current Register Map
+
+For complete register specifications, see [software/axiuart_driver/REGISTER_MAP.md](../software/axiuart_driver/REGISTER_MAP.md).
 
 ```bash
 # View JSON source

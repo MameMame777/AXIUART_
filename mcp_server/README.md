@@ -78,5 +78,5 @@ The following scripts were retired and removed: `check_dsim_env.py`, `dsim_mcp_s
 - **Client cannot connect** – ensure the VS Code task is running or start the server manually, then re-run `mcp_client.py`.
 - **DSIM compilation errors** – review `sim/exec/logs/*.log` or call `get_simulation_logs` to surface the most recent diagnostics.
 
-For detailed verification procedures refer to `docs/uvm_verification_quality_assurance_instructions_mcp_2025-10-13.md`.
+For detailed UVM verification methodology, refer to `../sim/uvm/UVM_ARCHITECTURE.md`.
 

@@ -4,7 +4,7 @@ Production-ready Python driver for AXIUART Bridge register access over UART.
 
 ## Features
 
-- **Protocol Compliant**: Full implementation of `docs/axiuart_bus_protocol.md`
+- **Protocol Compliant**: Full implementation of AXIUART protocol with CRC-8 error detection
 - **CRC-8 Validation**: Automatic CRC calculation and verification
 - **Register Access**: 8/16/32-bit read/write operations
 - **Burst Transfers**: Multi-beat transfers with auto-increment
@@ -98,6 +98,10 @@ with AXIUARTDriver('COM3') as driver:
 | `REG_TEST_3` | 0x102C | RW | Test register 3 |
 | `REG_TEST_4` | 0x1040 | RW | Test register 4 (gap test) |
 | `REG_TEST_LED` | 0x1044 | RW | 4-bit LED control |
+
+**Complete Register Specifications:** See [REGISTER_MAP.md](REGISTER_MAP.md)
+
+**Protocol Specification:** For complete protocol details including frame formats, status codes, and CRC calculation, refer to [../../rtl/README.md#protocol-specification](../../rtl/README.md#protocol-specification)
 
 **Regenerate after JSON changes:**
 ```bash

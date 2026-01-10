@@ -10,7 +10,7 @@
 - Allocate all available reasoning time; ignore assumptions about user capability.
 - Validate conclusions rigorously (internal self-check at least ten iterations) and avoid hallucination.
 - Operate as a senior SystemVerilog and logic verification engineer; never ship stopgaps or placeholder code.
-- Reference material in `docs/` before making design decisions; escalate if requirements conflict with quality.
+- Reference UBUS material in `reference/Accellera/uvm/` before making design decisions; escalate if requirements conflict with quality.
 - Protect confidential data; review security and performance routinely and recommend improvements when needed.
 
 # reference
@@ -30,16 +30,8 @@
   3. `python mcp_server/mcp_client.py --workspace e:\\Nautilus\\workspace\\fpgawork\\AXIUART_ --tool run_uvm_simulation --test-name <test> --mode compile --verbosity UVM_LOW --timeout 180`
   4. `python mcp_server/mcp_client.py --workspace e:\\Nautilus\\workspace\\fpgawork\\AXIUART_ --tool run_uvm_simulation --test-name <test> --mode run --verbosity UVM_MEDIUM --waves --timeout 300`
 - Prefer VS Code tasks (`DSIM: Run Basic Test (Compile Only - MCP)`, then `DSIM: Run Basic Test (Full Simulation - MCP)`) which wrap the same calls.
-- Consume JSON outputs (logs, coverage, telemetry) instead of raw text whenever possible; store results under `sim/logs/` or `sim/reports/`.
+- Consume JSON outputs (logs, coverage, telemetry) instead of raw text whenever possible; store results under `sim/exec/logs/`.
 - Start the MCP server with the background task `🚀 Start Enhanced MCP Server (FastMCP Edition)` when required; do not launch alternate servers.
-
-## Fallback Path (Only if MCP Unavailable)
-- Initialize legacy PowerShell environment:
-  1. `cd e:\\Nautilus\\workspace\\fpgawork\\AXIUART_`
-  2. `./workspace_init.ps1`
-  3. `Test-WorkspaceMCPUVM`
-- Execute `sim/exec/run_uvm.ps1` with explicit parameters (waves on, coverage as needed). Document the reason for fallback in the development diary.
-- Never call archived scripts or `archive/legacy_mcp_files/` assets.
 
 # Coding Standards (SystemVerilog)
 - Timescale: `timescale 1ns / 1ps` at the top of every RTL, interface, or testbench file.
@@ -70,15 +62,15 @@
 
 # Documentation & Knowledge Share
 - Document purpose, scope, and results for each task in English.
-- Maintain development diary entries as `docs/diary_<timestamp>.md`, capturing command history, outcomes, and follow-up actions.
-- When tests run, summarize results (pass/fail, key metrics) and store under `docs/` or `sim/reports/`.
+- Store simulation logs and reports under `sim/exec/logs/`.
+- When tests run, summarize results (pass/fail, key metrics).
 
 # Directory Discipline
-- Production RTL in `rtl/`, verification in `sim/uvm/` and `sim/tests/`, documentation in `docs/`, ad-hoc experiments in `temporary/`.
+- Production RTL in `rtl/`, verification in `sim/uvm/` and `sim/tests/`, ad-hoc experiments in `temporary/`.
 - Do not relocate or duplicate files outside the defined structure.
 
 # Prohibited Actions
-- Do not execute `mcp_server/run_uvm_simulation.py` or other legacy Python/PowerShell wrappers except the sanctioned fallback path.
+- Do not execute legacy scripts; use MCP client exclusively.
 - Do not suppress or ignore compilation/simulation errors; resolve root causes.
 - Do not generate placeholder code, simplified prototypes, or unverifiable logic.
 - Do not expose sensitive information in conversation or artifacts.

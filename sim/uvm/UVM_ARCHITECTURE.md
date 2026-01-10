@@ -1009,4 +1009,4 @@ assert property (uart_start_bit)
 
 ## Revision History
 
-- Version 1.0 - Initial documentation (December 14, 2025)
+- Version 1.0 - Initial documentation (December 14, 2024)

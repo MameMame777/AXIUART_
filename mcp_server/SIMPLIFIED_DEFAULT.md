@@ -1,6 +1,6 @@
 # Default Environment Configuration
 
-**Effective Date:** 2025-12-07  
+**Effective Date:** 2024-12-07  
 **Default Environment:** `sim/uvm_simplified` (UBUS-style)
 
 ## Overview
@@ -173,6 +173,6 @@ git diff mcp_server/mcp_client.py             # Line 64: uart_axi4_basic_test
 
 ---
 
-**Last Updated:** 2025-12-07  
+**Last Updated:** 2024-12-07  
 **Author:** DSIM UVM Team  
 **Status:** Active
