@@ -94,6 +94,19 @@ secrets/
 credentials/
 auth/
 
+# Simulation Logs and Output Files (may contain debug info)
+sim/exec/logs/*.log
+sim/exec/wave/*.mxd
+sim/exec/wave/*.vcd
+sim/exec/wave/*.fsdb
+**/logs/*.log
+**/wave/*.mxd
+**/wave/*.vcd
+
+# DSIM Environment Files (may contain paths/licenses)
+dsim.env
+**/dsim.env
+
 # Hardware-specific Files (may contain sensitive info)
 *.xdc.bak
 *.tcl.bak
@@ -130,8 +143,15 @@ dist/
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+*.pyc
+*.pyo
 *.egg-info/
 .pytest_cache/
+*.egg
+dist/
+build/
+*.whl
 
 # Node.js (if used for tooling)
 node_modules/
